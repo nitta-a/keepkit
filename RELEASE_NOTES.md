@@ -1,10 +1,10 @@
 # Release notes
 
-## [Unreleased]
+## [0.1.0] - 2026-08-31
 
 ### 日本語
 
-現在の未リリース変更を記録しています。正式なバージョン番号と公開日はリリース時に確定します。
+KeepKit の初回公開リリースです。
 
 #### 追加・変更
 
@@ -27,7 +27,7 @@
 
 ### English
 
-This file records the current unreleased changes. The final version number and release date will be set when the release is published.
+This is the first public release of KeepKit.
 
 #### Added and changed
 
