@@ -17,6 +17,8 @@ keepkitは、Reactアプリケーションに保存・コレクション機能�
 - ブラウザの `localStorage` に対応した `LocalStorageAdapter`
 - `StorageAdapter` を実装したAPI・Supabase・Firebaseなどへの拡張
 - `mergeKeepItems` によるローカルアイテムとリモートアイテムの統合
+- `tags` による分類、`useKeepList` のタグ絞り込み・ソート
+- `createKeepKit<TMeta>()` によるアプリ全体の型推論、`KeepButton` の render props / `asChild`
 
 ### インストール
 
@@ -27,7 +29,13 @@ pnpm add @keepkit/core
 ### 使い方
 
 ```tsx
-import { KeepButton, KeepProvider, LocalStorageAdapter, useKeepList } from "@keepkit/core";
+import {
+  KeepButton,
+  KeepProvider,
+  LocalStorageAdapter,
+  createKeepKit,
+  useKeepList,
+} from "@keepkit/core";
 
 const storage = new LocalStorageAdapter({ key: "my-app:items" });
 
@@ -59,6 +67,15 @@ export function App() {
 ```
 
 `StorageAdapter<TMeta>` が保存処理の境界です。独自アダプターでは `getAll`、`set`、`remove`、`clear` を実装します。認証機能やサーバーへの永続化機能はパッケージに含まれません。`LocalStorageAdapter` はSSR環境からimportできますが、ブラウザのストレージが利用できない場合は空の一覧として動作します。
+
+アプリ固有のメタデータ型を一度だけ指定する場合は、型付きキットを生成できます。
+
+```tsx
+type ProductMeta = { title: string; price: number };
+const { KeepProvider, KeepButton, useKeepItem, useKeepList } = createKeepKit<ProductMeta>();
+```
+
+`KeepButton` は `children={(state) => ...}` の render props、または `asChild` と単一の子要素で既存のデザインシステムに接続できます。保存・削除・ノート更新・エラーは `KeepProvider` のイベントハンドラーで購読できます。
 
 ### 開発
 
@@ -95,6 +112,8 @@ This repository contains the publishable package in `packages/keepkit` and a rea
 - A browser `localStorage` adapter with `LocalStorageAdapter`
 - Extensibility through `StorageAdapter` implementations for APIs, Supabase, Firebase, and more
 - Local-to-remote item merging with `mergeKeepItems`
+- Tag-based organization with filtering and sorting through `useKeepList`
+- App-wide type inference through `createKeepKit<TMeta>()`, plus render props / `asChild` for `KeepButton`
 
 ### Installation
 
@@ -105,7 +124,13 @@ pnpm add @keepkit/core
 ### Usage
 
 ```tsx
-import { KeepButton, KeepProvider, LocalStorageAdapter, useKeepList } from "@keepkit/core";
+import {
+  KeepButton,
+  KeepProvider,
+  LocalStorageAdapter,
+  createKeepKit,
+  useKeepList,
+} from "@keepkit/core";
 
 const storage = new LocalStorageAdapter({ key: "my-app:items" });
 
@@ -137,6 +162,15 @@ export function App() {
 ```
 
 `StorageAdapter<TMeta>` is the persistence boundary. Custom adapters implement `getAll`, `set`, `remove`, and `clear`. Authentication and server persistence are intentionally outside the package. `LocalStorageAdapter` is safe to import in SSR environments; when browser storage is unavailable, it behaves as an empty collection.
+
+To specify an app-specific metadata type once, create a typed kit:
+
+```tsx
+type ProductMeta = { title: string; price: number };
+const { KeepProvider, KeepButton, useKeepItem, useKeepList } = createKeepKit<ProductMeta>();
+```
+
+`KeepButton` supports render props (`children={(state) => ...}`) and `asChild` for connecting an existing design system. Save, remove, note-update, and error events can be observed from `KeepProvider`.
 
 ### Development
 

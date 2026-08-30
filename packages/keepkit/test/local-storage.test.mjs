@@ -94,6 +94,31 @@ test("does not require window during construction", async () => {
   assert.deepEqual(await adapter.getAll(), []);
 });
 
+test("subscribes to matching storage events and unsubscribes cleanly", () => {
+  const listeners = new Set();
+  globalThis.window = {
+    addEventListener: (type, listener) => {
+      if (type === "storage") listeners.add(listener);
+    },
+    removeEventListener: (type, listener) => {
+      if (type === "storage") listeners.delete(listener);
+    },
+  };
+
+  const adapter = new LocalStorageAdapter({ key: "sync:items", storage: createStorage() });
+  let calls = 0;
+  const unsubscribe = adapter.subscribe(() => calls++);
+
+  for (const listener of listeners) listener({ key: "other:items" });
+  for (const listener of listeners) listener({ key: "sync:items" });
+  for (const listener of listeners) listener({ key: null });
+  assert.equal(calls, 2);
+
+  unsubscribe();
+  assert.equal(listeners.size, 0);
+  delete globalThis.window;
+});
+
 test("merges local items into an adapter without merge support", async () => {
   const saved = new Map();
   const target = {

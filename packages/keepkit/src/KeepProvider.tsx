@@ -9,7 +9,14 @@ import {
   useState,
 } from "react";
 import { LocalStorageAdapter } from "./storage";
-import type { KeepErrorHandler, KeepEventHandlers, KeepItem, StorageAdapter } from "./types";
+import type {
+  KeepAction,
+  KeepErrorContext,
+  KeepErrorHandler,
+  KeepEventHandlers,
+  KeepItem,
+  StorageAdapter,
+} from "./types";
 
 export type KeepContextValue<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
@@ -35,6 +42,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   storage = defaultStorage as StorageAdapter<TMeta>,
   onSave,
   onRemove,
+  onNoteUpdate,
   onError,
   children,
 }: KeepProviderProps<TMeta>) {
@@ -44,9 +52,9 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   const itemsRef = useRef(items);
 
   const reportError = useCallback(
-    (cause: unknown) => {
+    (cause: unknown, context: KeepErrorContext) => {
       setError(cause);
-      onError?.(cause);
+      onError?.(cause, context);
     },
     [onError],
   );
@@ -59,7 +67,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       setItems(next);
       setError(null);
     } catch (cause) {
-      reportError(cause);
+      reportError(cause, { action: "refresh" });
     } finally {
       setIsLoading(false);
     }
@@ -70,63 +78,72 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   }, [refresh]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleStorage = (event: StorageEvent) => {
-      const storageKey = storage.storageKey;
-      if (storageKey && event.key !== null && event.key !== storageKey) return;
-      void refresh();
-    };
-
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    if (!storage.subscribe) return;
+    return storage.subscribe(() => void refresh());
   }, [refresh, storage]);
 
-  const saveItem = useCallback(
-    async (item: KeepItem<TMeta>) => {
+  const persistItem = useCallback(
+    async (item: KeepItem<TMeta>, action: KeepAction = "save") => {
+      const previous = itemsRef.current;
+      const next = [...previous.filter((current) => current.id !== item.id), item].sort(
+        (a, b) => b.updatedAt - a.updatedAt,
+      );
+      itemsRef.current = next;
+      setItems(next);
+      setError(null);
+
       try {
         await storage.set(item);
-        const next = [...itemsRef.current.filter((current) => current.id !== item.id), item].sort(
-          (a, b) => b.updatedAt - a.updatedAt,
-        );
-        itemsRef.current = next;
-        setItems(next);
-        setError(null);
-        onSave?.(item);
       } catch (cause) {
-        reportError(cause);
+        itemsRef.current = previous;
+        setItems(previous);
+        reportError(cause, { action, id: item.id });
         throw cause;
       }
     },
-    [onSave, reportError, storage],
+    [reportError, storage],
+  );
+
+  const saveItem = useCallback(
+    async (item: KeepItem<TMeta>) => {
+      await persistItem(item);
+      onSave?.(item);
+    },
+    [onSave, persistItem],
   );
 
   const updateNote = useCallback(
     async (id: string, note?: string) => {
       const current = itemsRef.current.find((item) => item.id === id);
       if (!current) return;
-      await saveItem({
+      const nextNote = note?.trim() || undefined;
+      const next = {
         ...current,
-        note: note?.trim() || undefined,
+        note: nextNote,
         updatedAt: Date.now(),
-      });
+      };
+      await persistItem(next, "updateNote");
+      onNoteUpdate?.(id, nextNote);
     },
-    [saveItem],
+    [onNoteUpdate, persistItem],
   );
 
   const removeItem = useCallback(
     async (id: string) => {
       const current = itemsRef.current.find((item) => item.id === id);
       if (!current) return;
+      const previous = itemsRef.current;
+      const next = previous.filter((item) => item.id !== id);
+      itemsRef.current = next;
+      setItems(next);
+      setError(null);
       try {
         await storage.remove(id);
-        const next = itemsRef.current.filter((item) => item.id !== id);
-        itemsRef.current = next;
-        setItems(next);
-        setError(null);
         onRemove?.(current);
       } catch (cause) {
-        reportError(cause);
+        itemsRef.current = previous;
+        setItems(previous);
+        reportError(cause, { action: "remove", id });
         throw cause;
       }
     },
@@ -134,13 +151,16 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   );
 
   const clear = useCallback(async () => {
+    const previous = itemsRef.current;
+    itemsRef.current = [];
+    setItems([]);
+    setError(null);
     try {
       await storage.clear();
-      itemsRef.current = [];
-      setItems([]);
-      setError(null);
     } catch (cause) {
-      reportError(cause);
+      itemsRef.current = previous;
+      setItems(previous);
+      reportError(cause, { action: "clear" });
       throw cause;
     }
   }, [reportError, storage]);

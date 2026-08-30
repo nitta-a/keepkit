@@ -72,6 +72,18 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
     return merged;
   }
 
+  subscribe(listener: () => void): () => void {
+    if (typeof window === "undefined") return () => undefined;
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== null && event.key !== this.storageKey) return;
+      listener();
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }
+
   private write(items: KeepItem<TMeta>[]): void {
     if (!this.storage) return;
     this.storage.setItem(this.storageKey, JSON.stringify(items));

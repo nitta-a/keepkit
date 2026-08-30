@@ -14,6 +14,8 @@
 - ブラウザの `localStorage` を使う `LocalStorageAdapter` を追加し、SSR環境やストレージにアクセスできない環境でもimportできるようにしました。
 - `mergeKeepItems` とアダプターの `merge` により、ローカルアイテムとリモートアイテムを更新時刻で統合できるようにしました。
 - 保存・削除・エラーのイベントハンドラーと、複数タブでのストレージ変更の再読み込みに対応しました。
+- `StorageAdapter.subscribe` によるマルチタブ同期、失敗時のロールバックを伴う楽観的更新、`createKeepKit<TMeta>()` による型付きAPIセットを追加しました。
+- `KeepItem.tags` と `useKeepList` のタグ絞り込み・ソート、`KeepButton` の render props / `asChild`、ノート更新イベントを追加しました。
 
 #### 破壊的変更
 
@@ -31,6 +33,8 @@ This file records the current unreleased changes. The final version number and r
 - Added `LocalStorageAdapter` for browser `localStorage`, with safe imports for SSR and environments where storage is unavailable.
 - Added `mergeKeepItems` and adapter-level `merge` support for reconciling local and remote items by update time.
 - Added save, remove, and error event handlers, plus refreshes triggered by storage changes in other tabs.
+- Added adapter-level multi-tab subscriptions, optimistic updates with rollback on failure, and `createKeepKit<TMeta>()` for app-wide typed components and hooks.
+- Added item tags with list filtering/sorting, render props / `asChild` support for `KeepButton`, and note-update events.
 
 #### Breaking changes
 
