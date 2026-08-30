@@ -12,7 +12,7 @@
       "dependsOn": ["^build", "^lint"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["build", "^build"]
     },
     "dev": {
       "dependsOn": ["^build"],

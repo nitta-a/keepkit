@@ -31,7 +31,7 @@ Persistence is abstracted behind `StorageAdapter`. Browser storage is IndexedDB-
 - Install dependencies with `pnpm install --frozen-lockfile` when the lockfile is expected to be current.
 - Start the workspace development tasks with `pnpm dev`; this runs the demo and package watch tasks through Turbo.
 - Run the demo alone with `pnpm --filter @keepkit/demo dev`.
-- Run package tests with `pnpm --filter @keepkit/core test` and `pnpm --filter @keepkit/ui test`. These use Node's built-in `node:test` runner against the built `dist` files.
+- Build first with `pnpm build`, then run package tests with `pnpm --filter @keepkit/core test` and `pnpm --filter @keepkit/ui test`. These use Node's built-in `node:test` runner against the built `dist` files.
 - Run demo tests with `pnpm --filter @keepkit/demo test`. These use Vitest with a jsdom environment and Testing Library.
 
 Repository-level commands:
