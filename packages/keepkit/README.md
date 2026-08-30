@@ -7,7 +7,8 @@
 Reactアプリケーション向けの、ヘッドレスで非同期処理を前提とした保存・コレクション用プリミティブです。
 
 ```tsx
-import { KeepButton, KeepProvider, LocalStorageAdapter } from "@keepkit/core";
+import { LocalStorageAdapter } from "@keepkit/core/storage";
+import { KeepButton, KeepProvider } from "@keepkit/core/react";
 
 const storage = new LocalStorageAdapter({ key: "my-app:items" });
 
@@ -60,7 +61,8 @@ const storage = new SyncStorageAdapter({
 Headless, async-first save-and-collect primitives for React applications.
 
 ```tsx
-import { KeepButton, KeepProvider, LocalStorageAdapter } from "@keepkit/core";
+import { LocalStorageAdapter } from "@keepkit/core/storage";
+import { KeepButton, KeepProvider } from "@keepkit/core/react";
 
 const storage = new LocalStorageAdapter({ key: "my-app:items" });
 

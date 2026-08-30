@@ -20,7 +20,7 @@ The package is split into public entry points:
 - `@keepkit/core/react` contains `KeepProvider`, `KeepButton`, React hooks, and `createKeepKit`.
 - `@keepkit/core/storage` exposes storage adapters, including localStorage, IndexedDB, fallback, and sync-queue adapters.
 - `@keepkit/core/schema` exposes schema parsing and validation helpers.
-- `@keepkit/core` is the backwards-compatible root entry point and re-exports the core and React APIs.
+- The package exposes explicit `@keepkit/core/core`, `@keepkit/core/react`, `@keepkit/core/storage`, and `@keepkit/core/schema` entry points. There is no root package export.
 
 Persistence is abstracted behind `StorageAdapter`. Browser storage is IndexedDB-first with localStorage fallback, while remote synchronization is supplied through an injectable `RemoteSyncDriver` and `SyncStorageAdapter`. Authentication, server APIs, and vendor-specific integrations remain outside the package.
 

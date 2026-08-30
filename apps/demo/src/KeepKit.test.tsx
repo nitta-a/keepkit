@@ -1,14 +1,13 @@
+import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
 import {
   createKeepKit,
   KeepButton,
-  type KeepItem,
   type KeepListOptions,
   KeepProvider,
-  type StorageAdapter,
   useKeepContext,
   useKeepItem,
   useKeepList,
-} from "@keepkit/core";
+} from "@keepkit/core/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { MouseEvent } from "react";
 import { expect, test, vi } from "vitest";

@@ -1,4 +1,5 @@
-import { KeepButton, type KeepItem, useKeepContext, useKeepItem, useKeepList, useKeepShortcut } from "@keepkit/core";
+import type { KeepItem } from "@keepkit/core/core";
+import { KeepButton, useKeepContext, useKeepItem, useKeepList, useKeepShortcut } from "@keepkit/core/react";
 import { useEffect, useState } from "react";
 import type { DemoMeta } from "./main";
 

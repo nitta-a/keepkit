@@ -15,7 +15,7 @@ import {
   mergeKeepItems,
   migrateKeepItems,
   type StorageAdapter,
-} from "../dist/index.js";
+} from "../dist/core.js";
 
 function createStorage() {
   const values = new Map();

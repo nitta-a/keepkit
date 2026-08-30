@@ -1,15 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { type KeepItem, KeepStorageAccessError, type SyncOperation, type SyncQueueAdapter } from "../dist/core.js";
 import {
   FallbackSyncQueueAdapter,
   IndexedDBSyncQueueAdapter,
-  type KeepItem,
-  KeepStorageAccessError,
   LocalStorageSyncQueueAdapter,
-  type SyncOperation,
-  type SyncQueueAdapter,
   SyncStorageAdapter,
-} from "../dist/index.js";
+} from "../dist/storage.js";
 
 const itemA: KeepItem<{ title: string }> = {
   id: "a",

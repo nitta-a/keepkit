@@ -1,5 +1,21 @@
 # Release notes
 
+## [0.2.0] - 2026-08-31
+
+### 日本語
+
+#### 破壊的変更
+
+- `@keepkit/core` のルートexportを廃止しました。フレームワーク中立のAPIは `@keepkit/core/core`、React APIは `@keepkit/core/react`、ストレージは `@keepkit/core/storage`、スキーマ処理は `@keepkit/core/schema` からimportしてください。
+- `queryKeepItems` と `getTagCounts` をReact hookから分離し、フレームワーク中立の `@keepkit/core/core` に移動しました。
+
+### English
+
+#### Breaking changes
+
+- Removed the `@keepkit/core` root export. Import framework-neutral APIs from `@keepkit/core/core`, React APIs from `@keepkit/core/react`, storage adapters from `@keepkit/core/storage`, and schema helpers from `@keepkit/core/schema`.
+- Moved `queryKeepItems` and `getTagCounts` out of the React hook module and into the framework-neutral `@keepkit/core/core` entry point.
+
 ## [0.1.0] - 2026-08-31
 
 ### 日本語

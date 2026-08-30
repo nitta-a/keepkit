@@ -1,4 +1,5 @@
-import { type KeepItem, KeepProvider, type StorageAdapter, useKeepContext } from "@keepkit/core";
+import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
+import { KeepProvider, useKeepContext } from "@keepkit/core/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test } from "vitest";
 

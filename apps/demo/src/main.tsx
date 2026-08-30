@@ -1,4 +1,6 @@
-import { createBrowserStorageAdapter, KeepProvider, type RemoteSyncDriver, SyncStorageAdapter } from "@keepkit/core";
+import type { RemoteSyncDriver } from "@keepkit/core/core";
+import { KeepProvider } from "@keepkit/core/react";
+import { createBrowserStorageAdapter, SyncStorageAdapter } from "@keepkit/core/storage";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";

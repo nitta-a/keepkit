@@ -1,9 +1,10 @@
 import type { ComponentType } from "react";
 import { type UseKeepItemResult, useKeepItem } from "./hooks/useKeepItem";
-import { type KeepListOptions, type UseKeepListResult, useKeepList } from "./hooks/useKeepList";
+import { type UseKeepListResult, useKeepList } from "./hooks/useKeepList";
 import { type KeepShortcutOptions, useKeepShortcut } from "./hooks/useKeepShortcut";
 import { KeepButton, type KeepButtonProps } from "./KeepButton";
 import { KeepProvider, type KeepProviderProps, useKeepContext } from "./KeepProvider";
+import type { KeepListOptions } from "./query";
 import type { KeepInvalidItemPolicy, KeepItemInput, KeepPlugin, KeepSchema } from "./types";
 
 export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = {

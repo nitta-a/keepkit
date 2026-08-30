@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  DEFAULT_INDEXEDDB_DATABASE,
-  DEFAULT_INDEXEDDB_STORE,
-  IndexedDBAdapter,
-  KeepStorageAccessError,
-  KeepStorageParseError,
-  KeepStorageQuotaError,
-} from "../dist/index.js";
+import { KeepStorageAccessError, KeepStorageParseError, KeepStorageQuotaError } from "../dist/core.js";
+import { DEFAULT_INDEXEDDB_DATABASE, DEFAULT_INDEXEDDB_STORE, IndexedDBAdapter } from "../dist/storage.js";
 
 const itemA = { id: "a", savedAt: 1, updatedAt: 1, meta: { title: "A" } };
 const itemB = { id: "b", savedAt: 2, updatedAt: 2, meta: { title: "B" } };

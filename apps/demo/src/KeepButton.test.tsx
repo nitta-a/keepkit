@@ -1,4 +1,5 @@
-import { KeepButton, KeepProvider, type StorageAdapter, useKeepShortcut } from "@keepkit/core";
+import type { StorageAdapter } from "@keepkit/core/core";
+import { KeepButton, KeepProvider, useKeepShortcut } from "@keepkit/core/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test } from "vitest";
 

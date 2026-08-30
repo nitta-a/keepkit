@@ -14,11 +14,22 @@ if (packageJson.private) {
   throw new Error(`${packageJson.name} must be publishable (private must not be true).`);
 }
 
-for (const entryPoint of [packageJson.main, packageJson.types]) {
-  if (typeof entryPoint !== "string") {
-    throw new Error(`${packageJson.name} is missing a string package entry point.`);
-  }
+if (!packageJson.exports || typeof packageJson.exports !== "object" || packageJson.exports["."]) {
+  throw new Error(`${packageJson.name} must expose explicit subpath exports without a root export.`);
+}
 
+function collectExportedFiles(value, files = new Set()) {
+  if (typeof value === "string") {
+    files.add(value);
+    return files;
+  }
+  if (value && typeof value === "object") {
+    for (const child of Object.values(value)) collectExportedFiles(child, files);
+  }
+  return files;
+}
+
+for (const entryPoint of collectExportedFiles(packageJson.exports)) {
   await access(resolve(packageDirectory, entryPoint), constants.F_OK);
 }
 

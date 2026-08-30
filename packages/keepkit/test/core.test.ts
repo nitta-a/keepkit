@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { KeepStore as FrameworkNeutralKeepStore } from "../dist/core.js";
 import {
   createKeepInvalidationPlugin,
   createStorageAdapter,
   exportItems,
+  KeepStore as FrameworkNeutralKeepStore,
   getTagCounts,
   importItems,
   KeepBackupImportError,
@@ -22,7 +22,7 @@ import {
   parseKeepMeta,
   queryKeepItems,
   SyncStorageAdapter,
-} from "../dist/index.js";
+} from "../dist/core.js";
 
 const itemA = {
   id: "a",

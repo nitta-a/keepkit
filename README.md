@@ -35,13 +35,8 @@ pnpm add @keepkit/core
 ### 使い方
 
 ```tsx
-import {
-  KeepButton,
-  KeepProvider,
-  LocalStorageAdapter,
-  createKeepKit,
-  useKeepList,
-} from "@keepkit/core";
+import { LocalStorageAdapter } from "@keepkit/core/storage";
+import { KeepButton, KeepProvider, createKeepKit, useKeepList } from "@keepkit/core/react";
 
 const storage = new LocalStorageAdapter({ key: "my-app:items" });
 
@@ -134,10 +129,10 @@ const { KeepProvider } = createKeepKit({
 
 Next.js App Router などでサーバー側で一覧を取得済みの場合は、`initialItems` に渡すとクライアント adapter の読み込み中も同じ一覧を先に描画できます。クライアント側の最初の refresh 後は adapter の値が正式な状態になります。
 
-フレームワーク中立のコードは `@keepkit/core/core`、React のコンポーネントと hooks は `@keepkit/core/react`、ストレージは `@keepkit/core/storage`、スキーマ処理は `@keepkit/core/schema` から個別にimportできます。`@keepkit/core` のルートimportは後方互換のため維持されています。
+フレームワーク中立のコードは `@keepkit/core/core`、React のコンポーネントと hooks は `@keepkit/core/react`、ストレージは `@keepkit/core/storage`、スキーマ処理は `@keepkit/core/schema` からimportします。パッケージルートにはexportがなく、React APIとcore APIは明確に分離されています。
 
 ```tsx
-import { LocalStorageAdapter } from "@keepkit/core/core";
+import { LocalStorageAdapter } from "@keepkit/core/storage";
 import { KeepProvider } from "@keepkit/core/react";
 
 <KeepProvider storage={storage} initialItems={itemsFromServer}>
@@ -200,13 +195,8 @@ pnpm add @keepkit/core
 ### Usage
 
 ```tsx
-import {
-  KeepButton,
-  KeepProvider,
-  LocalStorageAdapter,
-  createKeepKit,
-  useKeepList,
-} from "@keepkit/core";
+import { LocalStorageAdapter } from "@keepkit/core/storage";
+import { KeepButton, KeepProvider, createKeepKit, useKeepList } from "@keepkit/core/react";
 
 const storage = new LocalStorageAdapter({ key: "my-app:items" });
 
@@ -289,10 +279,10 @@ Configure mutation hooks and metadata migrations with `createKeepKit({ plugins, 
 
 `KeepProvider` exposes `isHydrated` for the initial client-side load and `isMutating` while writes are pending. Storage failures can be distinguished with errors such as `KeepStorageQuotaError` and `KeepStorageParseError`.
 
-When a server loader already has the saved list, pass it as `initialItems` to render the same snapshot while the client adapter hydrates. After the first refresh, the adapter becomes the source of truth. Framework-neutral and RSC server code can import `@keepkit/core/core`; React bindings, storage, and schema helpers are also available from `@keepkit/core/react`, `@keepkit/core/storage`, and `@keepkit/core/schema`. The package root remains a backwards-compatible convenience entry point.
+When a server loader already has the saved list, pass it as `initialItems` to render the same snapshot while the client adapter hydrates. After the first refresh, the adapter becomes the source of truth. Framework-neutral and RSC server code can import `@keepkit/core/core`; React bindings, storage, and schema helpers are available from `@keepkit/core/react`, `@keepkit/core/storage`, and `@keepkit/core/schema`. The package root has no export, so the React and core APIs remain explicitly separated.
 
 ```tsx
-import { LocalStorageAdapter } from "@keepkit/core/core";
+import { LocalStorageAdapter } from "@keepkit/core/storage";
 import { KeepProvider } from "@keepkit/core/react";
 
 <KeepProvider storage={storage} initialItems={itemsFromServer}>
