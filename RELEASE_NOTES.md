@@ -1,5 +1,33 @@
 # Release notes
 
+## [0.6.0] - 2026-08-31
+
+### 日本語
+
+#### 追加・改善
+
+- `@keepkit/ui`の実装をUIコンテキスト、クエリ操作、選択操作などの機能別モジュールへ分割し、既存の公開importは維持しました。
+- `KeepSearchInput`に既定300msのデバウンスと`debounceMs`を追加しました。
+- `KeepSortSelect`の保存日時／更新日時ラベルを明確化し、`KeepPagination`に番号ボタンと`aria-current="page"`を追加しました。
+- `KeepItemCheckbox`を公開し、`KeepBulkActions`にrender propsのヘッドレス状態APIを追加しました。
+- `KeepTagEditor`で入力欄が空のときBackspaceで最後のタグを削除できるようにしました。
+- `KeepKitProvider`が`KeepAnnouncements`を内包し、保存・削除・ノート更新の通知をアプリ全体で利用できるようにしました。
+- Next.js App RouterのServer Componentとclient boundaryの公式サンプルを`examples/next-app-router`に追加しました。
+- `@keepkit/core`と`@keepkit/ui`を`0.6.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Split `@keepkit/ui` into feature-oriented modules for UI context, query controls, and selection while preserving the existing public imports.
+- Added a 300ms default debounce to `KeepSearchInput`, configurable through `debounceMs`.
+- Clarified saved/updated date labels in `KeepSortSelect` and added numbered buttons with `aria-current="page"` to `KeepPagination`.
+- Published `KeepItemCheckbox` and added a render-prop headless state API to `KeepBulkActions`.
+- `KeepTagEditor` now removes the last tag with Backspace when its input is empty.
+- `KeepKitProvider` now includes `KeepAnnouncements` so save, remove, and note-update feedback is available app-wide.
+- Added an official Next.js App Router example in `examples/next-app-router` showing the Server Component and client-boundary split.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.6.0`.
+
 ## [0.5.0] - 2026-08-31
 
 ### 日本語

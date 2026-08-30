@@ -1,5 +1,23 @@
 # KeepKit migration guide
 
+## v0.6.0
+
+### 日本語
+
+- `KeepSearchInput`は既定で300msデバウンスします。従来の即時通知が必要な場合は`debounceMs={0}`を指定してください。
+- `KeepItemCheckbox`を個別の選択UIとして利用できます。`KeepBulkActions`はrender propsで操作部分を差し替えられます。
+- `KeepPagination`は番号ボタンを描画し、現在ページに`aria-current="page"`を設定します。
+- `KeepKitProvider`は`KeepAnnouncements`を自動で内包するため、同じ通知を手動で追加している場合は重複配置を避けてください。
+- Next.js App Routerでは、Server Componentから`initialItems`をclient boundaryの`KeepKitProvider`へ渡す構成を`examples/next-app-router`で確認できます。
+
+### English
+
+- `KeepSearchInput` now debounces changes by 300ms by default. Set `debounceMs={0}` when immediate notifications are required.
+- Use `KeepItemCheckbox` as a standalone selection primitive. `KeepBulkActions` supports render props for replacing its operation UI.
+- `KeepPagination` renders numbered buttons and marks the current page with `aria-current="page"`.
+- `KeepKitProvider` now includes `KeepAnnouncements`; avoid mounting a duplicate announcer when migrating manually composed providers.
+- For Next.js App Router, see `examples/next-app-router` for passing `initialItems` from a Server Component to a client-bound `KeepKitProvider`.
+
 ## 日本語
 
 v0.5.0はv0.4.xからの破壊的変更を含みます。通常のReactアプリケーションは`@keepkit/ui`を標準入口にしてください。

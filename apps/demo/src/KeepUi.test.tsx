@@ -3,8 +3,10 @@ import {
   createKeepKit,
   KeepAnnouncements,
   KeepBulkActions,
+  KeepButton,
   KeepCollection,
   KeepEmptyState,
+  KeepItemCheckbox,
   KeepKitProvider,
   KeepList,
   KeepNoteEditor,
@@ -76,7 +78,7 @@ test("supports shared labels, search, sort, pagination, tag editing, bulk action
     const [page, setPage] = useState(1);
     return (
       <>
-        <KeepSearchInput value={query} onValueChange={setQuery} />
+        <KeepSearchInput value={query} debounceMs={0} onValueChange={setQuery} />
         <KeepSortSelect onValueChange={(_value, nextSort) => setSort(nextSort)} />
         <KeepList<Meta>
           query={{ search: { query }, sort, pagination: { page, pageSize: 1 } }}
@@ -137,6 +139,50 @@ test("supports tag counts and controlled selection", async () => {
   fireEvent.click(work);
   expect(onChange).toHaveBeenCalledWith("work");
   expect(work).toHaveAttribute("aria-pressed", "true");
+});
+
+test("debounces search changes and exposes numbered pagination", async () => {
+  const onValueChange = vi.fn();
+  const onPageChange = vi.fn();
+  render(
+    <KeepUiProvider>
+      <KeepSearchInput debounceMs={20} onValueChange={onValueChange} />
+      <KeepPagination totalCount={30} pageSize={10} page={2} onPageChange={onPageChange} />
+      <KeepItemCheckbox item={item} />
+    </KeepUiProvider>,
+  );
+
+  const search = screen.getByRole("searchbox");
+  fireEvent.change(search, { target: { value: "react" } });
+  expect(onValueChange).not.toHaveBeenCalledWith("react");
+  await waitFor(() => expect(onValueChange).toHaveBeenCalledWith("react"));
+  expect(screen.getByRole("button", { name: "Page 2" })).toHaveAttribute("aria-current", "page");
+  fireEvent.click(screen.getByRole("button", { name: "Page 3" }));
+  expect(onPageChange).toHaveBeenCalledWith(3, 20);
+  expect(screen.getByRole("checkbox", { name: "UI item" })).toBeVisible();
+});
+
+test("removes the last tag with Backspace when the editor input is empty", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepTagEditor item={item} />
+    </KeepProvider>,
+  );
+
+  const input = await screen.findByRole("textbox", { name: "Tags to apply" });
+  fireEvent.keyDown(input, { key: "Backspace" });
+  expect(screen.queryByText("read")).not.toBeInTheDocument();
+});
+
+test("KeepKitProvider mounts the global polite announcer", async () => {
+  render(
+    <KeepKitProvider<Meta> storage={createStorage()}>
+      <KeepButton item={{ id: item.id, meta: item.meta, targetType: item.targetType }} />
+    </KeepKitProvider>,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Item saved."));
 });
 
 test("provides a combined provider and collection workflow", async () => {

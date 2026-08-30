@@ -18,113 +18,38 @@ import {
 import {
   type ComponentType,
   cloneElement,
-  createContext,
   type FormHTMLAttributes,
   type HTMLAttributes,
   type ImgHTMLAttributes,
-  type InputHTMLAttributes,
   isValidElement,
   type ReactElement,
   type ReactNode,
-  type SelectHTMLAttributes,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-
-export type KeepUiLabelKey =
-  | "save"
-  | "saved"
-  | "remove"
-  | "loading"
-  | "saving"
-  | "syncing"
-  | "error"
-  | "allTags"
-  | "filterTags"
-  | "note"
-  | "saveNote"
-  | "noItems"
-  | "loadingItems"
-  | "errorItems"
-  | "search"
-  | "sort"
-  | "newest"
-  | "oldest"
-  | "previousPage"
-  | "nextPage"
-  | "pagination"
-  | "page"
-  | "selectItems"
-  | "selectedCount"
-  | "deleteSelected"
-  | "tagsToApply"
-  | "applyTags"
-  | "savedMessage"
-  | "removedMessage"
-  | "noteSavedMessage";
-
-export type KeepUiLabels = Partial<Record<KeepUiLabelKey, string>>;
-
-export type KeepUiLabelContext = {
-  locale?: string;
-  labels: Readonly<Record<KeepUiLabelKey, string>>;
-  labelResolver?: (key: KeepUiLabelKey, context: { locale?: string }) => string | undefined;
-};
-
-const DEFAULT_LABELS: Record<KeepUiLabelKey, string> = {
-  save: "Save",
-  saved: "Saved",
-  remove: "Remove",
-  loading: "Loading…",
-  saving: "Saving…",
-  syncing: "Syncing…",
-  error: "Something went wrong.",
-  allTags: "All",
-  filterTags: "Filter saved items by tag",
-  note: "Note",
-  saveNote: "Save note",
-  noItems: "No saved items.",
-  loadingItems: "Loading saved items…",
-  errorItems: "Could not load saved items.",
-  search: "Search saved items",
-  sort: "Sort saved items",
-  newest: "Newest first",
-  oldest: "Oldest first",
-  previousPage: "Previous page",
-  nextPage: "Next page",
-  pagination: "Pagination",
-  page: "Page",
-  selectItems: "Select saved items",
-  selectedCount: "selected",
-  deleteSelected: "Delete selected",
-  tagsToApply: "Tags to apply",
-  applyTags: "Apply tags",
-  savedMessage: "Item saved.",
-  removedMessage: "Item removed.",
-  noteSavedMessage: "Note saved.",
-};
-
-const KeepUiLabelsContext = createContext<KeepUiLabelContext>({ labels: DEFAULT_LABELS });
-
-export type KeepUiProviderProps = {
-  labels?: KeepUiLabels;
-  locale?: string;
-  labelResolver?: KeepUiLabelContext["labelResolver"];
-  children?: ReactNode;
-};
-
-/** Provides one locale-aware label source to every UI primitive. */
-export function KeepUiProvider({ labels, locale, labelResolver, children }: KeepUiProviderProps) {
-  const value = useMemo<KeepUiLabelContext>(() => {
-    const resolved = { ...DEFAULT_LABELS, ...labels };
-    return { locale, labels: resolved, labelResolver };
-  }, [labelResolver, labels, locale]);
-  return <KeepUiLabelsContext.Provider value={value}>{children}</KeepUiLabelsContext.Provider>;
-}
+import { KeepItemCheckbox } from "./KeepItemCheckbox";
+import {
+  KeepPagination,
+  type KeepPaginationProps,
+  type KeepPaginationState,
+  KeepSearchInput,
+  type KeepSearchInputProps,
+  KeepSortSelect,
+  type KeepSortSelectProps,
+  type KeepSortValue,
+} from "./query-controls";
+import {
+  type KeepUiLabelContext,
+  type KeepUiLabelKey,
+  type KeepUiLabels,
+  KeepUiProvider,
+  type KeepUiProviderProps,
+  useKeepUiLabels,
+  useUiLabel,
+} from "./ui-context";
 
 export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children"> &
   Omit<KeepUiProviderProps, "children"> & {
@@ -141,18 +66,12 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
 }: KeepKitProviderProps<TMeta>) {
   return (
     <KeepUiProvider labels={labels} locale={locale} labelResolver={labelResolver}>
-      <CoreKeepProvider<TMeta> {...providerProps}>{children}</CoreKeepProvider>
+      <CoreKeepProvider<TMeta> {...providerProps}>
+        {children}
+        <KeepAnnouncements />
+      </CoreKeepProvider>
     </KeepUiProvider>
   );
-}
-
-export function useKeepUiLabels(): KeepUiLabelContext {
-  return useContext(KeepUiLabelsContext);
-}
-
-function useUiLabel(key: KeepUiLabelKey, override?: string): string {
-  const context = useKeepUiLabels();
-  return override ?? context.labelResolver?.(key, { locale: context.locale }) ?? context.labels[key];
 }
 
 export type { KeepContextValue, KeepProviderProps } from "@keepkit/core/react";
@@ -167,7 +86,24 @@ export {
   LocalStorageSyncQueueAdapter,
   SyncStorageAdapter,
 } from "@keepkit/core/storage";
-export type { KeepItem, KeepItemInput, KeepListQuery, KeepShortcutOptions, KeepSyncStatus };
+export type { KeepItemCheckboxProps } from "./KeepItemCheckbox";
+export type {
+  KeepItem,
+  KeepItemInput,
+  KeepListQuery,
+  KeepPaginationProps,
+  KeepPaginationState,
+  KeepSearchInputProps,
+  KeepShortcutOptions,
+  KeepSortSelectProps,
+  KeepSortValue,
+  KeepSyncStatus,
+  KeepUiLabelContext,
+  KeepUiLabelKey,
+  KeepUiLabels,
+  KeepUiProviderProps,
+};
+export { KeepItemCheckbox, KeepPagination, KeepSearchInput, KeepSortSelect, KeepUiProvider, useKeepUiLabels };
 
 export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = CoreCreateKeepKitOptions<TMeta> &
   Omit<KeepUiProviderProps, "children"> & {
@@ -558,7 +494,6 @@ export function KeepCollection<TMeta = Record<string, unknown>>({
         />
       ) : null}
       {enabled.bulkActions ? <KeepBulkActions<TMeta> query={resolvedQuery} /> : null}
-      <KeepAnnouncements />
     </section>
   );
 }
@@ -759,137 +694,6 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
   );
 }
 
-export type KeepSearchInputProps = Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  "value" | "defaultValue" | "onChange"
-> & {
-  value?: string;
-  defaultValue?: string;
-  onValueChange?: (value: string) => void;
-};
-
-/** A controlled/uncontrolled search field for wiring into KeepListQuery.search. */
-export function KeepSearchInput({
-  value: controlledValue,
-  defaultValue = "",
-  onValueChange,
-  "aria-label": ariaLabel,
-  placeholder,
-  ...props
-}: KeepSearchInputProps) {
-  const label = useUiLabel("search");
-  const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue);
-  const value = controlledValue ?? uncontrolledValue;
-  return (
-    <input
-      {...props}
-      type="search"
-      value={value}
-      aria-label={ariaLabel ?? label}
-      placeholder={placeholder ?? label}
-      onChange={(event) => {
-        const nextValue = event.currentTarget.value;
-        if (controlledValue === undefined) setUncontrolledValue(nextValue);
-        onValueChange?.(nextValue);
-      }}
-    />
-  );
-}
-
-export type KeepSortValue = "savedAt:desc" | "savedAt:asc" | "updatedAt:desc" | "updatedAt:asc";
-
-export type KeepSortSelectProps = Omit<
-  SelectHTMLAttributes<HTMLSelectElement>,
-  "value" | "defaultValue" | "onChange"
-> & {
-  value?: KeepSortValue;
-  defaultValue?: KeepSortValue;
-  onValueChange?: (value: KeepSortValue, sort: NonNullable<KeepListQuery["sort"]>) => void;
-};
-
-/** Emits a normalized sort descriptor that can be passed directly to useKeepList. */
-export function KeepSortSelect({
-  value: controlledValue,
-  defaultValue = "updatedAt:desc",
-  onValueChange,
-  "aria-label": ariaLabel,
-  children,
-  ...props
-}: KeepSortSelectProps) {
-  const label = useUiLabel("sort");
-  const newestLabel = useUiLabel("newest");
-  const savedLabel = useUiLabel("saved");
-  const oldestLabel = useUiLabel("oldest");
-  const [uncontrolledValue, setUncontrolledValue] = useState<KeepSortValue>(defaultValue);
-  const value = controlledValue ?? uncontrolledValue;
-  const options = children ?? (
-    <>
-      <option value="updatedAt:desc">{newestLabel}</option>
-      <option value="savedAt:desc">{savedLabel}</option>
-      <option value="updatedAt:asc">{oldestLabel}</option>
-      <option value="savedAt:asc">{oldestLabel}</option>
-    </>
-  );
-  return (
-    <select
-      {...props}
-      value={value}
-      aria-label={ariaLabel ?? label}
-      onChange={(event) => {
-        const nextValue = event.currentTarget.value as KeepSortValue;
-        if (controlledValue === undefined) setUncontrolledValue(nextValue);
-        const [by, direction] = nextValue.split(":") as ["savedAt" | "updatedAt", "asc" | "desc"];
-        onValueChange?.(nextValue, { by, direction });
-      }}
-    >
-      {options}
-    </select>
-  );
-}
-
-export type KeepPaginationProps = Omit<HTMLAttributes<HTMLElement>, "children"> & {
-  totalCount: number;
-  pageSize: number;
-  page?: number;
-  onPageChange?: (page: number, offset: number) => void;
-  render?: RenderProp<{ page: number; pageCount: number; goToPage: (page: number) => void }>;
-};
-
-/** A small accessible pagination control using one-based pages and zero-based offsets. */
-export function KeepPagination({
-  totalCount,
-  pageSize,
-  page = 1,
-  onPageChange,
-  render,
-  ...props
-}: KeepPaginationProps) {
-  const previousPageLabel = useUiLabel("previousPage");
-  const nextPageLabel = useUiLabel("nextPage");
-  const pageLabel = useUiLabel("page");
-  const paginationLabel = useUiLabel("pagination");
-  const pageCount = Math.max(1, Math.ceil(totalCount / Math.max(1, pageSize)));
-  const currentPage = Math.min(Math.max(1, page), pageCount);
-  const goToPage = (nextPage: number) => {
-    const next = Math.min(Math.max(1, nextPage), pageCount);
-    onPageChange?.(next, (next - 1) * pageSize);
-  };
-  if (render) return <nav {...props}>{render({ page: currentPage, pageCount, goToPage })}</nav>;
-  return (
-    <nav {...props} aria-label={props["aria-label"] ?? paginationLabel}>
-      <button type="button" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}>
-        {previousPageLabel}
-      </button>
-      <span aria-current="page">
-        {pageLabel} {currentPage} / {pageCount}
-      </span>
-      <button type="button" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= pageCount}>
-        {nextPageLabel}
-      </button>
-    </nav>
-  );
-}
-
 export type KeepTagEditorProps<TMeta = Record<string, unknown>> = Omit<
   FormHTMLAttributes<HTMLFormElement>,
   "children" | "onSubmit"
@@ -952,6 +756,9 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
             if (event.key === "Enter") {
               event.preventDefault();
               if (input.trim()) addTag(input);
+            } else if (event.key === "Backspace" && input.length === 0 && tags.length > 0) {
+              event.preventDefault();
+              setTags(tags.slice(0, -1));
             }
           }}
         />
@@ -992,6 +799,20 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
   );
 }
 
+export type KeepBulkActionsState<TMeta = Record<string, unknown>> = {
+  items: KeepItem<TMeta>[];
+  selectedIds: string[];
+  selectedCount: number;
+  allSelected: boolean;
+  tagsInput: string;
+  setTagsInput: (value: string) => void;
+  toggle: (id: string) => void;
+  toggleAll: () => void;
+  remove: () => Promise<void>;
+  updateTags: () => Promise<void>;
+  isMutating: boolean;
+};
+
 export type KeepBulkActionsProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   query?: KeepListQuery<TMeta>;
   selectedIds?: string[];
@@ -999,6 +820,8 @@ export type KeepBulkActionsProps<TMeta = Record<string, unknown>> = Omit<HTMLAtt
   onSelectedIdsChange?: (ids: string[]) => void;
   renderItem?: (item: KeepItem<TMeta>, selected: boolean) => ReactNode;
   onCompleted?: (action: "remove" | "tags", ids: string[]) => void;
+  render?: RenderProp<KeepBulkActionsState<TMeta>>;
+  children?: ReactNode | RenderProp<KeepBulkActionsState<TMeta>>;
 };
 
 /** Selects visible items and performs one storage operation for the whole selection. */
@@ -1009,6 +832,8 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   onSelectedIdsChange,
   renderItem,
   onCompleted,
+  render,
+  children,
   ...props
 }: KeepBulkActionsProps<TMeta>) {
   const selectItemsLabel = useUiLabel("selectItems");
@@ -1040,31 +865,61 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
     onCompleted?.("tags", selectedIds);
     setSelectedIds([]);
   };
+  const state: KeepBulkActionsState<TMeta> = {
+    items: list.items,
+    selectedIds,
+    selectedCount: selectedIds.length,
+    allSelected,
+    tagsInput,
+    setTagsInput,
+    toggle,
+    toggleAll,
+    remove,
+    updateTags,
+    isMutating: list.isMutating,
+  };
+  const body = render
+    ? render(state)
+    : typeof children === "function"
+      ? children(state)
+      : (children ?? (
+          <>
+            <fieldset>
+              <legend>{selectItemsLabel}</legend>
+              <label>
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label={selectItemsLabel} />
+                {selectedIds.length} {selectedCountLabel}
+              </label>
+              {list.items.map((item) => (
+                <span key={item.id}>
+                  <KeepItemCheckbox
+                    item={item}
+                    checked={selected.has(item.id)}
+                    onCheckedChange={() => toggle(item.id)}
+                  />
+                  {renderItem ? renderItem(item, selected.has(item.id)) : (getMetaTitle(item.meta) ?? item.id)}
+                </span>
+              ))}
+            </fieldset>
+            <button type="button" onClick={() => void remove()} disabled={selectedIds.length === 0 || list.isMutating}>
+              {deleteSelectedLabel}
+            </button>
+            <label>
+              {tagsLabel}
+              <input value={tagsInput} onChange={(event) => setTagsInput(event.currentTarget.value)} />
+            </label>
+            <button
+              type="button"
+              onClick={() => void updateTags()}
+              disabled={selectedIds.length === 0 || list.isMutating}
+            >
+              {applyTagsLabel}
+            </button>
+          </>
+        ));
   return (
     <section {...props} aria-busy={list.isMutating || props["aria-busy"]}>
-      <fieldset>
-        <legend>{selectItemsLabel}</legend>
-        <label>
-          <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-          {selectedIds.length} {selectedCountLabel}
-        </label>
-        {list.items.map((item) => (
-          <label key={item.id}>
-            <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} />
-            {renderItem ? renderItem(item, selected.has(item.id)) : (getMetaTitle(item.meta) ?? item.id)}
-          </label>
-        ))}
-      </fieldset>
-      <button type="button" onClick={() => void remove()} disabled={selectedIds.length === 0 || list.isMutating}>
-        {deleteSelectedLabel}
-      </button>
-      <label>
-        {tagsLabel}
-        <input value={tagsInput} onChange={(event) => setTagsInput(event.currentTarget.value)} />
-      </label>
-      <button type="button" onClick={() => void updateTags()} disabled={selectedIds.length === 0 || list.isMutating}>
-        {applyTagsLabel}
-      </button>
+      {body}
     </section>
   );
 }

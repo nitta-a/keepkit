@@ -8,6 +8,7 @@ import {
   KeepCollection,
   KeepEmptyState,
   KeepItemCard,
+  KeepItemCheckbox,
   KeepKitProvider,
   KeepList,
   KeepNoteEditor,
@@ -26,6 +27,7 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepBulkActions, "function");
   assert.equal(typeof KeepList, "function");
   assert.equal(typeof KeepItemCard, "function");
+  assert.equal(typeof KeepItemCheckbox, "function");
   assert.equal(typeof KeepTagFilter, "function");
   assert.equal(typeof KeepNoteEditor, "function");
   assert.equal(typeof KeepPagination, "function");
