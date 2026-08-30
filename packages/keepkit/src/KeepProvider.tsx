@@ -138,10 +138,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   const pendingRefreshesRef = useRef(0);
   const pendingMutationsRef = useRef(0);
   const syncStorage = isSyncCapableStorage(storage) ? storage : undefined;
-  const getSyncState = useCallback(
-    () => syncStorage?.getSyncState() ?? IDLE_SYNC_STATE,
-    [syncStorage],
-  );
+  const getSyncState = useCallback(() => syncStorage?.getSyncState() ?? IDLE_SYNC_STATE, [syncStorage]);
   const subscribeSync = useCallback(
     (listener: () => void) => syncStorage?.subscribeSync(listener) ?? (() => undefined),
     [syncStorage],
@@ -165,20 +162,14 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
     [store],
   );
 
-  const runBeforePlugins = useCallback(
-    async (context: NonNullable<MutationPlan<TMeta>["pluginContext"]>) => {
-      for (const plugin of pluginsRef.current) await plugin.before?.(context);
-      return context;
-    },
-    [],
-  );
+  const runBeforePlugins = useCallback(async (context: NonNullable<MutationPlan<TMeta>["pluginContext"]>) => {
+    for (const plugin of pluginsRef.current) await plugin.before?.(context);
+    return context;
+  }, []);
 
-  const runAfterPlugins = useCallback(
-    async (context: NonNullable<MutationPlan<TMeta>["pluginContext"]>) => {
-      for (const plugin of pluginsRef.current) await plugin.after?.(context);
-    },
-    [],
-  );
+  const runAfterPlugins = useCallback(async (context: NonNullable<MutationPlan<TMeta>["pluginContext"]>) => {
+    for (const plugin of pluginsRef.current) await plugin.after?.(context);
+  }, []);
 
   const enqueueOperation = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
     const run = operationTailRef.current.then(operation, operation);
@@ -320,10 +311,9 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
         throw cause;
       }
       await runMutation("save", normalizedItem.id, (previous) => ({
-        next: [
-          ...previous.filter((current) => current.id !== normalizedItem.id),
-          normalizedItem,
-        ].sort((a, b) => b.updatedAt - a.updatedAt),
+        next: [...previous.filter((current) => current.id !== normalizedItem.id), normalizedItem].sort(
+          (a, b) => b.updatedAt - a.updatedAt,
+        ),
         persist: () => storage.set(normalizedItem),
         onSuccess: () => handlersRef.current.onSave?.(normalizedItem),
         pluginContext: { action: "save", id: normalizedItem.id, item: normalizedItem },
@@ -423,9 +413,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       const idSet = new Set(ids);
       const currentItems = itemsRef.current.filter((item) => idSet.has(item.id));
       await Promise.all(
-        currentItems.map((item) =>
-          updateTags(item.id, normalizeKeepTags([...(item.tags ?? []), ...additions])),
-        ),
+        currentItems.map((item) => updateTags(item.id, normalizeKeepTags([...(item.tags ?? []), ...additions]))),
       );
     },
     [updateTags],
@@ -438,10 +426,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       const currentItems = itemsRef.current.filter((item) => idSet.has(item.id));
       await Promise.all(
         currentItems.map((item) =>
-          updateTags(
-            item.id,
-            normalizeKeepTags((item.tags ?? []).filter((tag) => !removals.has(tag))),
-          ),
+          updateTags(item.id, normalizeKeepTags((item.tags ?? []).filter((tag) => !removals.has(tag)))),
         ),
       );
     },
@@ -509,10 +494,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       })),
     [runMutation, storage],
   );
-  const flushSync = useCallback(
-    () => (syncStorage ? syncStorage.flushSync() : Promise.resolve()),
-    [syncStorage],
-  );
+  const flushSync = useCallback(() => (syncStorage ? syncStorage.flushSync() : Promise.resolve()), [syncStorage]);
 
   const value = useMemo<KeepContextValue<TMeta>>(
     () => ({
@@ -585,9 +567,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
 
   return (
     <KeepStoreContext.Provider value={storeAccess as KeepStoreAccess<unknown>}>
-      <KeepContext.Provider value={value as unknown as KeepContextValue<unknown>}>
-        {children}
-      </KeepContext.Provider>
+      <KeepContext.Provider value={value as unknown as KeepContextValue<unknown>}>{children}</KeepContext.Provider>
     </KeepStoreContext.Provider>
   );
 }
@@ -598,9 +578,7 @@ const IDLE_SYNC_STATE: KeepSyncState = Object.freeze({
   conflictIds: [],
 });
 
-function isSyncCapableStorage<TMeta>(
-  storage: StorageAdapter<TMeta>,
-): storage is SyncCapableStorageAdapter<TMeta> {
+function isSyncCapableStorage<TMeta>(storage: StorageAdapter<TMeta>): storage is SyncCapableStorageAdapter<TMeta> {
   return (
     "getSyncState" in storage &&
     typeof storage.getSyncState === "function" &&
@@ -611,10 +589,7 @@ function isSyncCapableStorage<TMeta>(
   );
 }
 
-async function parseKeepMetaItem<TMeta>(
-  item: KeepItem<unknown>,
-  schema: KeepSchema<TMeta>,
-): Promise<KeepItem<TMeta>> {
+async function parseKeepMetaItem<TMeta>(item: KeepItem<unknown>, schema: KeepSchema<TMeta>): Promise<KeepItem<TMeta>> {
   return { ...item, meta: await parseKeepMeta(schema, item.meta) };
 }
 

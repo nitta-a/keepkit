@@ -22,7 +22,7 @@ for (const entryPoint of [packageJson.main, packageJson.types]) {
   await access(resolve(packageDirectory, entryPoint), constants.F_OK);
 }
 
-const { stdout, stderr } = await execFileAsync("npm", ["pack", "--dry-run", "--json"], {
+const { stdout, stderr } = await execFileAsync("pnpm", ["pack", "--dry-run", "--json"], {
   cwd: packageDirectory,
 });
 

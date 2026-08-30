@@ -70,10 +70,7 @@ test("saves a resource and displays it in the collection", async () => {
   fireEvent.click(screen.getAllByText("Save for later")[0]);
 
   await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Remove saved item" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("button", { name: "Remove saved item" })).toHaveAttribute("aria-pressed", "true");
   });
   expect(within(screen.getByRole("list")).getByText(firstArticle.meta.title)).toBeInTheDocument();
   expect(getItems()).toHaveLength(1);

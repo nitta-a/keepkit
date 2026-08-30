@@ -335,26 +335,18 @@ test("supports date ranges, tokenized search, and tag counts", () => {
   assert.deepEqual(result.tagCounts, { read: 1, work: 1 });
   assert.deepEqual(getTagCounts(items), { read: 2, work: 2 });
   assert.deepEqual(
-    queryKeepItems(items, { search: { query: "reference missing", mode: "or" } }).items.map(
-      (item) => item.id,
-    ),
+    queryKeepItems(items, { search: { query: "reference missing", mode: "or" } }).items.map((item) => item.id),
     ["b"],
   );
 });
 
 test("parses metadata with parse, safeParse, and Standard Schema contracts", async () => {
   assert.equal(await parseKeepMeta({ parse: (value) => String(value).trim() }, " value "), "value");
-  assert.equal(
-    await parseKeepMeta({ safeParse: (value) => ({ success: true, data: Number(value) }) }, "42"),
-    42,
-  );
-  await assert.rejects(
-    parseKeepMeta({ safeParse: () => ({ success: false, error: "invalid" }) }, "bad"),
-  );
-  assert.deepEqual(
-    await parseKeepMeta({ "~standard": { validate: async () => ({ value: { ok: true } }) } }, null),
-    { ok: true },
-  );
+  assert.equal(await parseKeepMeta({ safeParse: (value) => ({ success: true, data: Number(value) }) }, "42"), 42);
+  await assert.rejects(parseKeepMeta({ safeParse: () => ({ success: false, error: "invalid" }) }, "bad"));
+  assert.deepEqual(await parseKeepMeta({ "~standard": { validate: async () => ({ value: { ok: true } }) } }, null), {
+    ok: true,
+  });
 });
 
 test("drops invalid metadata during backup import when requested", async () => {
@@ -410,11 +402,7 @@ test("persists local changes, compresses the sync queue, and flushes remotely", 
     },
     remove: async (ids) => {
       const idSet = new Set(ids);
-      queued.splice(
-        0,
-        queued.length,
-        ...queued.filter((operation) => !idSet.has(operation.operationId)),
-      );
+      queued.splice(0, queued.length, ...queued.filter((operation) => !idSet.has(operation.operationId)));
     },
     clear: async () => void queued.splice(0),
   };
@@ -522,11 +510,7 @@ test("resumes a persisted queue on adapter startup", async () => {
     setMany: async () => undefined,
     remove: async (ids: string[]) => {
       const idSet = new Set(ids);
-      queued.splice(
-        0,
-        queued.length,
-        ...queued.filter((operation) => !idSet.has(operation.operationId)),
-      );
+      queued.splice(0, queued.length, ...queued.filter((operation) => !idSet.has(operation.operationId)));
     },
     clear: async () => undefined,
   };

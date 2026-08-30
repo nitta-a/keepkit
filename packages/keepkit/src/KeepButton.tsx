@@ -90,34 +90,21 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   }
 
   const content =
-    typeof children === "function"
-      ? children(state)
-      : (children ?? (isSaved ? savedLabel : unsavedLabel));
+    typeof children === "function" ? children(state) : (children ?? (isSaved ? savedLabel : unsavedLabel));
   function handleElementClick(event: MouseEvent<HTMLElement>) {
     if (isDisabled) return;
-    if (
-      asChild &&
-      isValidElement<{ onClick?: (event: MouseEvent<HTMLElement>) => void }>(content)
-    ) {
+    if (asChild && isValidElement<{ onClick?: (event: MouseEvent<HTMLElement>) => void }>(content)) {
       content.props.onClick?.(event);
     }
     if (!event.defaultPrevented) void handleClick(event);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (
-      asChild &&
-      isValidElement<{ onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void }>(content)
-    ) {
+    if (asChild && isValidElement<{ onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void }>(content)) {
       content.props.onKeyDown?.(event);
     }
     (buttonProps as { onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void }).onKeyDown?.(event);
-    if (
-      !event.defaultPrevented &&
-      !isDisabled &&
-      asChild &&
-      (event.key === "Enter" || event.key === " ")
-    ) {
+    if (!event.defaultPrevented && !isDisabled && asChild && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
       void handleClick(event as unknown as MouseEvent<HTMLElement>);
     }
@@ -150,20 +137,13 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   }
 
   return (
-    <button
-      {...commonProps}
-      type={"type" in buttonProps ? (buttonProps.type ?? "button") : "button"}
-    >
+    <button {...commonProps} type={"type" in buttonProps ? (buttonProps.type ?? "button") : "button"}>
       {content}
     </button>
   );
 }
 
-function getAccessibleLabel<TMeta>(
-  isSaved: boolean,
-  item: KeepButtonItem<TMeta>,
-  asChild: boolean,
-): string {
+function getAccessibleLabel<TMeta>(isSaved: boolean, item: KeepButtonItem<TMeta>, asChild: boolean): string {
   if (!asChild) return isSaved ? "Remove saved item" : "Save item";
   const title = getMetaTitle(item.meta);
   const subject = title ? `${item.targetType ?? "item"}: ${title}` : (item.targetType ?? "item");

@@ -56,9 +56,7 @@ export type FallbackStorageAdapterOptions<TMeta = Record<string, unknown>> = {
  * A storage adapter that switches to a fallback after an availability failure.
  * Parse errors remain visible so corrupt data is never silently hidden.
  */
-export class FallbackStorageAdapter<TMeta = Record<string, unknown>>
-  implements StorageAdapter<TMeta>
-{
+export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements StorageAdapter<TMeta> {
   public readonly storageKey: string | undefined;
   private readonly primary: StorageAdapter<TMeta>;
   private readonly fallback: StorageAdapter<TMeta>;
@@ -117,9 +115,7 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>>
 
   merge(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
     return this.execute(async (adapter) => {
-      const merged = adapter.merge
-        ? await adapter.merge(localItems)
-        : await mergeItems(adapter, localItems);
+      const merged = adapter.merge ? await adapter.merge(localItems) : await mergeItems(adapter, localItems);
       if (this.active === "primary" && this.mirrorWrites) {
         try {
           if (this.fallback.setMany) await this.fallback.setMany(merged);
@@ -191,9 +187,7 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>>
     return result;
   }
 
-  private async execute<TResult>(
-    operation: (adapter: StorageAdapter<TMeta>) => Promise<TResult>,
-  ): Promise<TResult> {
+  private async execute<TResult>(operation: (adapter: StorageAdapter<TMeta>) => Promise<TResult>): Promise<TResult> {
     const adapter = this.active === "primary" ? this.primary : this.fallback;
     try {
       return await operation(adapter);
@@ -416,8 +410,7 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
   private databasePromise: Promise<IDBDatabase | undefined> | undefined;
 
   constructor(options: IndexedDBAdapterOptions = {}) {
-    this.databaseName =
-      options.databaseName ?? options.dbName ?? options.key ?? DEFAULT_INDEXEDDB_DATABASE;
+    this.databaseName = options.databaseName ?? options.dbName ?? options.key ?? DEFAULT_INDEXEDDB_DATABASE;
     this.storeName = options.storeName ?? DEFAULT_INDEXEDDB_STORE;
     this.version = options.version ?? 1;
     this.indexedDB = options.indexedDB ?? getBrowserIndexedDB();
@@ -429,9 +422,7 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
     if (!database) return [];
     try {
       const transaction = database.transaction(this.storeName, "readonly");
-      const value: unknown = await requestToPromise(
-        transaction.objectStore(this.storeName).getAll(),
-      );
+      const value: unknown = await requestToPromise(transaction.objectStore(this.storeName).getAll());
       if (!isKeepItemArray(value)) {
         throw new KeepStorageParseError({ operation: "getAll", storageKey: this.storageKey });
       }
@@ -500,8 +491,7 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
       const byId = new Map(remoteItems.map((item) => [item.id, item]));
       for (const localItem of localItems) {
         const remoteItem = byId.get(localItem.id);
-        if (!remoteItem || localItem.updatedAt > remoteItem.updatedAt)
-          byId.set(localItem.id, localItem);
+        if (!remoteItem || localItem.updatedAt > remoteItem.updatedAt) byId.set(localItem.id, localItem);
       }
       const merged = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
       await this.setMany(merged);
@@ -572,8 +562,7 @@ function isKeepItemArray(value: unknown): value is KeepItem[] {
         (item.schemaVersion === undefined ||
           (typeof item.schemaVersion === "number" && Number.isFinite(item.schemaVersion))) &&
         (item.revision === undefined || typeof item.revision === "string") &&
-        (item.tags === undefined ||
-          (Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string"))),
+        (item.tags === undefined || (Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string"))),
     )
   );
 }
@@ -611,8 +600,7 @@ function transactionToPromise(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () =>
-      reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
+    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
   });
 }
 

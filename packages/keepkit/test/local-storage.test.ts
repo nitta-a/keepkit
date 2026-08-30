@@ -138,10 +138,7 @@ test("exports and imports versioned backups", async () => {
 
 test("rejects unsupported backup data", async () => {
   const adapter = new LocalStorageAdapter({ storage: createStorage() });
-  await assert.rejects(
-    importItems(adapter, JSON.stringify({ version: 999 })),
-    KeepBackupParseError,
-  );
+  await assert.rejects(importItems(adapter, JSON.stringify({ version: 999 })), KeepBackupParseError);
 });
 
 test("reports persistence failures during backup import", async () => {

@@ -170,8 +170,7 @@ function isKeepItem(value: unknown): value is KeepItem {
     (value.schemaVersion === undefined ||
       (typeof value.schemaVersion === "number" && Number.isFinite(value.schemaVersion))) &&
     (value.revision === undefined || typeof value.revision === "string") &&
-    (value.tags === undefined ||
-      (Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === "string")))
+    (value.tags === undefined || (Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === "string")))
   );
 }
 

@@ -150,14 +150,8 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     (ids: string[], tags?: string[]) => actions.updateTagsBatch(ids, tags),
     [actions],
   );
-  const addTagsBatch = useCallback(
-    (ids: string[], tags: string[]) => actions.addTagsBatch(ids, tags),
-    [actions],
-  );
-  const removeTagsBatch = useCallback(
-    (ids: string[], tags: string[]) => actions.removeTagsBatch(ids, tags),
-    [actions],
-  );
+  const addTagsBatch = useCallback((ids: string[], tags: string[]) => actions.addTagsBatch(ids, tags), [actions]);
+  const removeTagsBatch = useCallback((ids: string[], tags: string[]) => actions.removeTagsBatch(ids, tags), [actions]);
 
   return {
     items,
@@ -208,20 +202,14 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
   const tagCounts = getTagCounts(filtered);
   const sortBy = options.sortBy ?? options.sort?.by;
   const direction = (options.order ?? options.sort?.direction) === "asc" ? 1 : -1;
-  const sorted = sortBy
-    ? [...filtered].sort((a, b) => (a[sortBy] - b[sortBy]) * direction)
-    : filtered;
+  const sorted = sortBy ? [...filtered].sort((a, b) => (a[sortBy] - b[sortBy]) * direction) : filtered;
   const offset = Math.max(0, options.offset ?? 0);
   const items =
-    options.limit === undefined
-      ? sorted.slice(offset)
-      : sorted.slice(offset, offset + Math.max(0, options.limit));
+    options.limit === undefined ? sorted.slice(offset) : sorted.slice(offset, offset + Math.max(0, options.limit));
   return { items, totalCount: sorted.length, tagCounts };
 }
 
-export function getTagCounts<TMeta = Record<string, unknown>>(
-  items: KeepItem<TMeta>[],
-): Record<string, number> {
+export function getTagCounts<TMeta = Record<string, unknown>>(items: KeepItem<TMeta>[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const item of items) {
     for (const tag of item.tags ?? []) counts[tag] = (counts[tag] ?? 0) + 1;
@@ -249,8 +237,7 @@ function matchesSearch<TMeta>(
   const text = values.join(" ").toLocaleLowerCase();
   if (!search) return text.includes(query.trim().toLocaleLowerCase());
   const normalized = query.trim().toLocaleLowerCase();
-  const needles =
-    search.tokenize === false ? [normalized] : normalized.split(/\s+/).filter(Boolean);
+  const needles = search.tokenize === false ? [normalized] : normalized.split(/\s+/).filter(Boolean);
   const matches = needles.map((needle) => text.includes(needle));
   return search.mode === "or" ? matches.some(Boolean) : matches.every(Boolean);
 }

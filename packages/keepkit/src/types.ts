@@ -11,10 +11,7 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
   revision?: string;
 };
 
-export type KeepItemInput<TMeta = Record<string, unknown>> = Omit<
-  KeepItem<TMeta>,
-  "id" | "savedAt" | "updatedAt"
->;
+export type KeepItemInput<TMeta = Record<string, unknown>> = Omit<KeepItem<TMeta>, "id" | "savedAt" | "updatedAt">;
 
 export interface StorageAdapter<TMeta = Record<string, unknown>> {
   getAll(): Promise<KeepItem<TMeta>[]>;
@@ -62,9 +59,7 @@ export type KeepPlugin<TMeta = Record<string, unknown>> = {
   onError?: (error: unknown, context: KeepErrorContext) => void;
 };
 
-export type KeepSchemaParseResult<T> =
-  | { success: true; data: T }
-  | { success: false; error?: unknown };
+export type KeepSchemaParseResult<T> = { success: true; data: T } | { success: false; error?: unknown };
 
 export type KeepSchema<T> =
   | { parse: (value: unknown) => T | Promise<T> }
@@ -73,9 +68,7 @@ export type KeepSchema<T> =
       "~standard": {
         validate: (
           value: unknown,
-        ) =>
-          | { value?: T; issues?: readonly unknown[] }
-          | Promise<{ value?: T; issues?: readonly unknown[] }>;
+        ) => { value?: T; issues?: readonly unknown[] } | Promise<{ value?: T; issues?: readonly unknown[] }>;
       };
     };
 
@@ -127,8 +120,7 @@ export interface SyncQueueAdapter<TMeta = Record<string, unknown>> {
   clear(): Promise<void>;
 }
 
-export interface SyncCapableStorageAdapter<TMeta = Record<string, unknown>>
-  extends StorageAdapter<TMeta> {
+export interface SyncCapableStorageAdapter<TMeta = Record<string, unknown>> extends StorageAdapter<TMeta> {
   getSyncState(): KeepSyncState;
   subscribeSync(listener: () => void): () => void;
   flushSync(): Promise<void>;

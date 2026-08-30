@@ -105,10 +105,7 @@ function ActionProbe() {
       <output data-testid="actions-tags">{item.item?.tags?.join(",") ?? ""}</output>
       <output data-testid="actions-note">{item.item?.note ?? ""}</output>
       <output data-testid="actions-error">{context.error ? "error" : ""}</output>
-      <button
-        onClick={() => void context.saveItem({ ...itemA, id: "d", updatedAt: 40 })}
-        type="button"
-      >
+      <button onClick={() => void context.saveItem({ ...itemA, id: "d", updatedAt: 40 })} type="button">
         save
       </button>
       <button onClick={() => void context.updateNote("a", "  trimmed note  ")} type="button">
@@ -123,10 +120,7 @@ function ActionProbe() {
       <button onClick={() => void list.updateTagsBatch(["a", "b"], ["batch"])} type="button">
         batch-tags
       </button>
-      <button
-        onClick={() => void list.addTagsBatch(["a", "b"], [" extra ", "batch"])}
-        type="button"
-      >
+      <button onClick={() => void list.addTagsBatch(["a", "b"], [" extra ", "batch"])} type="button">
         add-tags
       </button>
       <button onClick={() => void list.removeTagsBatch(["a", "b"], ["batch"])} type="button">
@@ -296,9 +290,7 @@ test("migrates schema versions and reports refresh errors", async () => {
       <MigrationProbe />
     </KeepProvider>,
   );
-  await waitFor(() =>
-    expect(screen.getByTestId("migration-title")).toHaveTextContent("Alpha article-migrated-1-2"),
-  );
+  await waitFor(() => expect(screen.getByTestId("migration-title")).toHaveTextContent("Alpha article-migrated-1-2"));
   expect(migrateMeta).toHaveBeenCalledWith(oldItem.meta, 1, 2, oldItem);
   expect(testStorage.calls.setMany).toBe(1);
   expect(testStorage.getItems()[0]?.schemaVersion).toBe(2);
@@ -317,13 +309,8 @@ test("uses fallback batch persistence and rolls back failed batches", async () =
     const { items, updateTagsBatch, removeItems } = useKeepContext<Meta>();
     return (
       <>
-        <output data-testid="fallback-items">
-          {items.map((item) => item.tags?.join("/")).join(",")}
-        </output>
-        <button
-          onClick={() => void updateTagsBatch(["a", "b"], ["new"]).catch(() => undefined)}
-          type="button"
-        >
+        <output data-testid="fallback-items">{items.map((item) => item.tags?.join("/")).join(",")}</output>
+        <button onClick={() => void updateTagsBatch(["a", "b"], ["new"]).catch(() => undefined)} type="button">
           fail-update
         </button>
         <button onClick={() => void removeItems(["a", "b"])} type="button">
@@ -337,13 +324,9 @@ test("uses fallback batch persistence and rolls back failed batches", async () =
       <FallbackProbe />
     </KeepProvider>,
   );
-  await waitFor(() =>
-    expect(screen.getByTestId("fallback-items")).toHaveTextContent("read/work,work"),
-  );
+  await waitFor(() => expect(screen.getByTestId("fallback-items")).toHaveTextContent("read/work,work"));
   fireEvent.click(screen.getByRole("button", { name: "fail-update" }));
-  await waitFor(() =>
-    expect(screen.getByTestId("fallback-items")).toHaveTextContent("read/work,work"),
-  );
+  await waitFor(() => expect(screen.getByTestId("fallback-items")).toHaveTextContent("read/work,work"));
   expect(
     testStorage
       .getItems()

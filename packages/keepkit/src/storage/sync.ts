@@ -42,9 +42,7 @@ export const DEFAULT_SYNC_QUEUE_KEY = "keepkit:sync-queue";
 export const DEFAULT_SYNC_QUEUE_DATABASE = "keepkit-sync";
 export const DEFAULT_SYNC_QUEUE_STORE = "sync-queue";
 
-export class LocalStorageSyncQueueAdapter<TMeta = Record<string, unknown>>
-  implements SyncQueueAdapter<TMeta>
-{
+export class LocalStorageSyncQueueAdapter<TMeta = Record<string, unknown>> implements SyncQueueAdapter<TMeta> {
   private readonly key: string;
   private readonly storage: Storage | undefined;
 
@@ -85,9 +83,7 @@ export class LocalStorageSyncQueueAdapter<TMeta = Record<string, unknown>>
   }
 }
 
-export class IndexedDBSyncQueueAdapter<TMeta = Record<string, unknown>>
-  implements SyncQueueAdapter<TMeta>
-{
+export class IndexedDBSyncQueueAdapter<TMeta = Record<string, unknown>> implements SyncQueueAdapter<TMeta> {
   private readonly databaseName: string;
   private readonly storeName: string;
   private readonly version: number;
@@ -167,9 +163,7 @@ export class IndexedDBSyncQueueAdapter<TMeta = Record<string, unknown>>
 }
 
 /** Keeps the durable sync queue available when IndexedDB is blocked or fails. */
-export class FallbackSyncQueueAdapter<TMeta = Record<string, unknown>>
-  implements SyncQueueAdapter<TMeta>
-{
+export class FallbackSyncQueueAdapter<TMeta = Record<string, unknown>> implements SyncQueueAdapter<TMeta> {
   private readonly primary: SyncQueueAdapter<TMeta>;
   private readonly fallback: SyncQueueAdapter<TMeta>;
   private readonly shouldFallback: (error: unknown) => boolean;
@@ -201,9 +195,7 @@ export class FallbackSyncQueueAdapter<TMeta = Record<string, unknown>>
     return this.execute((adapter) => adapter.clear());
   }
 
-  private async execute<TResult>(
-    operation: (adapter: SyncQueueAdapter<TMeta>) => Promise<TResult>,
-  ): Promise<TResult> {
+  private async execute<TResult>(operation: (adapter: SyncQueueAdapter<TMeta>) => Promise<TResult>): Promise<TResult> {
     const adapter = this.active === "primary" ? this.primary : this.fallback;
     try {
       return await operation(adapter);
@@ -216,9 +208,7 @@ export class FallbackSyncQueueAdapter<TMeta = Record<string, unknown>>
 }
 
 /** A local-first adapter that persists remote operations until they are acknowledged. */
-export class SyncStorageAdapter<TMeta = Record<string, unknown>>
-  implements SyncCapableStorageAdapter<TMeta>
-{
+export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements SyncCapableStorageAdapter<TMeta> {
   readonly storageKey?: string;
   private readonly local: StorageAdapter<TMeta>;
   private readonly remote: RemoteSyncDriver<TMeta>;
@@ -485,14 +475,9 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>>
     this.setPendingState();
   }
 
-  private async replaceQueued(
-    previous: SyncOperation<TMeta>,
-    next: SyncOperation<TMeta>,
-  ): Promise<void> {
+  private async replaceQueued(previous: SyncOperation<TMeta>, next: SyncOperation<TMeta>): Promise<void> {
     await this.persistQueue(
-      this.queueItems.map((operation) =>
-        operation.operationId === previous.operationId ? next : operation,
-      ),
+      this.queueItems.map((operation) => (operation.operationId === previous.operationId ? next : operation)),
     );
     this.setPendingState();
   }
@@ -593,11 +578,8 @@ function isBrowserOnline(): boolean {
   return typeof navigator === "undefined" || navigator.onLine !== false;
 }
 
-function createDefaultQueue<TMeta>(
-  options: SyncStorageAdapterOptions<TMeta>,
-): SyncQueueAdapter<TMeta> {
-  const queueKey =
-    options.queueKey ?? `${DEFAULT_SYNC_QUEUE_KEY}:${options.local.storageKey ?? "default"}`;
+function createDefaultQueue<TMeta>(options: SyncStorageAdapterOptions<TMeta>): SyncQueueAdapter<TMeta> {
+  const queueKey = options.queueKey ?? `${DEFAULT_SYNC_QUEUE_KEY}:${options.local.storageKey ?? "default"}`;
   const fallback = new LocalStorageSyncQueueAdapter<TMeta>({ key: queueKey });
   const indexedDB = getBrowserIndexedDB();
   if (!indexedDB) return fallback;
@@ -621,7 +603,6 @@ function transactionToPromise(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () =>
-      reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
+    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
   });
 }

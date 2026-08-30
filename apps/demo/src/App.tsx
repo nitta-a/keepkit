@@ -1,15 +1,12 @@
-import {
-  KeepButton,
-  type KeepItem,
-  useKeepContext,
-  useKeepItem,
-  useKeepList,
-  useKeepShortcut,
-} from "@keepkit/core";
+import { KeepButton, type KeepItem, useKeepContext, useKeepItem, useKeepList, useKeepShortcut } from "@keepkit/core";
 import { useEffect, useState } from "react";
 import type { DemoMeta } from "./main";
 
 type Content = KeepItem<DemoMeta> & { kindLabel: string };
+
+interface SavedRowProps {
+  item: KeepItem<DemoMeta>;
+}
 
 const content: Content[] = [
   {
@@ -21,8 +18,7 @@ const content: Content[] = [
     meta: {
       title: "A practical guide to React Server Components",
       url: "https://react.dev/reference/rsc/server-components",
-      image:
-        "https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=800&q=80",
+      image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=800&q=80",
       description: "A useful reference for understanding where server-rendered UI fits.",
     },
   },
@@ -35,8 +31,7 @@ const content: Content[] = [
     meta: {
       title: "pnpm workspaces in a growing monorepo",
       url: "https://pnpm.io/workspaces",
-      image:
-        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80",
+      image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80",
       description: "Patterns for keeping packages and apps moving together.",
     },
   },
@@ -49,8 +44,7 @@ const content: Content[] = [
     meta: {
       title: "The everyday field notebook",
       url: "https://example.com/products/field-notebook",
-      image:
-        "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=800&q=80",
+      image: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=800&q=80",
       description: "A compact notebook for ideas, observations, and plans.",
       price: "$18",
     },
@@ -64,8 +58,7 @@ const content: Content[] = [
     meta: {
       title: "Senior product designer",
       url: "https://example.com/jobs/product-designer",
-      image:
-        "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=800&q=80",
+      image: "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=800&q=80",
       description: "A product team looking for a thoughtful systems-minded designer.",
       company: "Northstar Labs",
       location: "Remote · Japan time",
@@ -76,9 +69,7 @@ const content: Content[] = [
 
 export function App() {
   const [targetType, setTargetType] = useState<string | undefined>();
-  const [online, setOnline] = useState(() =>
-    typeof navigator === "undefined" ? true : navigator.onLine,
-  );
+  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
   const { items, isLoading, error, clear } = useKeepList<DemoMeta>({ targetType });
   const { syncState } = useKeepContext<DemoMeta>();
 
@@ -119,8 +110,8 @@ export function App() {
         <p className="eyebrow">@keepkit/core · phase 1—3 demo</p>
         <h1>A small place for things worth returning to.</h1>
         <p className="lede">
-          Save articles and products with the same headless API. Notes and the collection persist in
-          localStorage, while changes in another tab are reloaded automatically.
+          Save articles and products with the same headless API. Notes and the collection persist in localStorage, while
+          changes in another tab are reloaded automatically.
         </p>
         <div className={online ? "sync-status online" : "sync-status offline"} aria-live="polite">
           <span className="status-dot" aria-hidden="true" />
@@ -204,9 +195,7 @@ export function App() {
           ))}
         </fieldset>
 
-        {error ? (
-          <p className="error-state">Could not load the collection. Please try again.</p>
-        ) : null}
+        {error ? <p className="error-state">Could not load the collection. Please try again.</p> : null}
         {isLoading ? (
           <p className="empty-state">Restoring your collection…</p>
         ) : items.length === 0 ? (
@@ -223,7 +212,7 @@ export function App() {
   );
 }
 
-function SavedRow({ item }: { item: KeepItem<DemoMeta> }) {
+function SavedRow({ item }: SavedRowProps) {
   const { updateNote, remove } = useKeepItem<DemoMeta>(item.id);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.note ?? "");

@@ -18,9 +18,7 @@ export type KeepShortcutOptions<TMeta = Record<string, unknown>> = {
 };
 
 /** Bind a keyboard shortcut to a Keep action or an arbitrary command. */
-export function useKeepShortcut<TMeta = Record<string, unknown>>(
-  options: KeepShortcutOptions<TMeta>,
-): void {
+export function useKeepShortcut<TMeta = Record<string, unknown>>(options: KeepShortcutOptions<TMeta>): void {
   const item = useKeepItem(options.id ?? "", options.itemPayload);
   const {
     action = "toggle",
@@ -68,11 +66,7 @@ export function useKeepShortcut<TMeta = Record<string, unknown>>(
   ]);
 }
 
-function matchesShortcut(
-  event: KeyboardEvent,
-  key: string,
-  modifier?: KeepShortcutModifier,
-): boolean {
+function matchesShortcut(event: KeyboardEvent, key: string, modifier?: KeepShortcutModifier): boolean {
   if (event.key.toLocaleLowerCase() !== key.toLocaleLowerCase()) return false;
   const modifiers = {
     meta: event.metaKey,
