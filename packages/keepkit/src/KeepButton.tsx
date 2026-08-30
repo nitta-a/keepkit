@@ -4,6 +4,7 @@ import {
   cloneElement,
   type HTMLAttributes,
   isValidElement,
+  type KeyboardEvent,
   type MouseEvent,
   type ReactElement,
   type ReactNode,
@@ -72,6 +73,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   const isDisabled = disabled ?? state.isMutating;
 
   async function handleClick(event: MouseEvent<HTMLElement>) {
+    if (isDisabled) return;
     if (asChild) {
       (onClick as ((event: MouseEvent<HTMLElement>) => void) | undefined)?.(event);
     } else {
@@ -92,6 +94,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
       ? children(state)
       : (children ?? (isSaved ? savedLabel : unsavedLabel));
   function handleElementClick(event: MouseEvent<HTMLElement>) {
+    if (isDisabled) return;
     if (
       asChild &&
       isValidElement<{ onClick?: (event: MouseEvent<HTMLElement>) => void }>(content)
@@ -101,21 +104,48 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     if (!event.defaultPrevented) void handleClick(event);
   }
 
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (
+      asChild &&
+      isValidElement<{ onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void }>(content)
+    ) {
+      content.props.onKeyDown?.(event);
+    }
+    (buttonProps as { onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void }).onKeyDown?.(event);
+    if (
+      !event.defaultPrevented &&
+      !isDisabled &&
+      asChild &&
+      (event.key === "Enter" || event.key === " ")
+    ) {
+      event.preventDefault();
+      void handleClick(event as unknown as MouseEvent<HTMLElement>);
+    }
+  }
+
+  const child = asChild ? Children.only(content) : undefined;
+  if (asChild && !isValidElement(child)) {
+    throw new Error("KeepButton with asChild requires a single React element child.");
+  }
+
   const commonProps = {
     ...buttonProps,
     "aria-pressed": isSaved,
     "aria-label":
       ("aria-label" in buttonProps ? buttonProps["aria-label"] : undefined) ??
-      (isSaved ? "Remove saved item" : "Save item"),
-    disabled: isDisabled,
+      getAccessibleLabel(isSaved, item, asChild),
+    ...(asChild
+      ? {
+          "aria-disabled": isDisabled,
+          role: buttonProps.role ?? "button",
+          tabIndex: isDisabled ? -1 : (buttonProps.tabIndex ?? 0),
+        }
+      : { disabled: isDisabled }),
     onClick: handleElementClick,
+    onKeyDown: handleKeyDown,
   };
 
   if (asChild) {
-    const child = Children.only(content);
-    if (!isValidElement(child)) {
-      throw new Error("KeepButton with asChild requires a single React element child.");
-    }
     return cloneElement(child as ReactElement, commonProps);
   }
 
@@ -127,4 +157,21 @@ export function KeepButton<TMeta = Record<string, unknown>>({
       {content}
     </button>
   );
+}
+
+function getAccessibleLabel<TMeta>(
+  isSaved: boolean,
+  item: KeepButtonItem<TMeta>,
+  asChild: boolean,
+): string {
+  if (!asChild) return isSaved ? "Remove saved item" : "Save item";
+  const title = getMetaTitle(item.meta);
+  const subject = title ? `${item.targetType ?? "item"}: ${title}` : (item.targetType ?? "item");
+  return `${isSaved ? "Remove" : "Save"} ${subject}`;
+}
+
+function getMetaTitle<TMeta>(meta: TMeta): string | undefined {
+  if (typeof meta !== "object" || meta === null || !("title" in meta)) return undefined;
+  const title = (meta as { title?: unknown }).title;
+  return typeof title === "string" && title.trim() ? title.trim() : undefined;
 }

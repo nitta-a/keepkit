@@ -9,7 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { parseKeepMeta } from "./schema";
-import { LocalStorageAdapter } from "./storage";
+import { createBrowserStorageAdapter } from "./storage";
 import { KeepStore, type KeepStoreActions } from "./store";
 import type {
   KeepAction,
@@ -64,7 +64,7 @@ export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildr
   }
 >;
 
-const defaultStorage = new LocalStorageAdapter();
+const defaultStorage = createBrowserStorageAdapter();
 const KeepContext = createContext<KeepContextValue<unknown> | null>(null);
 const KeepStoreContext = createContext<KeepStoreAccess<unknown> | null>(null);
 

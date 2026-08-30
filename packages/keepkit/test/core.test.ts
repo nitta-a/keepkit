@@ -486,3 +486,50 @@ test("keeps unresolved conflicts pending and retries resolved conflicts", async 
   assert.equal((await adapter.getAll())[0].note, "local+remote");
   adapter.dispose();
 });
+
+test("resumes a persisted queue on adapter startup", async () => {
+  const queued = [
+    {
+      operationId: "previous-client:1:operation",
+      type: "upsert" as const,
+      id: itemA.id,
+      item: itemA,
+      createdAt: 1,
+    },
+  ];
+  const local = {
+    getAll: async () => [itemA],
+    set: async () => undefined,
+    remove: async () => undefined,
+    clear: async () => undefined,
+  };
+  const queue = {
+    getAll: async () => [...queued],
+    setMany: async () => undefined,
+    remove: async (ids: string[]) => {
+      const idSet = new Set(ids);
+      queued.splice(
+        0,
+        queued.length,
+        ...queued.filter((operation) => !idSet.has(operation.operationId)),
+      );
+    },
+    clear: async () => undefined,
+  };
+  const pushed: string[] = [];
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue,
+    remote: {
+      push: async (operation) => {
+        pushed.push(operation.operationId);
+        return { type: "synced" };
+      },
+    },
+  });
+
+  await adapter.flushSync();
+  assert.deepEqual(pushed, ["previous-client:1:operation"]);
+  assert.equal(adapter.getSyncState().status, "synced");
+  adapter.dispose();
+});

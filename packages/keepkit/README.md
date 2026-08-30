@@ -49,6 +49,8 @@ const storage = new SyncStorageAdapter({
 
 `useKeepList` は `savedBetween`、`search: { query, mode: "and" | "or" }`、`filterFn`、`tagCounts` をサポートします。TanStack Query や SWR のキャッシュ連携には、依存関係を core に追加しない `createKeepInvalidationPlugin` を利用できます。
 
+ブラウザの制限環境では `createBrowserStorageAdapter` が IndexedDB を優先し、アクセスできない場合は `LocalStorageAdapter` に切り替えます。自前の主／代替 adapter を組み合わせる場合は `FallbackStorageAdapter` を利用できます。`useKeepShortcut({ key: "k", modifier: "meta", id, itemPayload })` は編集可能なフィールドを除外して保存操作をキーボードに割り当てます。`asChild` の `KeepButton` には `aria-pressed`、`aria-disabled`、button role、Space／Enter 操作が自動で付与されます。
+
 詳細な使い方と開発コマンドは [ルートREADME](../../README.md) を、現在の変更内容は [リリースノート](../../RELEASE_NOTES.md) を参照してください。
 
 ## English
@@ -78,5 +80,7 @@ Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "
 For larger applications, wrap a local adapter with `SyncStorageAdapter` to persist a durable offline queue and flush it with `flushSync()` when connectivity returns. Use `syncState` from `KeepProvider` for `pending`, `syncing`, `conflict`, and `error` feedback. `KeepProvider` also accepts a Zod-like `parse`, `safeParse`, or Standard Schema validator through `schema`; invalid stored records can be rejected or dropped with `invalidItemPolicy`.
 
 `useKeepList` supports `savedBetween`, tokenized `search` with `and` / `or` modes, `filterFn`, and `tagCounts`. Use `createKeepInvalidationPlugin` to connect TanStack Query, SWR, or another cache without adding framework dependencies to core.
+
+In restricted browser environments, `createBrowserStorageAdapter` prefers IndexedDB and switches to `LocalStorageAdapter` when IndexedDB cannot be accessed. Use `FallbackStorageAdapter` to compose your own primary and fallback adapters. `useKeepShortcut({ key: "k", modifier: "meta", id, itemPayload })` binds a save action while ignoring editable fields. `KeepButton asChild` automatically supplies `aria-pressed`, `aria-disabled`, a button role, and Space/Enter activation.
 
 See the [root README](../../README.md) for detailed usage and development commands, and the [release notes](../../RELEASE_NOTES.md) for the current changes.

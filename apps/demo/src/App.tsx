@@ -1,5 +1,12 @@
-import { KeepButton, type KeepItem, useKeepItem, useKeepList } from "@keepkit/core";
-import { useState } from "react";
+import {
+  KeepButton,
+  type KeepItem,
+  useKeepContext,
+  useKeepItem,
+  useKeepList,
+  useKeepShortcut,
+} from "@keepkit/core";
+import { useEffect, useState } from "react";
 import type { DemoMeta } from "./main";
 
 type Content = KeepItem<DemoMeta> & { kindLabel: string };
@@ -48,11 +55,63 @@ const content: Content[] = [
       price: "$18",
     },
   },
+  {
+    id: "job-product-designer",
+    targetType: "job",
+    kindLabel: "Job",
+    savedAt: 0,
+    updatedAt: 0,
+    meta: {
+      title: "Senior product designer",
+      url: "https://example.com/jobs/product-designer",
+      image:
+        "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=800&q=80",
+      description: "A product team looking for a thoughtful systems-minded designer.",
+      company: "Northstar Labs",
+      location: "Remote · Japan time",
+      salary: "$90k–$120k",
+    },
+  },
 ];
 
 export function App() {
   const [targetType, setTargetType] = useState<string | undefined>();
+  const [online, setOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
   const { items, isLoading, error, clear } = useKeepList<DemoMeta>({ targetType });
+  const { syncState } = useKeepContext<DemoMeta>();
+
+  useEffect(() => {
+    const updateOnline = () => setOnline(navigator.onLine);
+    window.addEventListener("online", updateOnline);
+    window.addEventListener("offline", updateOnline);
+    return () => {
+      window.removeEventListener("online", updateOnline);
+      window.removeEventListener("offline", updateOnline);
+    };
+  }, []);
+
+  useKeepShortcut({
+    key: "k",
+    modifier: "meta",
+    id: content[0].id,
+    itemPayload: {
+      targetType: content[0].targetType,
+      meta: content[0].meta,
+      tags: ["shortcut"],
+    },
+  });
+
+  const syncLabel = !online
+    ? "Offline · changes are queued locally"
+    : syncState.status === "pending"
+      ? `${syncState.pendingCount} change${syncState.pendingCount === 1 ? "" : "s"} waiting to sync`
+      : syncState.status === "syncing"
+        ? "Syncing changes…"
+        : syncState.status === "error"
+          ? "Sync paused · will retry when online"
+          : "All changes synced";
 
   return (
     <main className="shell">
@@ -63,6 +122,11 @@ export function App() {
           Save articles and products with the same headless API. Notes and the collection persist in
           localStorage, while changes in another tab are reloaded automatically.
         </p>
+        <div className={online ? "sync-status online" : "sync-status offline"} aria-live="polite">
+          <span className="status-dot" aria-hidden="true" />
+          <span>{syncLabel}</span>
+          <span className="shortcut-hint">⌘K saves the first article</span>
+        </div>
       </header>
 
       <section className="section" aria-labelledby="content-heading">
@@ -85,9 +149,19 @@ export function App() {
                   Open resource ↗
                 </a>
                 {entry.meta.price && <strong className="price">{entry.meta.price}</strong>}
+                {entry.meta.company && (
+                  <span className="job-details">
+                    {entry.meta.company} · {entry.meta.location} · {entry.meta.salary}
+                  </span>
+                )}
                 <KeepButton
                   className="favorite-button"
-                  item={{ id: entry.id, targetType: entry.targetType, meta: entry.meta }}
+                  item={{
+                    id: entry.id,
+                    targetType: entry.targetType,
+                    meta: entry.meta,
+                    tags: [entry.targetType ?? "resource"],
+                  }}
                   savedLabel="Saved ✓"
                   unsavedLabel="Save for later"
                 />
@@ -117,6 +191,7 @@ export function App() {
             [undefined, "All"],
             ["article", "Articles"],
             ["product", "Products"],
+            ["job", "Jobs"],
           ].map(([value, label]) => (
             <button
               className={targetType === value ? "filter-button active" : "filter-button"}

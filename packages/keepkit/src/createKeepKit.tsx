@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { type UseKeepItemResult, useKeepItem } from "./hooks/useKeepItem";
 import { type KeepListOptions, type UseKeepListResult, useKeepList } from "./hooks/useKeepList";
+import { type KeepShortcutOptions, useKeepShortcut } from "./hooks/useKeepShortcut";
 import { KeepButton, type KeepButtonProps } from "./KeepButton";
 import { KeepProvider, type KeepProviderProps, useKeepContext } from "./KeepProvider";
 import type { KeepInvalidItemPolicy, KeepItemInput, KeepPlugin, KeepSchema } from "./types";
@@ -20,6 +21,7 @@ export type KeepKit<TMeta> = {
   useKeepContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useKeepItem: (id: string, itemPayload?: KeepItemInput<TMeta>) => UseKeepItemResult<TMeta>;
   useKeepList: (options?: KeepListOptions<TMeta>) => UseKeepListResult<TMeta>;
+  useKeepShortcut: (options: KeepShortcutOptions<TMeta>) => void;
 };
 
 /** Create an app-specific, fully typed set of KeepKit components and hooks. */
@@ -32,5 +34,6 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     useKeepContext: () => useKeepContext<TMeta>(),
     useKeepItem: (id, itemPayload) => useKeepItem<TMeta>(id, itemPayload),
     useKeepList: (options) => useKeepList<TMeta>(options),
+    useKeepShortcut: (shortcutOptions) => useKeepShortcut<TMeta>(shortcutOptions),
   };
 }

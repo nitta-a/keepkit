@@ -22,6 +22,8 @@ export {
   queryKeepItems,
   useKeepList,
 } from "./hooks/useKeepList";
+export type { KeepShortcutModifier, KeepShortcutOptions } from "./hooks/useKeepShortcut";
+export { useKeepShortcut } from "./hooks/useKeepShortcut";
 export type { KeepInvalidationPluginOptions } from "./integrations";
 export { createKeepInvalidationPlugin } from "./integrations";
 export type { KeepButtonItem, KeepButtonProps, KeepButtonState } from "./KeepButton";
@@ -31,6 +33,9 @@ export { KeepProvider, useKeepContext } from "./KeepProvider";
 export { mergeKeepItems, migrateKeepItems } from "./migration";
 export { KeepSchemaValidationError, parseKeepMeta, validateKeepItem } from "./schema";
 export type {
+  BrowserStorageAdapterOptions,
+  FallbackStorageAdapterOptions,
+  FallbackSyncQueueAdapterOptions,
   IndexedDBAdapterOptions,
   IndexedDBSyncQueueOptions,
   LocalStorageAdapterOptions,
@@ -39,6 +44,7 @@ export type {
   SyncStorageAdapterOptions,
 } from "./storage";
 export {
+  createBrowserStorageAdapter,
   createStorageAdapter,
   DEFAULT_INDEXEDDB_DATABASE,
   DEFAULT_INDEXEDDB_STORE,
@@ -46,6 +52,8 @@ export {
   DEFAULT_SYNC_QUEUE_DATABASE,
   DEFAULT_SYNC_QUEUE_KEY,
   DEFAULT_SYNC_QUEUE_STORE,
+  FallbackStorageAdapter,
+  FallbackSyncQueueAdapter,
   IndexedDBAdapter,
   IndexedDBSyncQueueAdapter,
   LocalStorageAdapter,

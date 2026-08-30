@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createStorageAdapter,
   exportItems,
+  FallbackStorageAdapter,
   importItems,
   KeepBackupImportError,
   KeepBackupParseError,
@@ -12,6 +13,7 @@ import {
   LocalStorageAdapter,
   mergeKeepItems,
   migrateKeepItems,
+  type StorageAdapter,
 } from "../dist/index.js";
 
 function createStorage() {
@@ -180,6 +182,71 @@ test("creates an adapter from sync persistence functions", async () => {
   await adapter.set(item);
   assert.equal(adapter.storageKey, "sync:adapter");
   assert.deepEqual(await adapter.getAll(), [item]);
+});
+
+test("switches to a fallback adapter after an IndexedDB access failure", async () => {
+  const cause = new KeepStorageAccessError({
+    operation: "getAll",
+    storageKey: "indexed-db",
+    cause: new Error("blocked"),
+  });
+  let fallbackWrites = 0;
+  const fallback: StorageAdapter<typeof item.meta> = {
+    getAll: async () => [item],
+    set: async () => {
+      fallbackWrites += 1;
+    },
+    remove: async () => undefined,
+    clear: async () => undefined,
+  };
+  const primary: StorageAdapter<typeof item.meta> = {
+    getAll: async () => {
+      throw cause;
+    },
+    set: async () => undefined,
+    remove: async () => undefined,
+    clear: async () => undefined,
+  };
+  let fallbackError: unknown;
+  const adapter = new FallbackStorageAdapter({
+    primary,
+    fallback,
+    onFallback: (error) => {
+      fallbackError = error;
+    },
+  });
+
+  assert.deepEqual(await adapter.getAll(), [item]);
+  await adapter.set(item);
+  assert.equal(fallbackWrites, 1);
+  assert.equal(adapter.isUsingFallback, true);
+  assert.equal(fallbackError, cause);
+});
+
+test("migrates legacy fallback data into an empty primary adapter", async () => {
+  let primaryItems: (typeof item)[] = [];
+  const primary: StorageAdapter<typeof item.meta> = {
+    getAll: async () => primaryItems,
+    set: async (next) => {
+      primaryItems = [...primaryItems.filter((current) => current.id !== next.id), next];
+    },
+    setMany: async (next) => {
+      primaryItems = [...next];
+    },
+    remove: async () => undefined,
+    clear: async () => undefined,
+  };
+  const fallback = new LocalStorageAdapter<typeof item.meta>({ storage: createStorage() });
+  await fallback.set(item);
+  const adapter = new FallbackStorageAdapter({
+    primary,
+    fallback,
+    migrateFallbackOnEmpty: true,
+  });
+
+  assert.deepEqual(await adapter.getAll(), [item]);
+  assert.deepEqual(primaryItems, [item]);
+  assert.equal(adapter.isUsingFallback, false);
 });
 
 test("merges local items and keeps the newest version", async () => {

@@ -1,4 +1,4 @@
-import { KeepButton, KeepProvider, type StorageAdapter } from "@keepkit/core";
+import { KeepButton, KeepProvider, type StorageAdapter, useKeepShortcut } from "@keepkit/core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test } from "vitest";
 
@@ -42,4 +42,35 @@ test("supports render props and asChild while toggling", async () => {
   fireEvent.click(link);
   await waitFor(() => expect(link).toHaveTextContent("true"));
   expect(link).toHaveAttribute("aria-pressed", "true");
+  expect(link).toHaveAttribute("aria-label", "Remove article: Render props item");
+  expect(link).toHaveAttribute("role", "button");
+  expect(link).toHaveAttribute("tabindex", "0");
+});
+
+test("binds a shortcut and ignores editable controls", async () => {
+  const testStorage = createStorage();
+  function ShortcutProbe() {
+    useKeepShortcut({
+      key: "k",
+      modifier: "meta",
+      id: "shortcut-item",
+      itemPayload: { targetType: "article", meta: { title: "Shortcut item" } },
+    });
+    return <input aria-label="Editor" />;
+  }
+
+  render(
+    <KeepProvider storage={testStorage}>
+      <ShortcutProbe />
+    </KeepProvider>,
+  );
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Editor" }), {
+    key: "k",
+    metaKey: true,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(await testStorage.getAll()).toHaveLength(0);
+
+  fireEvent.keyDown(window, { key: "k", metaKey: true });
+  await waitFor(async () => expect(await testStorage.getAll()).toHaveLength(1));
 });

@@ -12,7 +12,9 @@ keepkitは、Reactアプリケーションに保存・コレクション機能�
 
 - `KeepProvider` による保存アイテムの状態管理
 - スタイルを持たないアクセシブルな `KeepButton`
+- `KeepButton asChild` の ARIA 属性・Space／Enter 操作の自動補完
 - `useKeepItem` による保存・切り替え・削除・ノート更新
+- `useKeepShortcut` によるキーボードショートカット連携
 - `useKeepList` による一覧取得、タグ絞り込み・ソート、一括削除・タグ更新
 - ブラウザの `localStorage` に対応した `LocalStorageAdapter`
 - `StorageAdapter` を実装したAPI・Supabase・Firebaseなどへの拡張
@@ -20,6 +22,8 @@ keepkitは、Reactアプリケーションに保存・コレクション機能�
 - `tags` による分類、`useKeepList` のタグ絞り込み・ソート
 - `createKeepKit<TMeta>()` によるアプリ全体の型推論、`KeepButton` の render props / `asChild`
 - `createStorageAdapter` による同期・非同期Adapterの接続
+- `createBrowserStorageAdapter` の IndexedDB-first／localStorage fallback
+- `SyncStorageAdapter` の永続キュー自動再開とオンライン復帰同期
 - version付きJSONバックアップのエクスポート・インポート
 
 ### インストール
@@ -68,7 +72,7 @@ export function App() {
 }
 ```
 
-`StorageAdapter<TMeta>` が保存処理の境界です。独自アダプターでは `getAll`、`set`、`remove`、`clear` を実装します。認証機能やサーバーへの永続化機能はパッケージに含まれません。`LocalStorageAdapter` はSSR環境からimportできますが、ブラウザのストレージが利用できない場合は空の一覧として動作します。
+`StorageAdapter<TMeta>` が保存処理の境界です。独自アダプターでは `getAll`、`set`、`remove`、`clear` を実装します。認証機能やサーバーへの永続化機能はパッケージに含まれません。ブラウザの既定 adapter は IndexedDB を優先し、利用できない場合は localStorage に切り替えます。主／代替 adapter を自分で構成する場合は `FallbackStorageAdapter` を利用できます。
 
 アプリ固有のメタデータ型を一度だけ指定する場合は、型付きキットを生成できます。
 
@@ -78,6 +82,11 @@ const { KeepProvider, KeepButton, useKeepItem, useKeepList } = createKeepKit<Pro
 ```
 
 `KeepButton` は `children={(state) => ...}` の render props、または `asChild` と単一の子要素で既存のデザインシステムに接続できます。保存・削除・ノート更新・エラーは `KeepProvider` のイベントハンドラーで購読できます。
+
+```tsx
+const { useKeepShortcut } = createKeepKit<ArticleMeta>();
+useKeepShortcut({ key: "k", modifier: "meta", id, itemPayload });
+```
 
 一覧では、`tags` で利用可能なタグを取得し、`removeBatch` と `updateTagsBatch` で一括操作できます。
 
@@ -132,7 +141,7 @@ pnpm install
 pnpm dev
 ```
 
-デモでは、任意のノート付きアイテムの保存、保存一覧の表示、ノートの編集、削除、再読み込み後の復元を確認できます。
+デモでは、記事・商品・求人の保存、保存一覧の表示、ノートの編集、オフライン時のキュー状態、オンライン復帰後の同期を確認できます。
 
 ### 検証
 
@@ -155,7 +164,9 @@ This repository contains the publishable package in `packages/keepkit` and a rea
 
 - State management for saved items through `KeepProvider`
 - A style-free, accessible `KeepButton`
+- Automatic ARIA attributes and Space/Enter activation for `KeepButton asChild`
 - Save, toggle, remove, and note updates with `useKeepItem`
+- Keyboard shortcut integration with `useKeepShortcut`
 - Listing, tag filtering/sorting, clearing, and bulk actions with `useKeepList`
 - A browser `localStorage` adapter with `LocalStorageAdapter`
 - Extensibility through `StorageAdapter` implementations for APIs, Supabase, Firebase, and more
@@ -163,6 +174,8 @@ This repository contains the publishable package in `packages/keepkit` and a rea
 - Tag-based organization with filtering and sorting through `useKeepList`
 - App-wide type inference through `createKeepKit<TMeta>()`, plus render props / `asChild` for `KeepButton`
 - Sync/async adapter composition with `createStorageAdapter`
+- IndexedDB-first browser storage with localStorage fallback through `createBrowserStorageAdapter`
+- Durable sync queues that resume on startup and flush when connectivity returns
 - Versioned JSON backup export and import utilities
 
 ### Installation
@@ -211,7 +224,7 @@ export function App() {
 }
 ```
 
-`StorageAdapter<TMeta>` is the persistence boundary. Custom adapters implement `getAll`, `set`, `remove`, and `clear`. Authentication and server persistence are intentionally outside the package. `LocalStorageAdapter` is safe to import in SSR environments; when browser storage is unavailable, it behaves as an empty collection.
+`StorageAdapter<TMeta>` is the persistence boundary. Custom adapters implement `getAll`, `set`, `remove`, and `clear`. Authentication and server persistence are intentionally outside the package. The browser default prefers IndexedDB and switches to localStorage when IndexedDB is unavailable. Use `FallbackStorageAdapter` to compose your own primary and fallback adapters.
 
 To specify an app-specific metadata type once, create a typed kit:
 
@@ -221,6 +234,11 @@ const { KeepProvider, KeepButton, useKeepItem, useKeepList } = createKeepKit<Pro
 ```
 
 `KeepButton` supports render props (`children={(state) => ...}`) and `asChild` for connecting an existing design system. Save, remove, note-update, and error events can be observed from `KeepProvider`.
+
+```tsx
+const { useKeepShortcut } = createKeepKit<ArticleMeta>();
+useKeepShortcut({ key: "k", modifier: "meta", id, itemPayload });
+```
 
 The list hook exposes the available `tags`, plus `removeBatch` and `updateTagsBatch` for bulk actions.
 
@@ -267,7 +285,7 @@ pnpm install
 pnpm dev
 ```
 
-The demo covers saving items with optional notes, viewing the saved collection, editing notes, removing items, and restoring the collection after a reload.
+The demo covers articles, products, and jobs, plus notes, offline queue status, and synchronization after connectivity returns.
 
 ### Verification
 

@@ -21,6 +21,12 @@ export type IndexedDBSyncQueueOptions = {
   indexedDB?: IDBFactory;
 };
 
+export type FallbackSyncQueueAdapterOptions<TMeta = Record<string, unknown>> = {
+  primary: SyncQueueAdapter<TMeta>;
+  fallback: SyncQueueAdapter<TMeta>;
+  shouldFallback?: (error: unknown) => boolean;
+};
+
 export type SyncStorageAdapterOptions<TMeta = Record<string, unknown>> = {
   local: StorageAdapter<TMeta>;
   remote: RemoteSyncDriver<TMeta>;
@@ -160,6 +166,55 @@ export class IndexedDBSyncQueueAdapter<TMeta = Record<string, unknown>>
   }
 }
 
+/** Keeps the durable sync queue available when IndexedDB is blocked or fails. */
+export class FallbackSyncQueueAdapter<TMeta = Record<string, unknown>>
+  implements SyncQueueAdapter<TMeta>
+{
+  private readonly primary: SyncQueueAdapter<TMeta>;
+  private readonly fallback: SyncQueueAdapter<TMeta>;
+  private readonly shouldFallback: (error: unknown) => boolean;
+  private active: "primary" | "fallback" = "primary";
+
+  constructor(options: FallbackSyncQueueAdapterOptions<TMeta>) {
+    this.primary = options.primary;
+    this.fallback = options.fallback;
+    this.shouldFallback = options.shouldFallback ?? (() => true);
+  }
+
+  get isUsingFallback(): boolean {
+    return this.active === "fallback";
+  }
+
+  getAll(): Promise<SyncOperation<TMeta>[]> {
+    return this.execute((adapter) => adapter.getAll());
+  }
+
+  setMany(operations: SyncOperation<TMeta>[]): Promise<void> {
+    return this.execute((adapter) => adapter.setMany(operations));
+  }
+
+  remove(operationIds: string[]): Promise<void> {
+    return this.execute((adapter) => adapter.remove(operationIds));
+  }
+
+  clear(): Promise<void> {
+    return this.execute((adapter) => adapter.clear());
+  }
+
+  private async execute<TResult>(
+    operation: (adapter: SyncQueueAdapter<TMeta>) => Promise<TResult>,
+  ): Promise<TResult> {
+    const adapter = this.active === "primary" ? this.primary : this.fallback;
+    try {
+      return await operation(adapter);
+    } catch (error) {
+      if (this.active !== "primary" || !this.shouldFallback(error)) throw error;
+      this.active = "fallback";
+      return operation(this.fallback);
+    }
+  }
+}
+
 /** A local-first adapter that persists remote operations until they are acknowledged. */
 export class SyncStorageAdapter<TMeta = Record<string, unknown>>
   implements SyncCapableStorageAdapter<TMeta>
@@ -183,17 +238,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>>
   constructor(options: SyncStorageAdapterOptions<TMeta>) {
     this.local = options.local;
     this.remote = options.remote;
-    this.queue =
-      options.queue ??
-      (getBrowserIndexedDB()
-        ? new IndexedDBSyncQueueAdapter<TMeta>({
-            databaseName: options.queueDatabaseName,
-          })
-        : new LocalStorageSyncQueueAdapter<TMeta>({
-            key:
-              options.queueKey ??
-              `${DEFAULT_SYNC_QUEUE_KEY}:${options.local.storageKey ?? "default"}`,
-          }));
+    this.queue = options.queue ?? createDefaultQueue<TMeta>(options);
     this.clientId = options.clientId ?? createId();
     this.now = options.now ?? Date.now;
     this.resolveConflict = options.resolveConflict;
@@ -202,6 +247,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>>
       this.onlineHandler = () => void this.flushSync();
       window.addEventListener("online", this.onlineHandler);
     }
+    void this.resumeQueue();
   }
 
   getSyncState = (): KeepSyncState => this.state;
@@ -397,12 +443,29 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>>
   private async loadQueue(): Promise<void> {
     if (this.queueLoaded) return;
     if (!this.queueLoadPromise) {
-      this.queueLoadPromise = this.queue.getAll().then((items) => {
-        this.queueItems = items;
-        this.queueLoaded = true;
-      });
+      this.queueLoadPromise = this.queue
+        .getAll()
+        .then((items) => {
+          this.queueItems = items;
+          this.queueLoaded = true;
+        })
+        .catch((error) => {
+          this.queueLoadPromise = undefined;
+          throw error;
+        });
     }
     await this.queueLoadPromise;
+  }
+
+  private async resumeQueue(): Promise<void> {
+    try {
+      await this.loadQueue();
+      if (this.queueItems.length === 0) return;
+      this.updateState({ status: "pending", pendingCount: this.queueItems.length });
+      if (isBrowserOnline()) await this.flushSync();
+    } catch (error) {
+      this.updateState({ status: "error", error });
+    }
   }
 
   private async persistQueue(next: SyncOperation<TMeta>[]): Promise<void> {
@@ -524,6 +587,27 @@ function getBrowserStorage(): Storage | undefined {
 function getBrowserIndexedDB(): IDBFactory | undefined {
   if (typeof indexedDB === "undefined") return undefined;
   return indexedDB;
+}
+
+function isBrowserOnline(): boolean {
+  return typeof navigator === "undefined" || navigator.onLine !== false;
+}
+
+function createDefaultQueue<TMeta>(
+  options: SyncStorageAdapterOptions<TMeta>,
+): SyncQueueAdapter<TMeta> {
+  const queueKey =
+    options.queueKey ?? `${DEFAULT_SYNC_QUEUE_KEY}:${options.local.storageKey ?? "default"}`;
+  const fallback = new LocalStorageSyncQueueAdapter<TMeta>({ key: queueKey });
+  const indexedDB = getBrowserIndexedDB();
+  if (!indexedDB) return fallback;
+  return new FallbackSyncQueueAdapter<TMeta>({
+    primary: new IndexedDBSyncQueueAdapter<TMeta>({
+      databaseName: options.queueDatabaseName,
+      indexedDB,
+    }),
+    fallback,
+  });
 }
 
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {

@@ -40,6 +40,200 @@ export type StorageAdapterFactoryOptions<TMeta = Record<string, unknown>> = {
   storageKey?: string;
 };
 
+export type FallbackStorageAdapterOptions<TMeta = Record<string, unknown>> = {
+  primary: StorageAdapter<TMeta>;
+  fallback: StorageAdapter<TMeta>;
+  /** Decide which primary adapter failures should activate the fallback. */
+  shouldFallback?: (error: unknown) => boolean;
+  onFallback?: (error: unknown) => void;
+  /** Copy fallback data into an empty primary on the first read. */
+  migrateFallbackOnEmpty?: boolean;
+  /** Keep the fallback current while the primary is healthy. */
+  mirrorWrites?: boolean;
+};
+
+/**
+ * A storage adapter that switches to a fallback after an availability failure.
+ * Parse errors remain visible so corrupt data is never silently hidden.
+ */
+export class FallbackStorageAdapter<TMeta = Record<string, unknown>>
+  implements StorageAdapter<TMeta>
+{
+  public readonly storageKey: string | undefined;
+  private readonly primary: StorageAdapter<TMeta>;
+  private readonly fallback: StorageAdapter<TMeta>;
+  private readonly shouldFallback: (error: unknown) => boolean;
+  private readonly onFallback?: (error: unknown) => void;
+  private readonly migrateFallbackOnEmpty: boolean;
+  private readonly mirrorWrites: boolean;
+  private active: "primary" | "fallback" = "primary";
+  private readonly listeners = new Set<() => void>();
+
+  constructor(options: FallbackStorageAdapterOptions<TMeta>) {
+    this.primary = options.primary;
+    this.fallback = options.fallback;
+    this.shouldFallback = options.shouldFallback ?? isRecoverableStorageError;
+    this.onFallback = options.onFallback;
+    this.migrateFallbackOnEmpty = options.migrateFallbackOnEmpty ?? false;
+    this.mirrorWrites = options.mirrorWrites ?? false;
+    this.storageKey = options.fallback.storageKey ?? options.primary.storageKey;
+  }
+
+  get isUsingFallback(): boolean {
+    return this.active === "fallback";
+  }
+
+  getAll(): Promise<KeepItem<TMeta>[]> {
+    return this.readAll();
+  }
+
+  set(item: KeepItem<TMeta>): Promise<void> {
+    return this.executeWrite((adapter) => adapter.set(item));
+  }
+
+  setMany(items: KeepItem<TMeta>[]): Promise<void> {
+    return this.executeWrite((adapter) =>
+      adapter.setMany
+        ? adapter.setMany(items)
+        : Promise.all(items.map((item) => adapter.set(item))).then(() => undefined),
+    );
+  }
+
+  remove(id: string): Promise<void> {
+    return this.executeWrite((adapter) => adapter.remove(id));
+  }
+
+  removeMany(ids: string[]): Promise<void> {
+    return this.executeWrite((adapter) =>
+      adapter.removeMany
+        ? adapter.removeMany(ids)
+        : Promise.all(ids.map((id) => adapter.remove(id))).then(() => undefined),
+    );
+  }
+
+  clear(): Promise<void> {
+    return this.executeWrite((adapter) => adapter.clear());
+  }
+
+  merge(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
+    return this.execute(async (adapter) => {
+      const merged = adapter.merge
+        ? await adapter.merge(localItems)
+        : await mergeItems(adapter, localItems);
+      if (this.active === "primary" && this.mirrorWrites) {
+        try {
+          if (this.fallback.setMany) await this.fallback.setMany(merged);
+          else for (const item of merged) await this.fallback.set(item);
+        } catch {
+          // The fallback is best-effort while the primary is healthy.
+        }
+      }
+      return merged;
+    });
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    const notify = (source: "primary" | "fallback") => {
+      if (source === this.active) listener();
+    };
+    const unsubscribePrimary = this.primary.subscribe?.(() => notify("primary"));
+    const unsubscribeFallback = this.fallback.subscribe?.(() => notify("fallback"));
+    return () => {
+      this.listeners.delete(listener);
+      unsubscribePrimary?.();
+      unsubscribeFallback?.();
+    };
+  }
+
+  private async readAll(): Promise<KeepItem<TMeta>[]> {
+    if (this.active === "fallback") return this.fallback.getAll();
+    let items: KeepItem<TMeta>[];
+    try {
+      items = await this.primary.getAll();
+    } catch (error) {
+      if (!this.shouldFallback(error)) throw error;
+      this.activateFallback(error);
+      return this.fallback.getAll();
+    }
+    if (!this.migrateFallbackOnEmpty || items.length > 0) return items;
+
+    const fallbackItems = await this.fallback.getAll();
+    if (fallbackItems.length === 0) return items;
+    try {
+      if (this.primary.setMany) await this.primary.setMany(fallbackItems);
+      else for (const item of fallbackItems) await this.primary.set(item);
+      return fallbackItems;
+    } catch (error) {
+      if (!this.shouldFallback(error)) throw error;
+      this.activateFallback(error);
+      return fallbackItems;
+    }
+  }
+
+  private activateFallback(error: unknown): void {
+    this.active = "fallback";
+    this.onFallback?.(error);
+    for (const listener of this.listeners) listener();
+  }
+
+  private async executeWrite<TResult>(
+    operation: (adapter: StorageAdapter<TMeta>) => Promise<TResult>,
+  ): Promise<TResult> {
+    const result = await this.execute(operation);
+    if (this.active === "primary" && this.mirrorWrites) {
+      try {
+        await operation(this.fallback);
+      } catch {
+        // The fallback is best-effort while the primary is healthy.
+      }
+    }
+    return result;
+  }
+
+  private async execute<TResult>(
+    operation: (adapter: StorageAdapter<TMeta>) => Promise<TResult>,
+  ): Promise<TResult> {
+    const adapter = this.active === "primary" ? this.primary : this.fallback;
+    try {
+      return await operation(adapter);
+    } catch (error) {
+      if (this.active !== "primary" || !this.shouldFallback(error)) throw error;
+      this.activateFallback(error);
+      return operation(this.fallback);
+    }
+  }
+}
+
+export type BrowserStorageAdapterOptions = {
+  key?: string;
+  databaseName?: string;
+  storeName?: string;
+  version?: number;
+  indexedDB?: IDBFactory;
+  storage?: Storage;
+};
+
+/** IndexedDB-first browser storage with localStorage fallback. */
+export function createBrowserStorageAdapter<TMeta = Record<string, unknown>>(
+  options: BrowserStorageAdapterOptions = {},
+): StorageAdapter<TMeta> {
+  const browserIndexedDB = options.indexedDB ?? getBrowserIndexedDB();
+  const fallback = new LocalStorageAdapter<TMeta>({ key: options.key, storage: options.storage });
+  if (!browserIndexedDB) return fallback;
+  return new FallbackStorageAdapter<TMeta>({
+    primary: new IndexedDBAdapter<TMeta>({
+      databaseName: options.databaseName,
+      storeName: options.storeName,
+      version: options.version,
+      indexedDB: browserIndexedDB,
+    }),
+    fallback,
+    migrateFallbackOnEmpty: true,
+    mirrorWrites: true,
+  });
+}
+
 /** Adapt sync or async persistence functions to the StorageAdapter contract. */
 export function createStorageAdapter<TMeta = Record<string, unknown>>(
   options: StorageAdapterFactoryOptions<TMeta>,
@@ -63,6 +257,22 @@ export function createStorageAdapter<TMeta = Record<string, unknown>>(
       : {}),
     ...(options.storageKey ? { storageKey: options.storageKey } : {}),
   };
+}
+
+async function mergeItems<TMeta>(
+  adapter: StorageAdapter<TMeta>,
+  localItems: KeepItem<TMeta>[],
+): Promise<KeepItem<TMeta>[]> {
+  const remoteItems = await adapter.getAll();
+  const byId = new Map(remoteItems.map((item) => [item.id, item]));
+  for (const item of localItems) {
+    const current = byId.get(item.id);
+    if (!current || item.updatedAt > current.updatedAt) byId.set(item.id, item);
+  }
+  const merged = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  if (adapter.setMany) await adapter.setMany(merged);
+  else for (const item of merged) await adapter.set(item);
+  return merged;
 }
 
 /** An async StorageAdapter backed by browser localStorage. */
@@ -386,6 +596,10 @@ function getBrowserIndexedDB(): IDBFactory | undefined {
   return indexedDB;
 }
 
+function isRecoverableStorageError(error: unknown): boolean {
+  return error instanceof KeepStorageAccessError || error instanceof KeepStorageQuotaError;
+}
+
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -416,6 +630,8 @@ export {
   DEFAULT_SYNC_QUEUE_DATABASE,
   DEFAULT_SYNC_QUEUE_KEY,
   DEFAULT_SYNC_QUEUE_STORE,
+  FallbackSyncQueueAdapter,
+  type FallbackSyncQueueAdapterOptions,
   IndexedDBSyncQueueAdapter,
   type IndexedDBSyncQueueOptions,
   LocalStorageSyncQueueAdapter,

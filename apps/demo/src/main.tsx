@@ -1,4 +1,9 @@
-import { KeepProvider, LocalStorageAdapter } from "@keepkit/core";
+import {
+  createBrowserStorageAdapter,
+  KeepProvider,
+  type RemoteSyncDriver,
+  SyncStorageAdapter,
+} from "@keepkit/core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -10,9 +15,26 @@ export type DemoMeta = {
   image: string;
   description: string;
   price?: string;
+  company?: string;
+  location?: string;
+  salary?: string;
 };
 
-const storage = new LocalStorageAdapter<DemoMeta>({ key: "keepkit-demo:items" });
+const localStorage = createBrowserStorageAdapter<DemoMeta>({
+  key: "keepkit-demo:items",
+  databaseName: "keepkit-demo",
+});
+const remote: RemoteSyncDriver<DemoMeta> = {
+  async push(operation) {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      throw new Error("The demo is offline; the operation remains queued.");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return { type: "synced", ...(operation.item ? { item: operation.item } : {}) };
+  },
+  pull: async () => [],
+};
+const storage = new SyncStorageAdapter({ local: localStorage, remote });
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
