@@ -1,6 +1,5 @@
 import type { KeepItem } from "@keepkit/core/core";
-import { KeepProvider } from "@keepkit/core/react";
-import { KeepUiProvider } from "@keepkit/ui";
+import { KeepKitProvider } from "@keepkit/ui";
 import type { AppProps } from "next/app";
 import { useEffect, useRef } from "react";
 import { createKeepStorage } from "../lib/keepStorage";
@@ -20,10 +19,8 @@ export default function App({ Component, pageProps }: AppProps<PageProps>) {
   }, [storage]);
 
   return (
-    <KeepUiProvider locale="en-US">
-      <KeepProvider<ArticleMeta> storage={storage} initialItems={pageProps.keepItems}>
-        <Component {...pageProps} />
-      </KeepProvider>
-    </KeepUiProvider>
+    <KeepKitProvider<ArticleMeta> storage={storage} initialItems={pageProps.keepItems} locale="en-US">
+      <Component {...pageProps} />
+    </KeepKitProvider>
   );
 }

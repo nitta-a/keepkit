@@ -4,26 +4,18 @@ import { type UseKeepListResult, useKeepList } from "./hooks/useKeepList";
 import { type KeepShortcutOptions, useKeepShortcut } from "./hooks/useKeepShortcut";
 import { KeepButton, type KeepButtonProps } from "./KeepButton";
 import { KeepProvider, type KeepProviderProps, useKeepContext } from "./KeepProvider";
-import type { KeepListOptions } from "./query";
-import type { KeepInvalidItemPolicy, KeepItemInput, KeepPlugin, KeepSchema } from "./types";
+import type { KeepListQuery } from "./query";
+import type { KeepItemInput } from "./types";
 
-export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = {
-  initialItems?: KeepProviderProps<TMeta>["initialItems"];
-  plugins?: KeepPlugin<TMeta>[];
-  schemaVersion?: number;
-  schema?: KeepSchema<TMeta>;
-  invalidItemPolicy?: KeepInvalidItemPolicy;
-  onInvalidItem?: KeepProviderProps<TMeta>["onInvalidItem"];
-  migrateMeta?: KeepProviderProps<TMeta>["migrateMeta"];
-};
+export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children">;
 
 export type KeepKit<TMeta> = {
-  KeepProvider: ComponentType<KeepProviderProps<TMeta>>;
-  KeepButton: ComponentType<KeepButtonProps<TMeta>>;
-  useKeepContext: () => ReturnType<typeof useKeepContext<TMeta>>;
-  useKeepItem: (id: string, itemPayload?: KeepItemInput<TMeta>) => UseKeepItemResult<TMeta>;
-  useKeepList: (options?: KeepListOptions<TMeta>) => UseKeepListResult<TMeta>;
-  useKeepShortcut: (options: KeepShortcutOptions<TMeta>) => void;
+  Provider: ComponentType<KeepProviderProps<TMeta>>;
+  Button: ComponentType<KeepButtonProps<TMeta>>;
+  useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
+  useItem: (item?: KeepItemInput<TMeta>) => UseKeepItemResult<TMeta>;
+  useList: (query?: KeepListQuery<TMeta>) => UseKeepListResult<TMeta>;
+  useShortcut: (options: KeepShortcutOptions<TMeta>) => void;
 };
 
 /** Create an app-specific, fully typed set of KeepKit components and hooks. */
@@ -31,11 +23,11 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
   options: CreateKeepKitOptions<TMeta> = {},
 ): KeepKit<TMeta> {
   return {
-    KeepProvider: (props) => <KeepProvider<TMeta> {...options} {...props} />,
-    KeepButton: (props) => <KeepButton<TMeta> {...props} />,
-    useKeepContext: () => useKeepContext<TMeta>(),
-    useKeepItem: (id, itemPayload) => useKeepItem<TMeta>(id, itemPayload),
-    useKeepList: (options) => useKeepList<TMeta>(options),
-    useKeepShortcut: (shortcutOptions) => useKeepShortcut<TMeta>(shortcutOptions),
+    Provider: (props) => <KeepProvider<TMeta> {...options} {...props} />,
+    Button: (props) => <KeepButton<TMeta> {...props} />,
+    useContext: () => useKeepContext<TMeta>(),
+    useItem: (item) => useKeepItem<TMeta>(item),
+    useList: (query) => useKeepList<TMeta>(query),
+    useShortcut: (shortcutOptions) => useKeepShortcut<TMeta>(shortcutOptions),
   };
 }

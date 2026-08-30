@@ -1,17 +1,21 @@
 import { useCallback, useMemo } from "react";
 import { useKeepStore } from "../KeepProvider";
-import { type KeepListOptions, type QueryKeepItemsResult, queryKeepItems } from "../query";
+import { type KeepListQuery, type QueryKeepItemsResult, queryKeepItems } from "../query";
 import type { KeepItemRevalidationSummary, KeepItemRevalidator, RevalidateKeepItemsOptions } from "../revalidation";
 import type { KeepItem } from "../types";
 import { useKeepStoreSelector } from "./useKeepStoreSelector";
 
-export type { KeepListOptions } from "../query";
+export type { KeepListQuery } from "../query";
 
 export type UseKeepListResult<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
   totalCount: number;
   tags: string[];
   tagCounts: Record<string, number>;
+  page: number;
+  pageCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
   isLoading: boolean;
   isHydrated: boolean;
   isMutating: boolean;
@@ -30,88 +34,33 @@ export type UseKeepListResult<TMeta = Record<string, unknown>> = {
 };
 
 export function useKeepList<TMeta = Record<string, unknown>>(
-  options: KeepListOptions<TMeta> = {},
+  query: KeepListQuery<TMeta> = {},
 ): UseKeepListResult<TMeta> {
   const { store, actions } = useKeepStore<TMeta>();
-  const {
-    filter,
-    filterFn,
-    limit,
-    offset,
-    order,
-    savedBetween,
-    search,
-    searchQuery,
-    sort,
-    sortBy,
-    tag,
-    tags: queryTags,
-    targetType,
-  } = options;
-  const queryOptions = useMemo<KeepListOptions<TMeta>>(
-    () => ({
-      filter,
-      filterFn,
-      limit,
-      offset,
-      order,
-      savedBetween,
-      search,
-      searchQuery,
-      sort,
-      sortBy,
-      tag,
-      tags: queryTags,
-      targetType,
-    }),
-    [
-      filter,
-      filterFn,
-      limit,
-      offset,
-      order,
-      savedBetween,
-      search,
-      searchQuery,
-      sort,
-      sortBy,
-      tag,
-      queryTags,
-      targetType,
-    ],
+  const { filter, pagination, savedBetween, search, sort, tags, targetType } = query;
+  const queryOptions = useMemo<KeepListQuery<TMeta>>(
+    () => ({ filter, pagination, savedBetween, search, sort, tags, targetType }),
+    [filter, pagination, savedBetween, search, sort, tags, targetType],
   );
   const selector = useMemo(() => {
     let previousResult: QueryKeepItemsResult<TMeta> | undefined;
     return (state: { items: KeepItem<TMeta>[] }) => {
       const next = queryKeepItems(state.items, queryOptions);
-      if (
-        previousResult &&
-        previousResult.totalCount === next.totalCount &&
-        sameItems(previousResult.items, next.items) &&
-        sameCounts(previousResult.tagCounts, next.tagCounts)
-      ) {
-        return previousResult;
-      }
+      if (previousResult && sameQueryResult(previousResult, next)) return previousResult;
       previousResult = next;
       return previousResult;
     };
   }, [queryOptions]);
-  const query = useKeepStoreSelector(store, selector);
+  const result = useKeepStoreSelector(store, selector);
   const tagsSelector = useMemo(() => {
     let previous: string[] | undefined;
     return (state: { items: KeepItem<TMeta>[] }) => {
       const next = [...new Set(state.items.flatMap((item) => item.tags ?? []))].sort();
-      if (previous?.length === next.length && previous.every((tag, index) => tag === next[index])) {
-        return previous;
-      }
+      if (previous?.length === next.length && previous.every((tag, index) => tag === next[index])) return previous;
       previous = next;
       return next;
     };
   }, []);
-  const items = query.items;
-  const totalCount = query.totalCount;
-  const tagCounts = query.tagCounts;
-  const tags = useKeepStoreSelector(store, tagsSelector);
   const isLoading = useKeepStoreSelector(
     store,
     useCallback((state) => state.isLoading, []),
@@ -128,20 +77,31 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     store,
     useCallback((state) => state.error, []),
   );
+  const allTags = useKeepStoreSelector(store, tagsSelector);
   const remove = useCallback((id: string) => actions.removeItem(id), [actions]);
   const removeBatch = useCallback((ids: string[]) => actions.removeItems(ids), [actions]);
   const updateTagsBatch = useCallback(
-    (ids: string[], tags?: string[]) => actions.updateTagsBatch(ids, tags),
+    (ids: string[], nextTags?: string[]) => actions.updateTagsBatch(ids, nextTags),
     [actions],
   );
-  const addTagsBatch = useCallback((ids: string[], tags: string[]) => actions.addTagsBatch(ids, tags), [actions]);
-  const removeTagsBatch = useCallback((ids: string[], tags: string[]) => actions.removeTagsBatch(ids, tags), [actions]);
+  const addTagsBatch = useCallback(
+    (ids: string[], nextTags: string[]) => actions.addTagsBatch(ids, nextTags),
+    [actions],
+  );
+  const removeTagsBatch = useCallback(
+    (ids: string[], nextTags: string[]) => actions.removeTagsBatch(ids, nextTags),
+    [actions],
+  );
 
   return {
-    items,
-    totalCount,
-    tags,
-    tagCounts,
+    items: result.items,
+    totalCount: result.totalCount,
+    tags: allTags,
+    tagCounts: result.tagCounts,
+    page: result.page,
+    pageCount: result.pageCount,
+    hasNextPage: result.hasNextPage,
+    hasPreviousPage: result.hasPreviousPage,
     isLoading,
     isHydrated,
     isMutating,
@@ -157,8 +117,17 @@ export function useKeepList<TMeta = Record<string, unknown>>(
   };
 }
 
-function sameItems<TMeta>(left: KeepItem<TMeta>[], right: KeepItem<TMeta>[]): boolean {
-  return left.length === right.length && left.every((item, index) => item === right[index]);
+function sameQueryResult<TMeta>(left: QueryKeepItemsResult<TMeta>, right: QueryKeepItemsResult<TMeta>): boolean {
+  return (
+    left.totalCount === right.totalCount &&
+    left.page === right.page &&
+    left.pageCount === right.pageCount &&
+    left.hasNextPage === right.hasNextPage &&
+    left.hasPreviousPage === right.hasPreviousPage &&
+    left.items.length === right.items.length &&
+    left.items.every((item, index) => item === right.items[index]) &&
+    sameCounts(left.tagCounts, right.tagCounts)
+  );
 }
 
 function sameCounts(left: Record<string, number>, right: Record<string, number>): boolean {

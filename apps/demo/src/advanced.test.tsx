@@ -189,8 +189,7 @@ test("supports shortcut actions, modifiers, enablement, editable targets, and tr
     useKeepShortcut({
       key: "s",
       modifier: "ctrl",
-      id: "shortcut",
-      itemPayload: { meta: { title: "Shortcut" } },
+      item: { id: "shortcut", meta: { title: "Shortcut" } },
       action: "save",
       onError,
     });
@@ -222,7 +221,7 @@ test("supports shortcut actions, modifiers, enablement, editable targets, and tr
 test("allows shortcuts in editable controls and supports remove action", async () => {
   const testStorage = createMemoryStorage([item]);
   function Probe() {
-    useKeepShortcut({ key: "r", id: item.id, action: "remove", allowInEditable: true });
+    useKeepShortcut({ key: "r", item, action: "remove", allowInEditable: true });
     return <input aria-label="editor" />;
   }
   render(

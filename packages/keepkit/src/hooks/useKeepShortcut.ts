@@ -7,8 +7,7 @@ export type KeepShortcutModifier = "meta" | "ctrl" | "alt" | "shift";
 export type KeepShortcutOptions<TMeta = Record<string, unknown>> = {
   key: string;
   modifier?: KeepShortcutModifier;
-  id?: string;
-  itemPayload?: KeepItemInput<TMeta>;
+  item?: KeepItemInput<TMeta>;
   action?: "toggle" | "save" | "remove";
   enabled?: boolean;
   preventDefault?: boolean;
@@ -19,7 +18,7 @@ export type KeepShortcutOptions<TMeta = Record<string, unknown>> = {
 
 /** Bind a keyboard shortcut to a Keep action or an arbitrary command. */
 export function useKeepShortcut<TMeta = Record<string, unknown>>(options: KeepShortcutOptions<TMeta>): void {
-  const item = useKeepItem(options.id ?? "", options.itemPayload);
+  const item = useKeepItem(options.item);
   const {
     action = "toggle",
     allowInEditable = false,
@@ -39,7 +38,7 @@ export function useKeepShortcut<TMeta = Record<string, unknown>>(options: KeepSh
       if (preventDefault) event.preventDefault();
       const run = onTrigger
         ? onTrigger(event)
-        : options.id
+        : options.item
           ? action === "save"
             ? item.save()
             : action === "remove"
@@ -61,7 +60,7 @@ export function useKeepShortcut<TMeta = Record<string, unknown>>(options: KeepSh
     modifier,
     onError,
     onTrigger,
-    options.id,
+    options.item,
     preventDefault,
   ]);
 }

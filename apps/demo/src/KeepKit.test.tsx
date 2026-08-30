@@ -2,7 +2,7 @@ import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
 import {
   createKeepKit,
   KeepButton,
-  type KeepListOptions,
+  type KeepListQuery,
   KeepProvider,
   useKeepContext,
   useKeepItem,
@@ -96,7 +96,7 @@ function createMemoryStorage(initialItems: KeepItem<Meta>[] = [], withBatch = tr
 
 function ActionProbe() {
   const context = useKeepContext<Meta>();
-  const item = useKeepItem<Meta>("a");
+  const item = useKeepItem<Meta>(itemA);
   const list = useKeepList<Meta>();
   return (
     <>
@@ -202,8 +202,8 @@ test("runs Provider actions, callbacks, plugins, and batch storage paths", async
   );
 });
 
-function ListProbe({ options }: { options: KeepListOptions<Meta> }) {
-  const list = useKeepList<Meta>(options);
+function ListProbe({ query }: { query: KeepListQuery<Meta> }) {
+  const list = useKeepList<Meta>(query);
   return (
     <>
       <output data-testid="list-ids">{list.items.map((item) => item.id).join(",")}</output>
@@ -229,14 +229,13 @@ test("filters, searches, sorts, paginates, and exposes list actions", async () =
     targetType: "article",
     tags: ["read"],
     sort: { by: "savedAt", direction: "asc" as const },
-    searchQuery: " ALPHA ",
-    limit: 1,
-    offset: 0,
+    search: { query: " ALPHA " },
+    pagination: { page: 1, pageSize: 1 },
     filter: (item: KeepItem<Meta>) => item.meta.kind === "guide",
-  } satisfies KeepListOptions<Meta>;
+  } satisfies KeepListQuery<Meta>;
   const view = render(
     <KeepProvider<Meta> storage={testStorage.storage}>
-      <ListProbe options={options} />
+      <ListProbe query={options} />
     </KeepProvider>,
   );
   await waitFor(() => expect(screen.getByTestId("list-hydrated")).toHaveTextContent("true"));
@@ -246,19 +245,11 @@ test("filters, searches, sorts, paginates, and exposes list actions", async () =
 
   view.rerender(
     <KeepProvider<Meta> storage={testStorage.storage}>
-      <ListProbe
-        options={{
-          tag: "work",
-          sortBy: "updatedAt",
-          order: "asc",
-          offset: -1,
-          limit: -1,
-        }}
-      />
+      <ListProbe query={{ tags: ["work"], sort: { by: "updatedAt", direction: "asc" } }} />
     </KeepProvider>,
   );
   await waitFor(() => expect(screen.getByTestId("list-total")).toHaveTextContent("2"));
-  expect(screen.getByTestId("list-ids")).toHaveTextContent("");
+  expect(screen.getByTestId("list-ids")).toHaveTextContent("a");
 
   fireEvent.click(screen.getByRole("button", { name: "list-remove" }));
   await waitFor(() => expect(testStorage.getItems().map((item) => item.id)).toEqual(["a", "c"]));
@@ -344,16 +335,9 @@ test("covers useKeepItem errors and KeepButton behavior", async () => {
     },
   } satisfies StorageAdapter<Meta>;
   function MissingPayloadProbe() {
-    const item = useKeepItem<Meta>("missing");
-    async function saveWithoutPayload() {
-      try {
-        await item.save();
-      } catch (error) {
-        document.body.dataset.error = (error as Error).message;
-      }
-    }
+    const item = useKeepItem<Meta>({ id: "missing", meta: { title: "Missing" } });
     return (
-      <button onClick={() => void saveWithoutPayload()} type="button">
+      <button onClick={() => void item.save()} type="button">
         missing-save
       </button>
     );
@@ -363,9 +347,6 @@ test("covers useKeepItem errors and KeepButton behavior", async () => {
       <MissingPayloadProbe />
     </KeepProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: "missing-save" }));
-  await waitFor(() => expect(document.body.dataset.error).toContain("itemPayload is required"));
-
   const onToggleError = vi.fn();
   const onClick = vi.fn();
   render(
@@ -400,8 +381,10 @@ test("covers useKeepItem errors and KeepButton behavior", async () => {
 
 test("supports createKeepKit wrappers and asChild", async () => {
   const kit = createKeepKit<Meta>({ schemaVersion: 3 });
-  const { KeepProvider: KitProvider, KeepButton: KitButton, useKeepList: useKitList } = kit;
+  const { Provider: KitProvider, Button: KitButton, useList: useKitList } = kit;
   const testStorage = createMemoryStorage();
+  const configuredKit = createKeepKit<Meta>({ schemaVersion: 3, storage: testStorage.storage });
+  const { Provider: ConfiguredProvider, Button: ConfiguredButton, useList: useConfiguredList } = configuredKit;
   function KitProbe() {
     const list = useKitList();
     return <output data-testid="kit-items">{list.items.map((item) => item.id).join(",")}</output>;
@@ -421,6 +404,19 @@ test("supports createKeepKit wrappers and asChild", async () => {
   await waitFor(() => expect(screen.getByTestId("kit-items")).toHaveTextContent("kit-item"));
   expect(testStorage.getItems()[0]?.schemaVersion).toBe(3);
   expect(link).toHaveAttribute("aria-pressed", "true");
+
+  function ConfiguredProbe() {
+    const list = useConfiguredList();
+    return <output data-testid="configured-items">{list.items.length}</output>;
+  }
+  render(
+    <ConfiguredProvider>
+      <ConfiguredButton item={{ id: "configured", meta: { title: "Configured" } }} />
+      <ConfiguredProbe />
+    </ConfiguredProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+  await waitFor(() => expect(screen.getByTestId("configured-items")).toHaveTextContent("1"));
 });
 
 test("throws when hooks are used outside a provider", () => {

@@ -1,33 +1,88 @@
 # KeepKit migration guide
 
-This guide is maintained alongside [`RELEASE_NOTES.md`](./RELEASE_NOTES.md). The revalidation, label, and UI APIs are included in `0.3.0`. KeepKit does not use a root export; each public surface is imported from its explicit subpath.
-
 ## 日本語
 
-### 0.2.x から更新する場合
+v0.5.0はv0.4.xからの破壊的変更を含みます。通常のReactアプリケーションは`@keepkit/ui`を標準入口にしてください。
 
-1. `@keepkit/core` からのimportを、`@keepkit/core/core`、`@keepkit/core/react`、`@keepkit/core/storage`、`@keepkit/core/schema` のいずれかへ移します。
-2. `KeepItem` のカスタムメタデータ再取得を行う場合は、`useKeepItem(id).refreshMetadata(async (item) => meta)` または `KeepProvider` の `refreshItemMetadata` を使います。`isKeepItemMetadataStale(item, maxAgeMs)` で再取得対象を選べます。成功時に `metaUpdatedAt` と `updatedAt` が更新され、`savedAt` は変わりません。
-3. 保存対象の存在確認は `revalidateItems` / `revalidateKeepItems` に切り替えます。`deleted`、`private`、`expired`、`unknown` を返せます。初期状態では検出だけなので、整理する場合だけ `removeStatuses` を指定します。
-4. `KeepButton` を翻訳する場合は `savedAriaLabel` と `unsavedAriaLabel` を指定します。複雑な文言は `getAriaLabel` で状態を受け取って生成できます。明示した `aria-label` がある場合はそちらが優先されます。
+### import
 
-### 破壊的変更の確認
+```tsx
+// v0.4
+import { KeepButton, KeepProvider } from "@keepkit/core/react";
+import { LocalStorageAdapter } from "@keepkit/core/storage";
 
-- `@keepkit/core` のルートimportはサポートされません。
-- `queryKeepItems` と `getTagCounts` は `@keepkit/core/core` からimportします。
-- `KeepItem` の既存フィールドは維持され、`metaUpdatedAt` は任意フィールドです。
+// v0.5
+import { createBrowserStorageAdapter, createKeepKit } from "@keepkit/ui";
+```
+
+`@keepkit/core`のadvanced APIを直接使う場合は、これまでどおり`@keepkit/core/core`、`@keepkit/core/react`、`@keepkit/core/storage`、`@keepkit/core/schema`を利用します。
+
+### factory
+
+```tsx
+// v0.4
+const kit = createKeepKit<ArticleMeta>();
+const { KeepProvider, KeepButton, useKeepList } = kit;
+
+// v0.5
+const kit = createKeepKit<ArticleMeta>({ storage });
+const { Provider, Button, Collection, useList } = kit;
+```
+
+### item hook
+
+```tsx
+// v0.4
+useKeepItem(id, { meta, targetType });
+
+// v0.5
+useKeepItem({ id, meta, targetType });
+```
+
+`KeepItemInput`には`id`が必須です。`savedAt`と`updatedAt`は渡さず、KeepKitに生成させます。
+
+### list query
+
+`KeepListOptions`は`KeepListQuery`に変わりました。`tag`、`searchQuery`、`sortBy`、`order`、`limit`、`offset`、`filterFn`は廃止されています。
+
+```tsx
+useKeepList({
+  targetType: "article",
+  tags: ["read"],
+  search: { query: "react", mode: "and" },
+  sort: { by: "updatedAt", direction: "desc" },
+  pagination: { page: 1, pageSize: 20 },
+  filter: (item) => item.meta.visible === true,
+});
+```
+
+UIの`KeepList`、`KeepTagFilter`、`KeepBulkActions`の`options` / `listOptions`も`query`へ変わりました。複数部品の状態管理が不要な場合は`KeepCollection`を利用してください。
+
+### shortcut
+
+```tsx
+useKeepShortcut({
+  key: "k",
+  modifier: "meta",
+  item: { id, targetType: "article", meta },
+});
+```
+
+### Provider
+
+`KeepUiProvider`と`KeepProvider`は、通常は`KeepKitProvider`またはfactoryの`Provider`に置き換えます。同期adapterの構成は引き続き`StorageAdapter` / `RemoteSyncDriver`の境界で行います。
 
 ## English
 
-### Upgrading from 0.2.x
+v0.5.0 includes breaking changes from v0.4.x. Standard React applications should use `@keepkit/ui` as the default entry point.
 
-1. Move imports from `@keepkit/core` to one of the explicit subpaths: `@keepkit/core/core`, `@keepkit/core/react`, `@keepkit/core/storage`, or `@keepkit/core/schema`.
-2. Refresh custom metadata with `useKeepItem(id).refreshMetadata(async (item) => meta)` or `KeepProvider.refreshItemMetadata`. Use `isKeepItemMetadataStale(item, maxAgeMs)` to select stale records. A successful refresh updates `metaUpdatedAt` and `updatedAt` while preserving `savedAt`.
-3. Use `revalidateItems` / `revalidateKeepItems` to check whether saved targets still exist. A checker can return `deleted`, `private`, `expired`, or `unknown`. Detection is non-destructive by default; pass `removeStatuses` when cleanup is intended.
-4. Localize `KeepButton` with `savedAriaLabel` and `unsavedAriaLabel`, or generate labels with `getAriaLabel`. An explicit `aria-label` still takes precedence.
+- `createKeepKit` now returns `Provider`, `Button`, `Collection`, `useContext`, `useItem`, `useList`, and `useShortcut`.
+- `useKeepItem(id, payload)` is now `useKeepItem({ id, ...payload })`.
+- `useKeepShortcut({ id, itemPayload })` is now `useKeepShortcut({ item })`.
+- `KeepListOptions` is now `KeepListQuery`.
+- Legacy query fields `tag`, `searchQuery`, `sortBy`, `order`, `limit`, `offset`, and `filterFn` were removed.
+- UI `options` and `listOptions` props are now `query`.
+- `KeepCollection` combines search, sorting, pagination, status feedback, and optional tag/bulk controls.
+- `KeepItemInput` no longer contains persistence timestamps; KeepKit generates them.
 
-### Breaking-change checklist
-
-- The `@keepkit/core` root import is not supported.
-- Import `queryKeepItems` and `getTagCounts` from `@keepkit/core/core`.
-- Existing `KeepItem` fields remain compatible; `metaUpdatedAt` is optional.
+For low-level usage, continue to import framework-neutral APIs from `@keepkit/core/core`, React bindings from `@keepkit/core/react`, storage adapters from `@keepkit/core/storage`, and schemas from `@keepkit/core/schema`.

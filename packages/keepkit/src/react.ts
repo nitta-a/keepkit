@@ -13,7 +13,7 @@ export type { KeepButtonItem, KeepButtonProps, KeepButtonState } from "./KeepBut
 export { KeepButton } from "./KeepButton";
 export type { KeepContextValue, KeepProviderProps } from "./KeepProvider";
 export { KeepProvider, useKeepContext, useKeepStore } from "./KeepProvider";
-export type { KeepListOptions } from "./query";
+export type { KeepListQuery } from "./query";
 export type {
   KeepItemMetadataRefresher,
   KeepItemRevalidationResult,

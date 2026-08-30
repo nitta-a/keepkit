@@ -1,8 +1,11 @@
-import type { KeepItem, KeepListOptions, StorageAdapter } from "@keepkit/core/core";
+import type { KeepItem, KeepListQuery, StorageAdapter } from "@keepkit/core/core";
 import {
+  createKeepKit,
   KeepAnnouncements,
   KeepBulkActions,
+  KeepCollection,
   KeepEmptyState,
+  KeepKitProvider,
   KeepList,
   KeepNoteEditor,
   KeepPagination,
@@ -69,20 +72,20 @@ test("supports shared labels, search, sort, pagination, tag editing, bulk action
   const storage = createStorage([item, second]);
   function Controls() {
     const [query, setQuery] = useState("");
-    const [sort, setSort] = useState<KeepListOptions<Meta>["sort"]>();
-    const [offset, setOffset] = useState(0);
+    const [sort, setSort] = useState<KeepListQuery<Meta>["sort"]>();
+    const [page, setPage] = useState(1);
     return (
       <>
         <KeepSearchInput value={query} onValueChange={setQuery} />
         <KeepSortSelect onValueChange={(_value, nextSort) => setSort(nextSort)} />
         <KeepList<Meta>
-          options={{ searchQuery: query, sort, limit: 1, offset }}
+          query={{ search: { query }, sort, pagination: { page, pageSize: 1 } }}
           renderItem={(entry) => <p key={entry.id}>{entry.meta.title}</p>}
         />
-        <KeepPagination totalCount={2} pageSize={1} onPageChange={(_page, nextOffset) => setOffset(nextOffset)} />
+        <KeepPagination totalCount={2} pageSize={1} page={page} onPageChange={setPage} />
         <KeepNoteEditor item={item} />
         <KeepTagEditor item={item} />
-        <KeepBulkActions listOptions={{ limit: 2 }} />
+        <KeepBulkActions query={{ pagination: { page: 1, pageSize: 2 } }} />
         <KeepAnnouncements />
       </>
     );
@@ -134,6 +137,33 @@ test("supports tag counts and controlled selection", async () => {
   fireEvent.click(work);
   expect(onChange).toHaveBeenCalledWith("work");
   expect(work).toHaveAttribute("aria-pressed", "true");
+});
+
+test("provides a combined provider and collection workflow", async () => {
+  render(
+    <KeepKitProvider<Meta> storage={createStorage([item])}>
+      <KeepCollection<Meta>
+        query={{ targetType: "article", pagination: { pageSize: 10 } }}
+        renderItem={(entry) => <p key={entry.id}>{entry.meta.title}</p>}
+      />
+    </KeepKitProvider>,
+  );
+
+  expect(await screen.findByText("UI item")).toBeVisible();
+  expect(screen.getByRole("searchbox", { name: "Search saved items" })).toBeVisible();
+  expect(screen.getByRole("navigation", { name: "Pagination" })).toBeVisible();
+});
+
+test("creates one typed UI kit with configured storage", async () => {
+  const keep = createKeepKit<Meta>({ storage: createStorage([item]), labels: { search: "Find saved items" } });
+  render(
+    <keep.Provider>
+      <keep.Collection query={{ targetType: "article" }} />
+    </keep.Provider>,
+  );
+
+  expect(await screen.findByRole("searchbox", { name: "Find saved items" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "UI item" })).toBeVisible();
 });
 
 test("saves notes and exposes render-prop status state", async () => {

@@ -13,7 +13,14 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
   metaUpdatedAt?: number;
 };
 
-export type KeepItemInput<TMeta = Record<string, unknown>> = Omit<KeepItem<TMeta>, "id" | "savedAt" | "updatedAt">;
+/** The minimal item description accepted by save controls and hooks. */
+export type KeepItemInput<TMeta = Record<string, unknown>> = {
+  id: string;
+  meta: TMeta;
+  targetType?: string;
+  note?: string;
+  tags?: string[];
+};
 
 export interface StorageAdapter<TMeta = Record<string, unknown>> {
   getAll(): Promise<KeepItem<TMeta>[]>;

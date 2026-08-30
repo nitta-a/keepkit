@@ -1,6 +1,5 @@
 import type { KeepItem } from "@keepkit/core/core";
-import { KeepButton, useKeepList } from "@keepkit/core/react";
-import { type KeepImageProps, KeepItemCard, KeepList } from "@keepkit/ui";
+import { KeepButton, type KeepImageProps, KeepItemCard, KeepList, useKeepList } from "@keepkit/ui";
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import Image from "next/image";
 import { getSession } from "../lib/auth";
@@ -35,7 +34,7 @@ export default function Home({ keepItems }: InferGetServerSidePropsType<typeof g
         Saved locally: {items.length}. Sync: {syncState.status}
       </p>
       <KeepList<ArticleMeta>
-        options={{ targetType: "article" }}
+        query={{ targetType: "article" }}
         renderItem={(entry) => (
           <KeepItemCard
             item={entry}

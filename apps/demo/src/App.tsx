@@ -1,5 +1,5 @@
 import type { KeepItem } from "@keepkit/core/core";
-import { KeepButton, useKeepContext, useKeepItem, useKeepList, useKeepShortcut } from "@keepkit/core/react";
+import { KeepButton, useKeepContext, useKeepItem, useKeepList, useKeepShortcut } from "@keepkit/ui";
 import { useEffect, useState } from "react";
 import type { DemoMeta } from "./main";
 
@@ -87,8 +87,8 @@ export function App() {
   useKeepShortcut({
     key: "k",
     modifier: "meta",
-    id: content[0].id,
-    itemPayload: {
+    item: {
+      id: content[0].id,
       targetType: content[0].targetType,
       meta: content[0].meta,
       tags: ["shortcut"],
@@ -214,7 +214,7 @@ export function App() {
 }
 
 function SavedRow({ item }: SavedRowProps) {
-  const { updateNote, remove } = useKeepItem<DemoMeta>(item.id);
+  const { updateNote, remove } = useKeepItem<DemoMeta>(item);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.note ?? "");
 

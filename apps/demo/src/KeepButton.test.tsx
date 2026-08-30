@@ -66,8 +66,7 @@ test("binds a shortcut and ignores editable controls", async () => {
     useKeepShortcut({
       key: "k",
       modifier: "meta",
-      id: "shortcut-item",
-      itemPayload: { targetType: "article", meta: { title: "Shortcut item" } },
+      item: { id: "shortcut-item", targetType: "article", meta: { title: "Shortcut item" } },
     });
     return <input aria-label="Editor" />;
   }

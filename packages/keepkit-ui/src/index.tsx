@@ -1,11 +1,16 @@
 "use client";
 
-import type { KeepChangeContext, KeepItem, KeepItemInput, KeepListOptions, KeepSyncStatus } from "@keepkit/core/core";
+import type { KeepChangeContext, KeepItem, KeepItemInput, KeepListQuery, KeepSyncStatus } from "@keepkit/core/core";
 import type { UseKeepListResult } from "@keepkit/core/react";
 import {
+  type CreateKeepKitOptions as CoreCreateKeepKitOptions,
   KeepButton as CoreKeepButton,
   type KeepButtonProps as CoreKeepButtonProps,
+  KeepProvider as CoreKeepProvider,
+  createKeepKit as createCoreKeepKit,
   type KeepButtonState,
+  type KeepProviderProps,
+  type KeepShortcutOptions,
   useKeepContext,
   useKeepItem,
   useKeepList,
@@ -121,6 +126,26 @@ export function KeepUiProvider({ labels, locale, labelResolver, children }: Keep
   return <KeepUiLabelsContext.Provider value={value}>{children}</KeepUiLabelsContext.Provider>;
 }
 
+export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children"> &
+  Omit<KeepUiProviderProps, "children"> & {
+    children?: ReactNode;
+  };
+
+/** Combines the core store and UI labels into the default application provider. */
+export function KeepKitProvider<TMeta = Record<string, unknown>>({
+  labels,
+  locale,
+  labelResolver,
+  children,
+  ...providerProps
+}: KeepKitProviderProps<TMeta>) {
+  return (
+    <KeepUiProvider labels={labels} locale={locale} labelResolver={labelResolver}>
+      <CoreKeepProvider<TMeta> {...providerProps}>{children}</CoreKeepProvider>
+    </KeepUiProvider>
+  );
+}
+
 export function useKeepUiLabels(): KeepUiLabelContext {
   return useContext(KeepUiLabelsContext);
 }
@@ -131,8 +156,68 @@ function useUiLabel(key: KeepUiLabelKey, override?: string): string {
 }
 
 export type { KeepContextValue, KeepProviderProps } from "@keepkit/core/react";
-export { KeepProvider, useKeepContext, useKeepItem, useKeepList } from "@keepkit/core/react";
-export type { KeepItem, KeepItemInput, KeepListOptions, KeepSyncStatus };
+export { KeepProvider, useKeepContext, useKeepItem, useKeepList, useKeepShortcut } from "@keepkit/core/react";
+export {
+  createBrowserStorageAdapter,
+  createStorageAdapter,
+  FallbackStorageAdapter,
+  IndexedDBAdapter,
+  IndexedDBSyncQueueAdapter,
+  LocalStorageAdapter,
+  LocalStorageSyncQueueAdapter,
+  SyncStorageAdapter,
+} from "@keepkit/core/storage";
+export type { KeepItem, KeepItemInput, KeepListQuery, KeepShortcutOptions, KeepSyncStatus };
+
+export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = CoreCreateKeepKitOptions<TMeta> &
+  Omit<KeepUiProviderProps, "children"> & {
+    getTitle?: (item: KeepItem<TMeta>) => ReactNode;
+    getImageProps?: (item: KeepItem<TMeta>, title: ReactNode) => KeepImageProps | undefined;
+  };
+
+export type KeepKit<TMeta = Record<string, unknown>> = {
+  Provider: ComponentType<KeepKitProviderProps<TMeta>>;
+  Button: ComponentType<KeepButtonProps<TMeta>>;
+  Collection: ComponentType<KeepCollectionProps<TMeta>>;
+  useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
+  useItem: (item?: KeepItemInput<TMeta>) => ReturnType<typeof useKeepItem<TMeta>>;
+  useList: (query?: KeepListQuery<TMeta>) => UseKeepListResult<TMeta>;
+  useShortcut: (options: KeepShortcutOptions<TMeta>) => void;
+};
+
+/** Create one typed application API for the core and the standard UI layer. */
+export function createKeepKit<TMeta = Record<string, unknown>>(
+  options: CreateKeepKitOptions<TMeta> = {},
+): KeepKit<TMeta> {
+  const { labels, locale, labelResolver, getTitle, getImageProps, ...coreOptions } = options;
+  const coreKit = createCoreKeepKit<TMeta>(coreOptions);
+  return {
+    Provider: (props) => (
+      <KeepKitProvider<TMeta>
+        {...coreOptions}
+        labels={labels}
+        locale={locale}
+        labelResolver={labelResolver}
+        {...props}
+      />
+    ),
+    Button: (props) => <KeepButton<TMeta> {...props} />,
+    Collection: (props) => (
+      <KeepCollection<TMeta>
+        {...props}
+        itemCardProps={{
+          ...(getTitle ? { getTitle } : {}),
+          ...(getImageProps ? { getImageProps } : {}),
+          ...props.itemCardProps,
+        }}
+      />
+    ),
+    useContext: () => coreKit.useContext(),
+    useItem: (item) => coreKit.useItem(item),
+    useList: (query) => coreKit.useList(query),
+    useShortcut: (shortcutOptions) => coreKit.useShortcut(shortcutOptions),
+  };
+}
 
 export type RenderProp<TState> = (state: TState) => ReactNode;
 
@@ -155,12 +240,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({ labels, ...props }
   const savedLabel = useUiLabel("saved", typeof labels?.saved === "string" ? labels.saved : undefined);
   const loadingLabel = useUiLabel("loading", typeof labels?.loading === "string" ? labels.loading : undefined);
   const errorLabel = useUiLabel("error", typeof labels?.error === "string" ? labels.error : undefined);
-  const buttonState = useKeepItem<TMeta>(props.item.id, {
-    meta: props.item.meta,
-    targetType: props.item.targetType,
-    note: props.item.note,
-    tags: props.item.tags,
-  });
+  const buttonState = useKeepItem<TMeta>(props.item);
   const customStateLabel = labels?.loading !== undefined || labels?.error !== undefined;
   const getStateContent = (state: KeepButtonState<TMeta>): ReactNode => {
     if (state.error) return labels?.error ?? errorLabel;
@@ -173,8 +253,8 @@ export function KeepButton<TMeta = Record<string, unknown>>({ labels, ...props }
     const sharedProps = {
       ...props,
       "aria-busy": props["aria-busy"] ?? (buttonState.isLoading || buttonState.isMutating),
-      savedLabel: labels?.saved ?? savedLabel,
-      unsavedLabel: labels?.unsaved ?? saveLabel,
+      savedLabel: labels?.saved ?? props.savedLabel ?? savedLabel,
+      unsavedLabel: labels?.unsaved ?? props.unsavedLabel ?? saveLabel,
       savedAriaLabel: labels?.savedAriaLabel ?? props.savedAriaLabel,
       unsavedAriaLabel: labels?.unsavedAriaLabel ?? props.unsavedAriaLabel,
     };
@@ -188,8 +268,8 @@ export function KeepButton<TMeta = Record<string, unknown>>({ labels, ...props }
   const sharedProps = {
     ...props,
     "aria-busy": props["aria-busy"] ?? (buttonState.isLoading || buttonState.isMutating),
-    savedLabel: labels?.saved ?? savedLabel,
-    unsavedLabel: labels?.unsaved ?? saveLabel,
+    savedLabel: labels?.saved ?? props.savedLabel ?? savedLabel,
+    unsavedLabel: labels?.unsaved ?? props.unsavedLabel ?? saveLabel,
     savedAriaLabel: labels?.savedAriaLabel ?? props.savedAriaLabel,
     unsavedAriaLabel: labels?.unsavedAriaLabel ?? props.unsavedAriaLabel,
   };
@@ -217,6 +297,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
 > & {
   item: KeepItem<TMeta>;
   title?: ReactNode | ((item: KeepItem<TMeta>) => ReactNode);
+  getTitle?: (item: KeepItem<TMeta>) => ReactNode;
   getImageProps?: (item: KeepItem<TMeta>, title: ReactNode) => KeepImageProps | undefined;
   imageComponent?: ComponentType<KeepImageProps>;
   renderImage?: (props: KeepImageProps, item: KeepItem<TMeta>) => ReactNode;
@@ -235,6 +316,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
 export function KeepItemCard<TMeta = Record<string, unknown>>({
   item,
   title,
+  getTitle,
   getImageProps,
   imageComponent: ImageComponent,
   renderImage,
@@ -252,7 +334,7 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
 }: KeepItemCardProps<TMeta>) {
   const saveActionLabel = useUiLabel("save");
   const removeActionLabel = useUiLabel("remove");
-  const itemState = useKeepItem<TMeta>(item.id);
+  const itemState = useKeepItem<TMeta>(item);
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
   const state: KeepItemCardState<TMeta> = {
     item,
@@ -261,7 +343,8 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
     error: itemState.error,
     remove: itemState.remove,
   };
-  const resolvedTitle = typeof title === "function" ? title(item) : (title ?? getMetaTitle(item.meta) ?? item.id);
+  const resolvedTitle =
+    typeof title === "function" ? title(item) : (title ?? getTitle?.(item) ?? getMetaTitle(item.meta) ?? item.id);
   const imageProps = getImageProps?.(item, resolvedTitle);
 
   async function handleRemove() {
@@ -315,7 +398,7 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
 export type KeepListState<TMeta = Record<string, unknown>> = UseKeepListResult<TMeta>;
 
 export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
-  options?: KeepListOptions<TMeta>;
+  query?: KeepListQuery<TMeta>;
   children?: ReactNode | RenderProp<KeepListState<TMeta>>;
   renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
   loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
@@ -327,7 +410,7 @@ export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes
 
 /** A list primitive with built-in loading, empty, error, and removal states. */
 export function KeepList<TMeta = Record<string, unknown>>({
-  options,
+  query,
   children,
   renderItem,
   loading,
@@ -341,7 +424,7 @@ export function KeepList<TMeta = Record<string, unknown>>({
   const defaultLoading = useUiLabel("loadingItems");
   const defaultEmpty = useUiLabel("noItems");
   const defaultError = useUiLabel("errorItems");
-  const state = useKeepList<TMeta>(options);
+  const state = useKeepList<TMeta>(query);
   const body = getListBody(state, {
     children,
     renderItem,
@@ -388,6 +471,98 @@ function getListBody<TMeta>(
   return <ul>{items}</ul>;
 }
 
+export type KeepCollectionFeature = "search" | "sort" | "pagination" | "tagFilter" | "bulkActions";
+
+export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
+  query?: KeepListQuery<TMeta>;
+  pageSize?: number;
+  features?: Partial<Record<KeepCollectionFeature, boolean>>;
+  renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
+  itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
+  loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  empty?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  error?: ReactNode | RenderProp<KeepListState<TMeta>>;
+};
+
+/** A batteries-included collection with query controls and accessible status feedback. */
+export function KeepCollection<TMeta = Record<string, unknown>>({
+  query = {},
+  pageSize = 20,
+  features,
+  renderItem,
+  itemCardProps,
+  loading,
+  empty,
+  error,
+  className,
+  ...rootProps
+}: KeepCollectionProps<TMeta>) {
+  const enabled = {
+    search: true,
+    sort: true,
+    pagination: true,
+    tagFilter: false,
+    bulkActions: false,
+    ...features,
+  };
+  const [searchValue, setSearchValue] = useState(query.search?.query ?? "");
+  const [sort, setSort] = useState(query.sort ?? { by: "updatedAt" as const, direction: "desc" as const });
+  const [tag, setTag] = useState<string | undefined>(query.tags?.[0]);
+  const [page, setPage] = useState(query.pagination?.page ?? 1);
+  const resolvedPageSize = query.pagination?.pageSize ?? pageSize;
+  const resolvedQuery = useMemo<KeepListQuery<TMeta>>(
+    () => ({
+      ...query,
+      search: enabled.search ? { ...query.search, query: searchValue } : query.search,
+      sort: enabled.sort ? sort : query.sort,
+      tags: tag ? [...new Set([...(query.tags ?? []), tag])] : query.tags,
+      pagination: enabled.pagination ? { ...query.pagination, page, pageSize: resolvedPageSize } : query.pagination,
+    }),
+    [enabled.pagination, enabled.search, enabled.sort, page, query, resolvedPageSize, searchValue, sort, tag],
+  );
+  const list = useKeepList<TMeta>(resolvedQuery);
+
+  useEffect(() => {
+    if (searchValue !== undefined || sort.by !== undefined || sort.direction !== undefined || tag !== undefined) {
+      setPage(1);
+    }
+  }, [searchValue, sort.by, sort.direction, tag]);
+
+  return (
+    <section
+      {...rootProps}
+      className={className}
+      aria-busy={list.isLoading || list.isMutating || rootProps["aria-busy"]}
+    >
+      <div>
+        {enabled.search ? <KeepSearchInput value={searchValue} onValueChange={setSearchValue} /> : null}
+        {enabled.sort ? (
+          <KeepSortSelect value={sortToValue(sort)} onValueChange={(_value, nextSort) => setSort(nextSort)} />
+        ) : null}
+        {enabled.tagFilter ? <KeepTagFilter<TMeta> query={query} value={tag} onValueChange={setTag} /> : null}
+      </div>
+      <KeepList<TMeta>
+        query={resolvedQuery}
+        renderItem={renderItem}
+        itemCardProps={itemCardProps}
+        loading={loading}
+        empty={empty}
+        error={error}
+      />
+      {enabled.pagination ? (
+        <KeepPagination
+          totalCount={list.totalCount}
+          pageSize={resolvedPageSize}
+          page={list.page}
+          onPageChange={(_nextPage, nextPageOffset) => setPage(Math.floor(nextPageOffset / resolvedPageSize) + 1)}
+        />
+      ) : null}
+      {enabled.bulkActions ? <KeepBulkActions<TMeta> query={resolvedQuery} /> : null}
+      <KeepAnnouncements />
+    </section>
+  );
+}
+
 export type KeepTagFilterState = {
   tags: string[];
   tagCounts: Record<string, number>;
@@ -399,7 +574,7 @@ export type KeepTagFilterProps<TMeta = Record<string, unknown>> = Omit<
   HTMLAttributes<HTMLElement>,
   "children" | "onChange"
 > & {
-  listOptions?: KeepListOptions<TMeta>;
+  query?: KeepListQuery<TMeta>;
   value?: string;
   defaultValue?: string;
   onChange?: (tag?: string) => void;
@@ -412,9 +587,9 @@ export type KeepTagFilterProps<TMeta = Record<string, unknown>> = Omit<
   asChild?: boolean;
 };
 
-/** An ARIA button group for tag filtering; consumers can connect value to KeepList options. */
+/** An ARIA button group for tag filtering; consumers can connect value to a collection query. */
 export function KeepTagFilter<TMeta = Record<string, unknown>>({
-  listOptions,
+  query,
   value: controlledValue,
   defaultValue,
   onChange,
@@ -432,10 +607,10 @@ export function KeepTagFilter<TMeta = Record<string, unknown>>({
   const uiAriaLabel = useUiLabel("filterTags");
   const defaultAllLabel = allLabel ?? uiAllLabel;
   const defaultAriaLabel = ariaLabel ?? uiAriaLabel;
-  const list = useKeepList<TMeta>(listOptions);
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
   const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue);
   const value = controlledValue ?? uncontrolledValue;
+  const list = useKeepList<TMeta>({ ...query, tags: value ? [...(query?.tags ?? []), value] : query?.tags });
   const select = useCallback(
     (tag?: string) => {
       if (controlledValue === undefined) setUncontrolledValue(tag);
@@ -516,7 +691,7 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
 }: KeepNoteEditorProps<TMeta>) {
   const defaultLabel = useUiLabel("note");
   const defaultSaveLabel = useUiLabel("saveNote");
-  const itemState = useKeepItem<TMeta>(item.id);
+  const itemState = useKeepItem<TMeta>(item);
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
   const [note, setNote] = useState(item.note ?? "");
   useEffect(() => setNote(itemState.item?.note ?? item.note ?? ""), [item.note, itemState.item?.note]);
@@ -593,7 +768,7 @@ export type KeepSearchInputProps = Omit<
   onValueChange?: (value: string) => void;
 };
 
-/** A controlled/uncontrolled search field for wiring into useKeepList.searchQuery. */
+/** A controlled/uncontrolled search field for wiring into KeepListQuery.search. */
 export function KeepSearchInput({
   value: controlledValue,
   defaultValue = "",
@@ -629,7 +804,7 @@ export type KeepSortSelectProps = Omit<
 > & {
   value?: KeepSortValue;
   defaultValue?: KeepSortValue;
-  onValueChange?: (value: KeepSortValue, sort: NonNullable<KeepListOptions["sort"]>) => void;
+  onValueChange?: (value: KeepSortValue, sort: NonNullable<KeepListQuery["sort"]>) => void;
 };
 
 /** Emits a normalized sort descriptor that can be passed directly to useKeepList. */
@@ -743,7 +918,7 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
   const tagsLabel = useUiLabel("tagsToApply");
   const removeLabel = useUiLabel("remove");
   const applyTagsLabel = useUiLabel("applyTags");
-  const itemState = useKeepItem<TMeta>(item.id);
+  const itemState = useKeepItem<TMeta>(item);
   const [tags, setTags] = useState(item.tags ?? []);
   const [input, setInput] = useState("");
   useEffect(() => setTags(itemState.item?.tags ?? item.tags ?? []), [item.tags, itemState.item?.tags]);
@@ -818,7 +993,7 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
 }
 
 export type KeepBulkActionsProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
-  listOptions?: KeepListOptions<TMeta>;
+  query?: KeepListQuery<TMeta>;
   selectedIds?: string[];
   defaultSelectedIds?: string[];
   onSelectedIdsChange?: (ids: string[]) => void;
@@ -828,7 +1003,7 @@ export type KeepBulkActionsProps<TMeta = Record<string, unknown>> = Omit<HTMLAtt
 
 /** Selects visible items and performs one storage operation for the whole selection. */
 export function KeepBulkActions<TMeta = Record<string, unknown>>({
-  listOptions,
+  query,
   selectedIds: controlledSelectedIds,
   defaultSelectedIds = [],
   onSelectedIdsChange,
@@ -841,7 +1016,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   const deleteSelectedLabel = useUiLabel("deleteSelected");
   const tagsLabel = useUiLabel("tagsToApply");
   const applyTagsLabel = useUiLabel("applyTags");
-  const list = useKeepList<TMeta>(listOptions);
+  const list = useKeepList<TMeta>(query);
   const [uncontrolledSelectedIds, setUncontrolledSelectedIds] = useState(defaultSelectedIds);
   const selectedIds = controlledSelectedIds ?? uncontrolledSelectedIds;
   const selected = new Set(selectedIds);
@@ -1027,7 +1202,7 @@ function resolveContent<TState>(content: ReactNode | RenderProp<TState>, state: 
   return typeof content === "function" ? content(state) : content;
 }
 
-function toKeepButtonItem<TMeta>(item: KeepItem<TMeta>): KeepItemInput<TMeta> & { id: string } {
+function toKeepButtonItem<TMeta>(item: KeepItem<TMeta>): KeepItemInput<TMeta> {
   return {
     id: item.id,
     meta: item.meta,
@@ -1045,6 +1220,10 @@ function getMetaTitle<TMeta>(meta: TMeta): string | undefined {
 
 function normalizeUiTags(tags: string[]): string[] {
   return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
+}
+
+function sortToValue(sort: KeepListQuery["sort"]): KeepSortValue {
+  return `${sort?.by ?? "updatedAt"}:${sort?.direction ?? "desc"}` as KeepSortValue;
 }
 
 function renderRoot(

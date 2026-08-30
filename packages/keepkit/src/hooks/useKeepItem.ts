@@ -18,11 +18,10 @@ export type UseKeepItemResult<TMeta = Record<string, unknown>> = {
   refreshMetadata: (refresh: KeepItemMetadataRefresher<TMeta>) => Promise<void>;
 };
 
-export function useKeepItem<TMeta = Record<string, unknown>>(
-  id: string,
-  itemPayload?: KeepItemInput<TMeta>,
-): UseKeepItemResult<TMeta> {
+/** Read and mutate one saved item from its complete minimal input description. */
+export function useKeepItem<TMeta = Record<string, unknown>>(input?: KeepItemInput<TMeta>): UseKeepItemResult<TMeta> {
   const { store, actions } = useKeepStore<TMeta>();
+  const id = input?.id ?? "";
   const item = useKeepStoreSelector(
     store,
     useCallback((state) => state.items.find((current) => current.id === id), [id]),
@@ -41,17 +40,14 @@ export function useKeepItem<TMeta = Record<string, unknown>>(
   );
 
   const save = useCallback(async () => {
-    if (!itemPayload) {
-      throw new Error(`An itemPayload is required to save item "${id}".`);
-    }
+    if (!input) throw new Error("An item input is required to save an item.");
     const now = Date.now();
     await actions.saveItem({
-      id,
-      ...itemPayload,
+      ...input,
       savedAt: item?.savedAt ?? now,
       updatedAt: now,
     });
-  }, [actions, id, item?.savedAt, itemPayload]);
+  }, [actions, input, item?.savedAt]);
 
   const remove = useCallback(() => actions.removeItem(id), [actions, id]);
   const toggle = useCallback(() => (item ? remove() : save()), [item, remove, save]);

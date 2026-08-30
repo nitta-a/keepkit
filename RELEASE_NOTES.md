@@ -1,5 +1,43 @@
 # Release notes
 
+## [0.5.0] - 2026-08-31
+
+### 日本語
+
+#### 破壊的変更
+
+- `KeepItemInput`を`id`付きの最小入力に統一し、`savedAt` / `updatedAt`はKeepKitが生成するようにしました。
+- `useKeepItem(id, payload)`を`useKeepItem(item)`へ変更しました。
+- `useKeepShortcut({ id, itemPayload })`を`useKeepShortcut({ item })`へ変更しました。
+- `KeepListOptions`を`KeepListQuery`へ変更し、`search`、`sort`、`pagination`に一覧条件を統一しました。
+- UIコンポーネントの`options` / `listOptions`を`query`へ変更しました。
+- `createKeepKit`の戻り値を`Provider`、`Button`、`Collection`、`useContext`、`useItem`、`useList`、`useShortcut`へ整理しました。
+
+#### 追加・改善
+
+- `KeepKitProvider`を追加し、coreの状態管理とUIラベル設定を一つのProviderに統合しました。
+- `KeepCollection`を追加し、検索、ソート、ページング、状態表示、ARIA通知を標準化しました。
+- `@keepkit/ui`から主要なstorage adapterを利用できるようにし、通常のReactアプリでは依存パッケージを一つに集約しました。
+- `useKeepList`と`queryKeepItems`がページ情報、次ページ有無、前ページ有無を返すようにしました。
+
+### English
+
+#### Breaking changes
+
+- Simplified `KeepItemInput` to an ID-based minimal input; KeepKit now owns persistence timestamps.
+- Replaced `useKeepItem(id, payload)` with `useKeepItem(item)`.
+- Replaced `useKeepShortcut({ id, itemPayload })` with `useKeepShortcut({ item })`.
+- Replaced `KeepListOptions` with `KeepListQuery`, consolidating conditions under `search`, `sort`, and `pagination`.
+- Renamed UI `options` / `listOptions` props to `query`.
+- `createKeepKit` now returns `Provider`, `Button`, `Collection`, `useContext`, `useItem`, `useList`, and `useShortcut`.
+
+#### Added and changed
+
+- Added `KeepKitProvider` to combine core state and UI labels.
+- Added `KeepCollection` with built-in search, sorting, pagination, status states, and live announcements.
+- Re-exported the primary storage adapters from `@keepkit/ui` for a shorter standard React setup.
+- Added page metadata and navigation flags to `useKeepList` and `queryKeepItems`.
+
 ## [0.4.0] - 2026-08-31
 
 ### 日本語

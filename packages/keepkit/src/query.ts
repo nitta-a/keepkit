@@ -1,26 +1,23 @@
 import type { KeepItem } from "./types";
 
-export type KeepListOptions<TMeta = Record<string, unknown>> = {
+export type KeepListQuery<TMeta = Record<string, unknown>> = {
   targetType?: string;
-  tag?: string;
   tags?: string[];
   sort?: {
     by: "savedAt" | "updatedAt";
     direction?: "asc" | "desc";
   };
-  searchQuery?: string;
   search?: {
-    query: string;
+    query?: string;
     mode?: "and" | "or";
     tokenize?: boolean;
     fields?: Array<"note" | "meta" | "tags">;
   };
-  sortBy?: "savedAt" | "updatedAt";
-  order?: "asc" | "desc";
-  limit?: number;
-  offset?: number;
+  pagination?: {
+    page?: number;
+    pageSize?: number;
+  };
   filter?: (item: KeepItem<TMeta>) => boolean;
-  filterFn?: (item: KeepItem<TMeta>) => boolean;
   savedBetween?: readonly [Date | number, Date | number];
 };
 
@@ -28,37 +25,49 @@ export type QueryKeepItemsResult<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
   totalCount: number;
   tagCounts: Record<string, number>;
+  page: number;
+  pageCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 };
 
-/** Apply the same filtering and pagination rules as useKeepList without React. */
+/** Apply the collection query and one-based pagination without React. */
 export function queryKeepItems<TMeta = Record<string, unknown>>(
   source: KeepItem<TMeta>[],
-  options: KeepListOptions<TMeta> = {},
+  query: KeepListQuery<TMeta> = {},
 ): QueryKeepItemsResult<TMeta> {
   const filtered = source.filter((item) => {
-    const [from, to] = options.savedBetween ?? [];
+    const [from, to] = query.savedBetween ?? [];
     const savedAt = item.savedAt;
     const lowerBound = from === undefined ? undefined : toTimestamp(from);
     const upperBound = to === undefined ? undefined : toTimestamp(to);
     return (
-      (options.targetType === undefined || item.targetType === options.targetType) &&
-      (options.tag === undefined || item.tags?.includes(options.tag) === true) &&
-      (options.tags === undefined || options.tags.every((tag) => item.tags?.includes(tag))) &&
+      (query.targetType === undefined || item.targetType === query.targetType) &&
+      (query.tags === undefined || query.tags.every((tag) => item.tags?.includes(tag))) &&
       (lowerBound === undefined || savedAt >= lowerBound) &&
       (upperBound === undefined || savedAt <= upperBound) &&
-      matchesSearch(item, options.searchQuery, options.search) &&
-      (options.filter?.(item) ?? true) &&
-      (options.filterFn?.(item) ?? true)
+      matchesSearch(item, query.search) &&
+      (query.filter?.(item) ?? true)
     );
   });
   const tagCounts = getTagCounts(filtered);
-  const sortBy = options.sortBy ?? options.sort?.by;
-  const direction = (options.order ?? options.sort?.direction) === "asc" ? 1 : -1;
+  const sortBy = query.sort?.by;
+  const direction = query.sort?.direction === "asc" ? 1 : -1;
   const sorted = sortBy ? [...filtered].sort((a, b) => (a[sortBy] - b[sortBy]) * direction) : filtered;
-  const offset = Math.max(0, options.offset ?? 0);
-  const items =
-    options.limit === undefined ? sorted.slice(offset) : sorted.slice(offset, offset + Math.max(0, options.limit));
-  return { items, totalCount: sorted.length, tagCounts };
+  const pageSize = Math.max(1, query.pagination?.pageSize ?? (sorted.length || 1));
+  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const page = Math.min(Math.max(1, query.pagination?.page ?? 1), pageCount);
+  const offset = (page - 1) * pageSize;
+
+  return {
+    items: sorted.slice(offset, offset + pageSize),
+    totalCount: sorted.length,
+    tagCounts,
+    page,
+    pageCount,
+    hasNextPage: page < pageCount,
+    hasPreviousPage: page > 1,
+  };
 }
 
 export function getTagCounts<TMeta = Record<string, unknown>>(items: KeepItem<TMeta>[]): Record<string, number> {
@@ -69,12 +78,8 @@ export function getTagCounts<TMeta = Record<string, unknown>>(items: KeepItem<TM
   return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)));
 }
 
-function matchesSearch<TMeta>(
-  item: KeepItem<TMeta>,
-  searchQuery?: string,
-  search?: KeepListOptions<TMeta>["search"],
-): boolean {
-  const query = search?.query ?? searchQuery;
+function matchesSearch<TMeta>(item: KeepItem<TMeta>, search?: KeepListQuery<TMeta>["search"]): boolean {
+  const query = search?.query;
   if (!query?.trim()) return true;
   const fields = search?.fields ?? ["note", "meta", "tags"];
   const values = fields.map((field) => {
@@ -87,11 +92,10 @@ function matchesSearch<TMeta>(
     }
   });
   const text = values.join(" ").toLocaleLowerCase();
-  if (!search) return text.includes(query.trim().toLocaleLowerCase());
   const normalized = query.trim().toLocaleLowerCase();
-  const needles = search.tokenize === false ? [normalized] : normalized.split(/\s+/).filter(Boolean);
+  const needles = search?.tokenize === false ? [normalized] : normalized.split(/\s+/).filter(Boolean);
   const matches = needles.map((needle) => text.includes(needle));
-  return search.mode === "or" ? matches.some(Boolean) : matches.every(Boolean);
+  return search?.mode === "or" ? matches.some(Boolean) : matches.every(Boolean);
 }
 
 function toTimestamp(value: Date | number): number {

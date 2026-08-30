@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  createKeepKit,
   KeepAnnouncements,
   KeepBulkActions,
   KeepButton,
+  KeepCollection,
   KeepEmptyState,
   KeepItemCard,
+  KeepKitProvider,
   KeepList,
   KeepNoteEditor,
   KeepPagination,
@@ -32,4 +35,7 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepStatus, "function");
   assert.equal(typeof KeepTagEditor, "function");
   assert.equal(typeof KeepUiProvider, "function");
+  assert.equal(typeof KeepKitProvider, "function");
+  assert.equal(typeof KeepCollection, "function");
+  assert.equal(typeof createKeepKit, "function");
 });

@@ -1,6 +1,6 @@
 import type { RemoteSyncDriver } from "@keepkit/core/core";
-import { KeepProvider } from "@keepkit/core/react";
 import { createBrowserStorageAdapter, SyncStorageAdapter } from "@keepkit/core/storage";
+import { KeepKitProvider } from "@keepkit/ui";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -40,8 +40,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <KeepProvider<DemoMeta> storage={storage}>
+    <KeepKitProvider<DemoMeta> storage={storage}>
       <App />
-    </KeepProvider>
+    </KeepKitProvider>
   </StrictMode>,
 );

@@ -457,11 +457,11 @@ test("supports every list filter, search field, sorting, and pagination boundary
     { ...itemA, id: "c", savedAt: 30, updatedAt: 10, targetType: "video", note: "Third note", tags: ["three"] },
   ];
   assert.deepEqual(
-    queryKeepItems(items, { targetType: "article", tag: "shared", tags: ["one"] }).items.map((item) => item.id),
+    queryKeepItems(items, { targetType: "article", tags: ["shared", "one"] }).items.map((item) => item.id),
     ["a"],
   );
   assert.deepEqual(
-    queryKeepItems(items, { filterFn: (item) => item.id !== "b" }).items.map((item) => item.id),
+    queryKeepItems(items, { filter: (item) => item.id !== "b" }).items.map((item) => item.id),
     ["a", "c"],
   );
   assert.deepEqual(
@@ -481,16 +481,17 @@ test("supports every list filter, search field, sorting, and pagination boundary
     ["a"],
   );
   assert.deepEqual(
-    queryKeepItems(items, { sort: { by: "updatedAt", direction: "desc" }, offset: 1, limit: 1 }).items.map(
-      (item) => item.id,
-    ),
+    queryKeepItems(items, {
+      sort: { by: "updatedAt", direction: "desc" },
+      pagination: { page: 2, pageSize: 1 },
+    }).items.map((item) => item.id),
     ["b"],
   );
   assert.deepEqual(
     queryKeepItems(items, { savedBetween: [11, 29] }).items.map((item) => item.id),
     ["b"],
   );
-  assert.deepEqual(queryKeepItems(items, { limit: 0 }).items, []);
+  assert.deepEqual(queryKeepItems(items, { pagination: { pageSize: 1, page: 1 } }).items.length, 1);
 });
 
 test("parses metadata with parse, safeParse, and Standard Schema contracts", async () => {

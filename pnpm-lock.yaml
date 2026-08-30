@@ -74,10 +74,11 @@ importers:
         version: 6.0.3
 
   packages/keepkit-ui:
-    devDependencies:
+    dependencies:
       '@keepkit/core':
-        specifier: workspace:*
+        specifier: ^0.5.0
         version: link:../keepkit
+    devDependencies:
       '@types/react':
         specifier: ^19.2.18
         version: 19.2.18

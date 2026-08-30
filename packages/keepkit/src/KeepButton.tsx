@@ -12,9 +12,7 @@ import {
 import { useKeepItem } from "./hooks/useKeepItem";
 import type { KeepItemInput } from "./types";
 
-export type KeepButtonItem<TMeta = Record<string, unknown>> = KeepItemInput<TMeta> & {
-  id: string;
-};
+export type KeepButtonItem<TMeta = Record<string, unknown>> = KeepItemInput<TMeta>;
 
 type KeepButtonSharedProps<TMeta> = {
   item: KeepButtonItem<TMeta>;
@@ -69,12 +67,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   disabled,
   ...buttonProps
 }: KeepButtonProps<TMeta>) {
-  const state = useKeepItem(item.id, {
-    meta: item.meta,
-    targetType: item.targetType,
-    note: item.note,
-    tags: item.tags,
-  });
+  const state = useKeepItem(item);
   const { isSaved, toggle } = state;
   const isDisabled = disabled ?? state.isMutating;
 
