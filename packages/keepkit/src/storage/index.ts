@@ -361,6 +361,7 @@ function isKeepItemArray(value: unknown): value is KeepItem[] {
         (item.note === undefined || typeof item.note === "string") &&
         (item.schemaVersion === undefined ||
           (typeof item.schemaVersion === "number" && Number.isFinite(item.schemaVersion))) &&
+        (item.revision === undefined || typeof item.revision === "string") &&
         (item.tags === undefined ||
           (Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string"))),
     )
@@ -410,3 +411,15 @@ function isQuotaExceededError(cause: unknown): boolean {
     cause.code === 1014
   );
 }
+
+export {
+  DEFAULT_SYNC_QUEUE_DATABASE,
+  DEFAULT_SYNC_QUEUE_KEY,
+  DEFAULT_SYNC_QUEUE_STORE,
+  IndexedDBSyncQueueAdapter,
+  type IndexedDBSyncQueueOptions,
+  LocalStorageSyncQueueAdapter,
+  type LocalStorageSyncQueueOptions,
+  SyncStorageAdapter,
+  type SyncStorageAdapterOptions,
+} from "./sync";

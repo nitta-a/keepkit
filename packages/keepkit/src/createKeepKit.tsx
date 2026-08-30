@@ -3,11 +3,14 @@ import { type UseKeepItemResult, useKeepItem } from "./hooks/useKeepItem";
 import { type KeepListOptions, type UseKeepListResult, useKeepList } from "./hooks/useKeepList";
 import { KeepButton, type KeepButtonProps } from "./KeepButton";
 import { KeepProvider, type KeepProviderProps, useKeepContext } from "./KeepProvider";
-import type { KeepItemInput, KeepPlugin } from "./types";
+import type { KeepInvalidItemPolicy, KeepItemInput, KeepPlugin, KeepSchema } from "./types";
 
 export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = {
   plugins?: KeepPlugin<TMeta>[];
   schemaVersion?: number;
+  schema?: KeepSchema<TMeta>;
+  invalidItemPolicy?: KeepInvalidItemPolicy;
+  onInvalidItem?: KeepProviderProps<TMeta>["onInvalidItem"];
   migrateMeta?: KeepProviderProps<TMeta>["migrateMeta"];
 };
 

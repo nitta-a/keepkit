@@ -1,5 +1,6 @@
 import { mergeKeepItems } from "./migration";
-import type { KeepItem, StorageAdapter } from "./types";
+import { validateKeepItem } from "./schema";
+import type { KeepInvalidItemPolicy, KeepItem, KeepSchema, StorageAdapter } from "./types";
 
 export const KEEP_BACKUP_FORMAT = "keepkit";
 export const KEEP_BACKUP_VERSION = 1;
@@ -11,8 +12,11 @@ export type KeepBackup<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
 };
 
-export type ImportItemsOptions = {
+export type ImportItemsOptions<TMeta = unknown> = {
   mode?: "replace" | "merge";
+  schema?: KeepSchema<TMeta>;
+  invalidItemPolicy?: KeepInvalidItemPolicy;
+  onInvalidItem?: (error: unknown, item: KeepItem<unknown>) => void;
 };
 
 export type ImportItemsResult<TMeta = Record<string, unknown>> = {
@@ -72,20 +76,38 @@ export async function exportItems<TMeta>(adapter: StorageAdapter<TMeta>): Promis
 export async function importItems<TMeta>(
   adapter: StorageAdapter<TMeta>,
   data: string | KeepBackup<TMeta>,
-  options: ImportItemsOptions = {},
+  options: ImportItemsOptions<TMeta> = {},
 ): Promise<ImportItemsResult<TMeta>> {
   const backup = parseBackup<TMeta>(data);
   const mode = options.mode ?? "merge";
+  const validItems: KeepItem<TMeta>[] = [];
+  let failed = 0;
+  for (const item of backup.items) {
+    if (!options.schema) {
+      validItems.push(item);
+      continue;
+    }
+    try {
+      validItems.push(await validateKeepItem(item, options.schema));
+    } catch (cause) {
+      options.onInvalidItem?.(cause, item);
+      if ((options.invalidItemPolicy ?? "error") === "drop") {
+        failed += 1;
+        continue;
+      }
+      throw cause;
+    }
+  }
   let items: KeepItem<TMeta>[];
 
   if (mode === "merge") {
     try {
-      items = await mergeKeepItems(backup.items, adapter);
+      items = await mergeKeepItems(validItems, adapter);
     } catch (cause) {
       throw new KeepBackupImportError("KeepKit could not merge the backup.", {
         mode,
         imported: 0,
-        failed: backup.items.length,
+        failed: validItems.length + failed,
         cause,
       });
     }
@@ -93,7 +115,7 @@ export async function importItems<TMeta>(
     let imported = 0;
     try {
       await adapter.clear();
-      for (const item of backup.items) {
+      for (const item of validItems) {
         await adapter.set(item);
         imported += 1;
       }
@@ -102,13 +124,13 @@ export async function importItems<TMeta>(
       throw new KeepBackupImportError("KeepKit could not replace the stored items.", {
         mode,
         imported,
-        failed: backup.items.length - imported,
+        failed: validItems.length + failed - imported,
         cause,
       });
     }
   }
 
-  return { mode, imported: backup.items.length, failed: 0, total: items.length, items };
+  return { mode, imported: validItems.length, failed, total: items.length, items };
 }
 
 function parseBackup<TMeta>(data: string | KeepBackup<TMeta>): KeepBackup<TMeta> {
@@ -147,6 +169,7 @@ function isKeepItem(value: unknown): value is KeepItem {
     (value.note === undefined || typeof value.note === "string") &&
     (value.schemaVersion === undefined ||
       (typeof value.schemaVersion === "number" && Number.isFinite(value.schemaVersion))) &&
+    (value.revision === undefined || typeof value.revision === "string") &&
     (value.tags === undefined ||
       (Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === "string")))
   );

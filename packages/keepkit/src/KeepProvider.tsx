@@ -8,16 +8,22 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { parseKeepMeta } from "./schema";
 import { LocalStorageAdapter } from "./storage";
 import { KeepStore, type KeepStoreActions } from "./store";
 import type {
   KeepAction,
+  KeepChangeContext,
   KeepErrorContext,
   KeepErrorHandler,
   KeepEventHandlers,
+  KeepInvalidItemPolicy,
   KeepItem,
   KeepPlugin,
+  KeepSchema,
+  KeepSyncState,
   StorageAdapter,
+  SyncCapableStorageAdapter,
 } from "./types";
 import { normalizeKeepTags } from "./types";
 
@@ -27,6 +33,7 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   isHydrated: boolean;
   isMutating: boolean;
   error: unknown | null;
+  syncState: KeepSyncState;
   saveItem: (item: KeepItem<TMeta>) => Promise<void>;
   updateNote: (id: string, note?: string) => Promise<void>;
   updateTags: (id: string, tags?: string[]) => Promise<void>;
@@ -37,6 +44,7 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   removeItems: (ids: string[]) => Promise<void>;
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
+  flushSync: () => Promise<void>;
 };
 
 export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildren<
@@ -44,6 +52,9 @@ export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildr
     storage?: StorageAdapter<TMeta>;
     plugins?: KeepPlugin<TMeta>[];
     schemaVersion?: number;
+    schema?: KeepSchema<TMeta>;
+    invalidItemPolicy?: KeepInvalidItemPolicy;
+    onInvalidItem?: (error: unknown, item: KeepItem<unknown>) => void;
     migrateMeta?: (
       meta: unknown,
       fromVersion: number,
@@ -80,9 +91,13 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   onRemove,
   onNoteUpdate,
   onTagsUpdate,
+  onChange,
   onError,
   plugins = [],
   schemaVersion,
+  schema,
+  invalidItemPolicy = "error",
+  onInvalidItem,
   migrateMeta,
   children,
 }: KeepProviderProps<TMeta>) {
@@ -102,13 +117,29 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   const itemsRef = useRef(items);
   const pluginsRef = useRef(plugins);
   pluginsRef.current = plugins;
-  const handlersRef = useRef({ onSave, onRemove, onNoteUpdate, onTagsUpdate, onError });
-  handlersRef.current = { onSave, onRemove, onNoteUpdate, onTagsUpdate, onError };
-  const migrationRef = useRef({ schemaVersion, migrateMeta });
-  migrationRef.current = { schemaVersion, migrateMeta };
+  const handlersRef = useRef({ onSave, onRemove, onNoteUpdate, onTagsUpdate, onChange, onError });
+  handlersRef.current = { onSave, onRemove, onNoteUpdate, onTagsUpdate, onChange, onError };
+  const migrationRef = useRef({
+    schemaVersion,
+    migrateMeta,
+    schema,
+    invalidItemPolicy,
+    onInvalidItem,
+  });
+  migrationRef.current = { schemaVersion, migrateMeta, schema, invalidItemPolicy, onInvalidItem };
   const operationTailRef = useRef<Promise<unknown>>(Promise.resolve());
   const pendingRefreshesRef = useRef(0);
   const pendingMutationsRef = useRef(0);
+  const syncStorage = isSyncCapableStorage(storage) ? storage : undefined;
+  const getSyncState = useCallback(
+    () => syncStorage?.getSyncState() ?? IDLE_SYNC_STATE,
+    [syncStorage],
+  );
+  const subscribeSync = useCallback(
+    (listener: () => void) => syncStorage?.subscribeSync(listener) ?? (() => undefined),
+    [syncStorage],
+  );
+  const syncState = useSyncExternalStore(subscribeSync, getSyncState, getSyncState);
 
   const reportError = useCallback(
     (cause: unknown, context: KeepErrorContext) => {
@@ -159,6 +190,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       await enqueueOperation(async () => {
         try {
           let next = await storage.getAll();
+          let needsMigrationPersist = false;
           if (migrationRef.current.schemaVersion !== undefined) {
             const migrated = await Promise.all(
               next.map(async (item) => {
@@ -176,10 +208,26 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
               }),
             );
             if (migrated.some((item, index) => item !== next[index])) {
-              if (storage.setMany) await storage.setMany(migrated);
-              else for (const item of migrated) await storage.set(item);
               next = migrated;
+              needsMigrationPersist = true;
             }
+          }
+          if (migrationRef.current.schema) {
+            const validated: KeepItem<TMeta>[] = [];
+            for (const item of next) {
+              try {
+                validated.push(await parseKeepMetaItem(item, migrationRef.current.schema));
+              } catch (cause) {
+                migrationRef.current.onInvalidItem?.(cause, item);
+                if (migrationRef.current.invalidItemPolicy === "drop") continue;
+                throw cause;
+              }
+            }
+            next = validated;
+          }
+          if (needsMigrationPersist) {
+            if (storage.setMany) await storage.setMany(next);
+            else for (const item of next) await storage.set(item);
           }
           setItems(next);
           store.setState({ error: null });
@@ -224,6 +272,12 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
           await plan.persist();
           plan.onSuccess?.();
           if (plan.pluginContext) await runAfterPlugins(plan.pluginContext);
+          if (plan.pluginContext) {
+            const change: KeepChangeContext<TMeta> = { ...plan.pluginContext, phase: "local" };
+            void Promise.resolve(handlersRef.current.onChange?.(change)).catch((cause) =>
+              reportError(cause, { action, id }),
+            );
+          }
         } catch (cause) {
           setItems(previous);
           reportError(cause, { action, id });
@@ -241,13 +295,23 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
 
   const saveItem = useCallback(
     async (item: KeepItem<TMeta>) => {
-      const normalizedItem = {
-        ...item,
-        tags: normalizeKeepTags(item.tags),
-        ...(migrationRef.current.schemaVersion === undefined
-          ? {}
-          : { schemaVersion: migrationRef.current.schemaVersion }),
-      };
+      let normalizedItem: KeepItem<TMeta>;
+      try {
+        const meta = migrationRef.current.schema
+          ? await parseKeepMeta(migrationRef.current.schema, item.meta)
+          : item.meta;
+        normalizedItem = {
+          ...item,
+          meta,
+          tags: normalizeKeepTags(item.tags),
+          ...(migrationRef.current.schemaVersion === undefined
+            ? {}
+            : { schemaVersion: migrationRef.current.schemaVersion }),
+        };
+      } catch (cause) {
+        reportError(cause, { action: "save", id: item.id });
+        throw cause;
+      }
       await runMutation("save", normalizedItem.id, (previous) => ({
         next: [
           ...previous.filter((current) => current.id !== normalizedItem.id),
@@ -258,7 +322,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
         pluginContext: { action: "save", id: normalizedItem.id, item: normalizedItem },
       }));
     },
-    [runMutation, storage],
+    [reportError, runMutation, storage],
   );
 
   const updateNote = useCallback(
@@ -438,6 +502,10 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       })),
     [runMutation, storage],
   );
+  const flushSync = useCallback(
+    () => (syncStorage ? syncStorage.flushSync() : Promise.resolve()),
+    [syncStorage],
+  );
 
   const value = useMemo<KeepContextValue<TMeta>>(
     () => ({
@@ -446,6 +514,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       isHydrated,
       isMutating,
       error,
+      syncState,
       saveItem,
       updateNote,
       updateTags,
@@ -456,14 +525,17 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       removeItems,
       clear,
       refresh,
+      flushSync,
     }),
     [
       clear,
       error,
+      flushSync,
       isHydrated,
       isLoading,
       isMutating,
       items,
+      syncState,
       refresh,
       removeItem,
       saveItem,
@@ -511,6 +583,32 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       </KeepContext.Provider>
     </KeepStoreContext.Provider>
   );
+}
+
+const IDLE_SYNC_STATE: KeepSyncState = Object.freeze({
+  status: "idle",
+  pendingCount: 0,
+  conflictIds: [],
+});
+
+function isSyncCapableStorage<TMeta>(
+  storage: StorageAdapter<TMeta>,
+): storage is SyncCapableStorageAdapter<TMeta> {
+  return (
+    "getSyncState" in storage &&
+    typeof storage.getSyncState === "function" &&
+    "subscribeSync" in storage &&
+    typeof storage.subscribeSync === "function" &&
+    "flushSync" in storage &&
+    typeof storage.flushSync === "function"
+  );
+}
+
+async function parseKeepMetaItem<TMeta>(
+  item: KeepItem<unknown>,
+  schema: KeepSchema<TMeta>,
+): Promise<KeepItem<TMeta>> {
+  return { ...item, meta: await parseKeepMeta(schema, item.meta) };
 }
 
 export function useKeepContext<TMeta = Record<string, unknown>>(): KeepContextValue<TMeta> {

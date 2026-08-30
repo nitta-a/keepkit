@@ -26,6 +26,29 @@ const storage = new LocalStorageAdapter({ key: "my-app:items" });
 
 `exportItems(adapter)` / `importItems(adapter, json, { mode: "replace" | "merge" })` でversion付きJSONバックアップを扱えます。結果には `imported` / `failed` 件数が含まれます。
 
+大規模アプリでは `SyncStorageAdapter` を使ってローカル保存とリモート同期を分離できます。`IndexedDBSyncQueueAdapter`（既定）または `LocalStorageSyncQueueAdapter` に操作を永続化し、オンライン復帰時に `flushSync()` で再送します。`KeepProvider` の `syncState` で `pending` / `syncing` / `conflict` / `error` を取得できます。
+
+```tsx
+const storage = new SyncStorageAdapter({
+  local: new IndexedDBAdapter({ databaseName: "my-app" }),
+  remote: {
+    push: (operation) => api.syncKeepOperation(operation),
+  },
+  resolveConflict: (local, remote) => ({
+    ...remote,
+    note: local?.note ?? remote.note,
+  }),
+});
+
+<KeepProvider
+  storage={storage}
+  schema={{ parse: (value) => validateMeta(value) }}
+  invalidItemPolicy="drop"
+/>;
+```
+
+`useKeepList` は `savedBetween`、`search: { query, mode: "and" | "or" }`、`filterFn`、`tagCounts` をサポートします。TanStack Query や SWR のキャッシュ連携には、依存関係を core に追加しない `createKeepInvalidationPlugin` を利用できます。
+
 詳細な使い方と開発コマンドは [ルートREADME](../../README.md) を、現在の変更内容は [リリースノート](../../RELEASE_NOTES.md) を参照してください。
 
 ## English
@@ -51,5 +74,9 @@ const storage = new LocalStorageAdapter({ key: "my-app:items" });
 Use `useKeepItem(id, payload)` for saving, toggling, removing, and updating notes or tags. Use `useKeepList()` to read, filter, sort, and perform bulk removal/tag updates. `KeepProvider` exposes `isHydrated`, `isMutating`, and typed storage errors. `LocalStorageAdapter` is safe to import in SSR environments; implement `StorageAdapter<TMeta>` or use `createStorageAdapter` to connect a server-backed store.
 
 Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "merge" })` for versioned JSON backups. Results include imported and failed counts.
+
+For larger applications, wrap a local adapter with `SyncStorageAdapter` to persist a durable offline queue and flush it with `flushSync()` when connectivity returns. Use `syncState` from `KeepProvider` for `pending`, `syncing`, `conflict`, and `error` feedback. `KeepProvider` also accepts a Zod-like `parse`, `safeParse`, or Standard Schema validator through `schema`; invalid stored records can be rejected or dropped with `invalidItemPolicy`.
+
+`useKeepList` supports `savedBetween`, tokenized `search` with `and` / `or` modes, `filterFn`, and `tagCounts`. Use `createKeepInvalidationPlugin` to connect TanStack Query, SWR, or another cache without adding framework dependencies to core.
 
 See the [root README](../../README.md) for detailed usage and development commands, and the [release notes](../../RELEASE_NOTES.md) for the current changes.

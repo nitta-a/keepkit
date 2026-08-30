@@ -7,6 +7,8 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
   note?: string;
   tags?: string[];
   schemaVersion?: number;
+  /** Optional server-provided revision used by synchronizing adapters. */
+  revision?: string;
 };
 
 export type KeepItemInput<TMeta = Record<string, unknown>> = Omit<
@@ -36,6 +38,16 @@ export type KeepAction =
   | "removeBatch"
   | "clear";
 
+export type KeepChangePhase = "local" | "synced";
+
+export type KeepChangeContext<TMeta = Record<string, unknown>> = {
+  action: KeepAction;
+  id?: string;
+  item?: KeepItem<TMeta>;
+  items?: KeepItem<TMeta>[];
+  phase: KeepChangePhase;
+};
+
 export type KeepPluginContext<TMeta = Record<string, unknown>> = {
   action: KeepAction;
   id?: string;
@@ -49,6 +61,79 @@ export type KeepPlugin<TMeta = Record<string, unknown>> = {
   after?: (context: KeepPluginContext<TMeta>) => void | Promise<void>;
   onError?: (error: unknown, context: KeepErrorContext) => void;
 };
+
+export type KeepSchemaParseResult<T> =
+  | { success: true; data: T }
+  | { success: false; error?: unknown };
+
+export type KeepSchema<T> =
+  | { parse: (value: unknown) => T | Promise<T> }
+  | { safeParse: (value: unknown) => KeepSchemaParseResult<T> | Promise<KeepSchemaParseResult<T>> }
+  | {
+      "~standard": {
+        validate: (
+          value: unknown,
+        ) =>
+          | { value?: T; issues?: readonly unknown[] }
+          | Promise<{ value?: T; issues?: readonly unknown[] }>;
+      };
+    };
+
+export type KeepInvalidItemPolicy = "error" | "drop";
+
+export type KeepSyncStatus = "idle" | "pending" | "syncing" | "synced" | "conflict" | "error";
+
+export type KeepSyncState = {
+  status: KeepSyncStatus;
+  pendingCount: number;
+  conflictIds: string[];
+  lastSyncedAt?: number;
+  error?: unknown;
+};
+
+export type SyncOperation<TMeta = Record<string, unknown>> = {
+  operationId: string;
+  type: "upsert" | "remove";
+  id: string;
+  item?: KeepItem<TMeta>;
+  createdAt: number;
+  baseRevision?: string;
+};
+
+export type RemoteSyncResult<TMeta = Record<string, unknown>> =
+  | { type: "synced"; item?: KeepItem<TMeta>; revision?: string }
+  | { type: "conflict"; remote: KeepItem<TMeta>; revision?: string };
+
+export type KeepConflictContext<TMeta = Record<string, unknown>> = {
+  operation: SyncOperation<TMeta>;
+  remoteRevision?: string;
+};
+
+export type KeepConflictResolver<TMeta = Record<string, unknown>> = (
+  local: KeepItem<TMeta> | undefined,
+  remote: KeepItem<TMeta>,
+  context: KeepConflictContext<TMeta>,
+) => KeepItem<TMeta> | undefined | Promise<KeepItem<TMeta> | undefined>;
+
+export interface RemoteSyncDriver<TMeta = Record<string, unknown>> {
+  push(operation: SyncOperation<TMeta>): Promise<RemoteSyncResult<TMeta>>;
+  pull?: () => Promise<KeepItem<TMeta>[]>;
+}
+
+export interface SyncQueueAdapter<TMeta = Record<string, unknown>> {
+  getAll(): Promise<SyncOperation<TMeta>[]>;
+  setMany(operations: SyncOperation<TMeta>[]): Promise<void>;
+  remove(operationIds: string[]): Promise<void>;
+  clear(): Promise<void>;
+}
+
+export interface SyncCapableStorageAdapter<TMeta = Record<string, unknown>>
+  extends StorageAdapter<TMeta> {
+  getSyncState(): KeepSyncState;
+  subscribeSync(listener: () => void): () => void;
+  flushSync(): Promise<void>;
+  dispose?(): void;
+}
 
 export type KeepStorageOperation = "getAll" | "set" | "remove" | "clear" | "merge";
 
@@ -106,6 +191,7 @@ export type KeepEventHandlers<TMeta = Record<string, unknown>> = {
   onRemove?: (item: KeepItem<TMeta>) => void;
   onNoteUpdate?: (id: string, note?: string) => void;
   onTagsUpdate?: (id: string, tags?: string[]) => void;
+  onChange?: (context: KeepChangeContext<TMeta>) => void | Promise<void>;
   onError?: KeepErrorHandler;
 };
 
