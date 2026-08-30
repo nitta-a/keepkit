@@ -34,7 +34,7 @@
     "clean": "rm -rf dist",
     "dev": "tsup --watch",
     "lint": "tsc --noEmit",
-    "test": "pnpm build && node --test test/*.test.mjs",
+    "test": "pnpm build && node --experimental-strip-types --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
