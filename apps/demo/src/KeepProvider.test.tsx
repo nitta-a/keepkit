@@ -137,3 +137,53 @@ test("renders an injected initial snapshot while storage hydrates", () => {
 
   expect(screen.getByTestId("items")).toHaveTextContent("a");
 });
+
+test("refreshes metadata and cleans up explicitly selected unavailable items", async () => {
+  const values = new Map<string, KeepItem<Meta>>([
+    ["a", itemA],
+    ["b", itemB],
+  ]);
+  const storage: StorageAdapter<Meta> = {
+    getAll: async () => [...values.values()],
+    set: async (item) => void values.set(item.id, item),
+    remove: async (id) => void values.delete(id),
+    clear: async () => void values.clear(),
+  };
+  function RevalidationProbe() {
+    const { items, refreshItemMetadata, revalidateItems } = useKeepContext<Meta>();
+    return (
+      <>
+        <output data-testid="revalidation-items">{items.map((item) => item.id).join(",")}</output>
+        <button onClick={() => void refreshItemMetadata("a", async () => ({ title: "A refreshed" }))} type="button">
+          refresh-metadata
+        </button>
+        <button
+          onClick={() =>
+            void revalidateItems(
+              async (item) => (item.id === "b" ? { status: "private", reason: "restricted" } : "available"),
+              { removeStatuses: ["private"] },
+            )
+          }
+          type="button"
+        >
+          revalidate
+        </button>
+      </>
+    );
+  }
+
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <RevalidationProbe />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId("revalidation-items")).toHaveTextContent("a,b"));
+  fireEvent.click(screen.getByRole("button", { name: "refresh-metadata" }));
+  await waitFor(() => expect(values.get("a")?.meta.title).toBe("A refreshed"));
+  expect(values.get("a")?.savedAt).toBe(1);
+  expect(values.get("a")?.metaUpdatedAt).toBeDefined();
+
+  fireEvent.click(screen.getByRole("button", { name: "revalidate" }));
+  await waitFor(() => expect(screen.getByTestId("revalidation-items")).toHaveTextContent("a"));
+  expect(values.has("b")).toBe(false);
+});

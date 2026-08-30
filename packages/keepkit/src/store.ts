@@ -1,3 +1,9 @@
+import type {
+  KeepItemMetadataRefresher,
+  KeepItemRevalidationSummary,
+  KeepItemRevalidator,
+  RevalidateKeepItemsOptions,
+} from "./revalidation";
 import type { KeepItem } from "./types";
 
 export type KeepStoreState<TMeta = Record<string, unknown>> = {
@@ -19,6 +25,11 @@ export type KeepStoreActions<TMeta = Record<string, unknown>> = {
   removeItems: (ids: string[]) => Promise<void>;
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
+  refreshItemMetadata: (id: string, refresh: KeepItemMetadataRefresher<TMeta>) => Promise<void>;
+  revalidateItems: (
+    revalidator: KeepItemRevalidator<TMeta>,
+    options?: RevalidateKeepItemsOptions,
+  ) => Promise<KeepItemRevalidationSummary<TMeta>>;
 };
 
 export class KeepStore<TMeta = Record<string, unknown>> {

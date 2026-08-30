@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useKeepStore } from "../KeepProvider";
 import { type KeepListOptions, type QueryKeepItemsResult, queryKeepItems } from "../query";
+import type { KeepItemRevalidationSummary, KeepItemRevalidator, RevalidateKeepItemsOptions } from "../revalidation";
 import type { KeepItem } from "../types";
 import { useKeepStoreSelector } from "./useKeepStoreSelector";
 
@@ -22,6 +23,10 @@ export type UseKeepListResult<TMeta = Record<string, unknown>> = {
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
+  revalidate: (
+    revalidator: KeepItemRevalidator<TMeta>,
+    options?: RevalidateKeepItemsOptions,
+  ) => Promise<KeepItemRevalidationSummary<TMeta>>;
 };
 
 export function useKeepList<TMeta = Record<string, unknown>>(
@@ -148,6 +153,7 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     removeTagsBatch,
     clear: actions.clear,
     refresh: actions.refresh,
+    revalidate: actions.revalidateItems,
   };
 }
 

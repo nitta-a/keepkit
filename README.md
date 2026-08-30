@@ -25,6 +25,7 @@ keepkitは、Reactアプリケーションに保存・コレクション機能�
 - `createBrowserStorageAdapter` の IndexedDB-first／localStorage fallback
 - `SyncStorageAdapter` の永続キュー自動再開とオンライン復帰同期
 - version付きJSONバックアップのエクスポート・インポート
+- `KeepButton` の多言語ARIAラベルと、保存アイテムのメタデータ再取得・状態検出
 
 ### インストール
 
@@ -142,6 +143,8 @@ import { KeepProvider } from "@keepkit/core/react";
 
 データ移行やバックアップには `exportItems(adapter)` と `importItems(adapter, json, { mode: "replace" | "merge" })` を利用できます。結果には `imported` / `failed` 件数が含まれます。
 
+`KeepButton` の標準ラベルは `savedAriaLabel` / `unsavedAriaLabel`、または `getAriaLabel` で翻訳できます。保存対象の再取得には `useKeepItem(id).refreshMetadata` と `isKeepItemMetadataStale`、削除・非公開・期限切れの検出と整理には `revalidateItems` を利用します。詳しい移行手順は [MIGRATION.md](./MIGRATION.md)、Next.js Pages Routerと認証付き同期の実装例は [公式サンプル](./examples/next-pages-router/README.md) を参照してください。
+
 ### 開発
 
 ```bash
@@ -185,6 +188,7 @@ This repository contains the publishable package in `packages/keepkit` and a rea
 - IndexedDB-first browser storage with localStorage fallback through `createBrowserStorageAdapter`
 - Durable sync queues that resume on startup and flush when connectivity returns
 - Versioned JSON backup export and import utilities
+- Localized `KeepButton` ARIA labels and saved-item metadata/status revalidation
 
 ### Installation
 
@@ -291,6 +295,8 @@ import { KeepProvider } from "@keepkit/core/react";
 ```
 
 Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "merge" })` for portable backups and migrations. Results include imported and failed counts.
+
+Use `savedAriaLabel` / `unsavedAriaLabel` or `getAriaLabel` to localize the default `KeepButton` label. Use `useKeepItem(id).refreshMetadata` and `isKeepItemMetadataStale` to fetch current metadata, and `revalidateItems` to detect or clean up deleted, private, or expired targets. See the [migration guide](./MIGRATION.md) and the [official Pages Router example](./examples/next-pages-router/README.md) for upgrade and authenticated-sync guidance.
 
 ### Development
 

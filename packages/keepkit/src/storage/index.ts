@@ -562,6 +562,8 @@ function isKeepItemArray(value: unknown): value is KeepItem[] {
         (item.schemaVersion === undefined ||
           (typeof item.schemaVersion === "number" && Number.isFinite(item.schemaVersion))) &&
         (item.revision === undefined || typeof item.revision === "string") &&
+        (item.metaUpdatedAt === undefined ||
+          (typeof item.metaUpdatedAt === "number" && Number.isFinite(item.metaUpdatedAt))) &&
         (item.tags === undefined || (Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string"))),
     )
   );

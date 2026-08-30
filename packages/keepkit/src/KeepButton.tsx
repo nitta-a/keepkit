@@ -21,6 +21,9 @@ type KeepButtonSharedProps<TMeta> = {
   children?: ReactNode | ((state: KeepButtonState<TMeta>) => ReactNode);
   savedLabel?: ReactNode;
   unsavedLabel?: ReactNode;
+  savedAriaLabel?: string;
+  unsavedAriaLabel?: string;
+  getAriaLabel?: (state: KeepButtonState<TMeta>) => string;
   disabled?: boolean;
   onToggleError?: (error: unknown) => void;
 };
@@ -57,6 +60,9 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   children,
   savedLabel = "Saved",
   unsavedLabel = "Save",
+  savedAriaLabel,
+  unsavedAriaLabel,
+  getAriaLabel,
   asChild = false,
   onToggleError,
   onClick,
@@ -120,6 +126,8 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     "aria-pressed": isSaved,
     "aria-label":
       ("aria-label" in buttonProps ? buttonProps["aria-label"] : undefined) ??
+      getAriaLabel?.(state) ??
+      (isSaved ? savedAriaLabel : unsavedAriaLabel) ??
       getAccessibleLabel(isSaved, item, asChild),
     ...(asChild
       ? {

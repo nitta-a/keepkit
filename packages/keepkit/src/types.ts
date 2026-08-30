@@ -9,6 +9,8 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
   schemaVersion?: number;
   /** Optional server-provided revision used by synchronizing adapters. */
   revision?: string;
+  /** Timestamp for the last successful refresh of source metadata. */
+  metaUpdatedAt?: number;
 };
 
 export type KeepItemInput<TMeta = Record<string, unknown>> = Omit<KeepItem<TMeta>, "id" | "savedAt" | "updatedAt">;
@@ -31,6 +33,7 @@ export type KeepAction =
   | "updateNote"
   | "updateTags"
   | "updateTagsBatch"
+  | "revalidate"
   | "remove"
   | "removeBatch"
   | "clear";

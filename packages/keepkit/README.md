@@ -27,6 +27,8 @@ const storage = new LocalStorageAdapter({ key: "my-app:items" });
 
 `exportItems(adapter)` / `importItems(adapter, json, { mode: "replace" | "merge" })` でversion付きJSONバックアップを扱えます。結果には `imported` / `failed` 件数が含まれます。
 
+`KeepButton` の標準ARIAラベルは `savedAriaLabel` / `unsavedAriaLabel` または `getAriaLabel` で多言語化できます。`useKeepItem(id).refreshMetadata` と `isKeepItemMetadataStale` はメタデータの再取得に使えます。`useKeepList().revalidate` または `useKeepContext().revalidateItems` は削除・非公開・期限切れの対象を検出します。検出した状態を整理する場合は `removeStatuses` を明示してください。
+
 大規模アプリでは `SyncStorageAdapter` を使ってローカル保存とリモート同期を分離できます。`IndexedDBSyncQueueAdapter`（既定）または `LocalStorageSyncQueueAdapter` に操作を永続化し、オンライン復帰時に `flushSync()` で再送します。`KeepProvider` の `syncState` で `pending` / `syncing` / `conflict` / `error` を取得できます。
 
 ```tsx
@@ -80,6 +82,8 @@ const storage = new LocalStorageAdapter({ key: "my-app:items" });
 Use `useKeepItem(id, payload)` for saving, toggling, removing, and updating notes or tags. Use `useKeepList()` to read, filter, sort, and perform bulk removal/tag updates. `KeepProvider` exposes `isHydrated`, `isMutating`, and typed storage errors. `LocalStorageAdapter` is safe to import in SSR environments; implement `StorageAdapter<TMeta>` or use `createStorageAdapter` to connect a server-backed store.
 
 Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "merge" })` for versioned JSON backups. Results include imported and failed counts.
+
+Localize the default `KeepButton` ARIA label with `savedAriaLabel` / `unsavedAriaLabel` or `getAriaLabel`. `useKeepItem(id).refreshMetadata` and `isKeepItemMetadataStale` fetch current metadata, while `useKeepList().revalidate` or `useKeepContext().revalidateItems` detects deleted, private, and expired targets. Pass `removeStatuses` explicitly when detected records should be cleaned up.
 
 For larger applications, wrap a local adapter with `SyncStorageAdapter` to persist a durable offline queue and flush it with `flushSync()` when connectivity returns. Use `syncState` from `KeepProvider` for `pending`, `syncing`, `conflict`, and `error` feedback. `KeepProvider` also accepts a Zod-like `parse`, `safeParse`, or Standard Schema validator through `schema`; invalid stored records can be rejected or dropped with `invalidItemPolicy`.
 

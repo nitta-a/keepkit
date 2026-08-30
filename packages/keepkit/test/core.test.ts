@@ -7,6 +7,7 @@ import {
   KeepStore as FrameworkNeutralKeepStore,
   getTagCounts,
   importItems,
+  isKeepItemMetadataStale,
   KeepBackupImportError,
   KeepBackupParseError,
   KeepSchemaValidationError,
@@ -21,6 +22,8 @@ import {
   normalizeKeepTags,
   parseKeepMeta,
   queryKeepItems,
+  reconcileKeepItems,
+  revalidateKeepItems,
   SyncStorageAdapter,
 } from "../dist/core.js";
 
@@ -48,6 +51,67 @@ test("publishes framework-neutral primitives through the core entry point", () =
     error: null,
   });
   assert.deepEqual(store.getSnapshot().items, [itemA]);
+});
+
+test("refreshes metadata and detects or removes unavailable items", async () => {
+  const source = [
+    { ...itemA, metaUpdatedAt: 10 },
+    { ...itemB, metaUpdatedAt: 10 },
+    { id: "c", savedAt: 30, updatedAt: 30, meta: { title: "C" } },
+  ];
+  const summary = await revalidateKeepItems(
+    source,
+    async (item) => {
+      if (item.id === "a") return { status: "available", meta: { title: "A refreshed" } };
+      if (item.id === "b") return { status: "private", reason: "account-only" };
+      return "expired";
+    },
+    { removeStatuses: ["expired"], now: () => 100 },
+  );
+
+  assert.equal(summary.checked, 3);
+  assert.equal(summary.updated, 1);
+  assert.equal(summary.removed, 1);
+  assert.deepEqual(summary.items, [
+    { ...itemA, meta: { title: "A refreshed" }, metaUpdatedAt: 100, updatedAt: 100 },
+    { ...itemB, metaUpdatedAt: 10 },
+  ]);
+  assert.deepEqual(summary.removedIds, ["c"]);
+  assert.deepEqual(
+    summary.results.map(({ item, status, updated }) => ({ id: item.id, status, updated })),
+    [
+      { id: "a", status: "available", updated: true },
+      { id: "b", status: "private", updated: false },
+      { id: "c", status: "expired", updated: false },
+    ],
+  );
+
+  const values = new Map(source.map((item) => [item.id, item]));
+  const storage = {
+    getAll: async () => [...values.values()],
+    set: async (item) => void values.set(item.id, item),
+    remove: async (id) => void values.delete(id),
+    clear: async () => void values.clear(),
+  };
+  await reconcileKeepItems(storage, async (item) => (item.id === "b" ? "deleted" : "available"), {
+    removeStatuses: ["deleted"],
+  });
+  assert.deepEqual([...values.keys()], ["a", "c"]);
+});
+
+test("identifies metadata that has exceeded its freshness window", () => {
+  assert.equal(
+    isKeepItemMetadataStale({ ...itemA, metaUpdatedAt: 90 }, 10, () => 100),
+    true,
+  );
+  assert.equal(
+    isKeepItemMetadataStale({ ...itemA, metaUpdatedAt: 91 }, 10, () => 100),
+    false,
+  );
+  assert.equal(
+    isKeepItemMetadataStale(itemA, 60, () => 100),
+    true,
+  );
 });
 
 function createStorage(initial = []) {
@@ -226,6 +290,7 @@ test("validates all backup fields and accepts object backups", async () => {
     { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, note: 1 }] },
     { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, tags: [1] }] },
     { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, schemaVersion: NaN }] },
+    { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, metaUpdatedAt: "bad" }] },
   ];
 
   for (const invalid of invalidBackups) {

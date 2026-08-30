@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useKeepStore } from "../KeepProvider";
+import type { KeepItemMetadataRefresher } from "../revalidation";
 import type { KeepItem, KeepItemInput } from "../types";
 import { useKeepStoreSelector } from "./useKeepStoreSelector";
 
@@ -14,6 +15,7 @@ export type UseKeepItemResult<TMeta = Record<string, unknown>> = {
   toggle: () => Promise<void>;
   updateNote: (note?: string) => Promise<void>;
   updateTags: (tags?: string[]) => Promise<void>;
+  refreshMetadata: (refresh: KeepItemMetadataRefresher<TMeta>) => Promise<void>;
 };
 
 export function useKeepItem<TMeta = Record<string, unknown>>(
@@ -55,6 +57,10 @@ export function useKeepItem<TMeta = Record<string, unknown>>(
   const toggle = useCallback(() => (item ? remove() : save()), [item, remove, save]);
   const updateNote = useCallback((note?: string) => actions.updateNote(id, note), [actions, id]);
   const updateTags = useCallback((tags?: string[]) => actions.updateTags(id, tags), [actions, id]);
+  const refreshMetadata = useCallback(
+    (refresh: KeepItemMetadataRefresher<TMeta>) => actions.refreshItemMetadata(id, refresh),
+    [actions, id],
+  );
 
   return {
     item,
@@ -67,5 +73,6 @@ export function useKeepItem<TMeta = Record<string, unknown>>(
     toggle,
     updateNote,
     updateTags,
+    refreshMetadata,
   };
 }

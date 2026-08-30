@@ -48,6 +48,18 @@ test("supports render props and asChild while toggling", async () => {
   expect(link).toHaveAttribute("tabindex", "0");
 });
 
+test("supports localized state-dependent accessible labels", async () => {
+  render(
+    <KeepProvider storage={createStorage()}>
+      <KeepButton item={item} savedAriaLabel="保存から外す" unsavedAriaLabel="保存する" />
+    </KeepProvider>,
+  );
+
+  const button = await screen.findByRole("button", { name: "保存する" });
+  fireEvent.click(button);
+  await waitFor(() => expect(button).toHaveAccessibleName("保存から外す"));
+});
+
 test("binds a shortcut and ignores editable controls", async () => {
   const testStorage = createStorage();
   function ShortcutProbe() {

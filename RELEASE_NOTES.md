@@ -1,5 +1,21 @@
 # Release notes
 
+## [Unreleased]
+
+### 日本語
+
+- `KeepButton` に `savedAriaLabel`、`unsavedAriaLabel`、状態を受け取る `getAriaLabel` を追加しました。
+- `revalidateKeepItems` / `reconcileKeepItems` / `isKeepItemMetadataStale` と、React向けの `refreshItemMetadata` / `revalidateItems` を追加しました。
+- Next.js Pages RouterのSSR/hydration、Jest・jsdom、認証付きAPI、オフライン復帰同期の公式サンプルを `examples/next-pages-router` に追加しました。
+- 公開APIの移行手順を [MIGRATION.md](./MIGRATION.md) に整理しました。
+
+### English
+
+- Added `savedAriaLabel`, `unsavedAriaLabel`, and state-aware `getAriaLabel` to `KeepButton`.
+- Added `revalidateKeepItems` / `reconcileKeepItems` / `isKeepItemMetadataStale` and React APIs for `refreshItemMetadata` / `revalidateItems`.
+- Added an official Next.js Pages Router example covering SSR/hydration, Jest/jsdom, authenticated APIs, and offline-resume synchronization in `examples/next-pages-router`.
+- Added the public API upgrade checklist in [MIGRATION.md](./MIGRATION.md).
+
 ## [0.2.0] - 2026-08-31
 
 ### 日本語

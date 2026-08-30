@@ -8,6 +8,13 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import {
+  type KeepItemMetadataRefresher,
+  type KeepItemRevalidationSummary,
+  type KeepItemRevalidator,
+  type RevalidateKeepItemsOptions,
+  revalidateKeepItems,
+} from "./revalidation";
 import { parseKeepMeta } from "./schema";
 import { createBrowserStorageAdapter } from "./storage";
 import { KeepStore, type KeepStoreActions } from "./store";
@@ -45,6 +52,11 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
   flushSync: () => Promise<void>;
+  refreshItemMetadata: (id: string, refresh: KeepItemMetadataRefresher<TMeta>) => Promise<void>;
+  revalidateItems: (
+    revalidator: KeepItemRevalidator<TMeta>,
+    options?: RevalidateKeepItemsOptions,
+  ) => Promise<KeepItemRevalidationSummary<TMeta>>;
 };
 
 export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildren<
@@ -494,6 +506,69 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       })),
     [runMutation, storage],
   );
+
+  const revalidateItems = useCallback(
+    async (
+      revalidator: KeepItemRevalidator<TMeta>,
+      options: RevalidateKeepItemsOptions = {},
+    ): Promise<KeepItemRevalidationSummary<TMeta>> => {
+      pendingMutationsRef.current += 1;
+      store.setState({ isMutating: true });
+      const run = enqueueOperation(async () => {
+        const previous = itemsRef.current;
+        let persistenceStarted = false;
+        try {
+          const summary = await revalidateKeepItems(previous, revalidator, options);
+          const pluginContext = { action: "revalidate" as const, items: summary.updatedItems };
+          await runBeforePlugins(pluginContext);
+          if (summary.updatedItems.length > 0) {
+            persistenceStarted = true;
+            if (storage.setMany) await storage.setMany(summary.updatedItems);
+            else for (const item of summary.updatedItems) await storage.set(item);
+          }
+          if (summary.removedIds.length > 0) {
+            persistenceStarted = true;
+            if (storage.removeMany) await storage.removeMany(summary.removedIds);
+            else for (const id of summary.removedIds) await storage.remove(id);
+          }
+          setItems(summary.items);
+          store.setState({ error: null });
+          const removedIdSet = new Set(summary.removedIds);
+          for (const result of summary.results) {
+            if (removedIdSet.has(result.item.id)) handlersRef.current.onRemove?.(result.item);
+          }
+          await runAfterPlugins(pluginContext);
+          void Promise.resolve(handlersRef.current.onChange?.({ ...pluginContext, phase: "local" })).catch((cause) =>
+            reportError(cause, { action: "revalidate" }),
+          );
+          return summary;
+        } catch (cause) {
+          if (persistenceStarted) await restoreItems(storage, previous);
+          setItems(previous);
+          reportError(cause, { action: "revalidate" });
+          throw cause;
+        }
+      });
+      return run.finally(() => {
+        pendingMutationsRef.current -= 1;
+        if (pendingMutationsRef.current === 0) store.setState({ isMutating: false });
+      });
+    },
+    [enqueueOperation, reportError, runAfterPlugins, runBeforePlugins, setItems, storage, store],
+  );
+
+  const refreshItemMetadata = useCallback(
+    async (id: string, refresh: KeepItemMetadataRefresher<TMeta>): Promise<void> => {
+      if (!itemsRef.current.some((item) => item.id === id)) {
+        throw new Error(`Cannot refresh metadata for missing item "${id}".`);
+      }
+      await revalidateItems(async (item) => {
+        if (item.id !== id) return "available";
+        return { status: "available", meta: await refresh(item) };
+      });
+    },
+    [revalidateItems],
+  );
   const flushSync = useCallback(() => (syncStorage ? syncStorage.flushSync() : Promise.resolve()), [syncStorage]);
 
   const value = useMemo<KeepContextValue<TMeta>>(
@@ -515,6 +590,8 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       clear,
       refresh,
       flushSync,
+      refreshItemMetadata,
+      revalidateItems,
     }),
     [
       clear,
@@ -534,6 +611,8 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       addTagsBatch,
       removeTagsBatch,
       removeItems,
+      refreshItemMetadata,
+      revalidateItems,
     ],
   );
 
@@ -549,6 +628,8 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       removeItems,
       clear,
       refresh,
+      refreshItemMetadata,
+      revalidateItems,
     }),
     [
       addTagsBatch,
@@ -561,6 +642,8 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       updateNote,
       updateTags,
       updateTagsBatch,
+      refreshItemMetadata,
+      revalidateItems,
     ],
   );
   const storeAccess = useMemo<KeepStoreAccess<TMeta>>(() => ({ store, actions }), [actions, store]);
@@ -591,6 +674,18 @@ function isSyncCapableStorage<TMeta>(storage: StorageAdapter<TMeta>): storage is
 
 async function parseKeepMetaItem<TMeta>(item: KeepItem<unknown>, schema: KeepSchema<TMeta>): Promise<KeepItem<TMeta>> {
   return { ...item, meta: await parseKeepMeta(schema, item.meta) };
+}
+
+async function restoreItems<TMeta>(storage: StorageAdapter<TMeta>, items: KeepItem<TMeta>[]): Promise<void> {
+  try {
+    if (storage.setMany) {
+      await storage.setMany(items);
+      return;
+    }
+    for (const item of items) await storage.set(item);
+  } catch {
+    // The original operation's error is more useful to the caller than a best-effort rollback error.
+  }
 }
 
 export function useKeepContext<TMeta = Record<string, unknown>>(): KeepContextValue<TMeta> {
