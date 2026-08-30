@@ -11,7 +11,7 @@ export {
   KeepBackupImportError,
   KeepBackupParseError,
 } from "./backup";
-export type { KeepKit } from "./createKeepKit";
+export type { CreateKeepKitOptions, KeepKit } from "./createKeepKit";
 export { createKeepKit } from "./createKeepKit";
 export type { UseKeepItemResult } from "./hooks/useKeepItem";
 export { useKeepItem } from "./hooks/useKeepItem";
@@ -22,8 +22,19 @@ export { KeepButton } from "./KeepButton";
 export type { KeepContextValue, KeepProviderProps } from "./KeepProvider";
 export { KeepProvider, useKeepContext } from "./KeepProvider";
 export { mergeKeepItems, migrateKeepItems } from "./migration";
-export type { LocalStorageAdapterOptions, StorageAdapterFactoryOptions } from "./storage";
-export { createStorageAdapter, DEFAULT_STORAGE_KEY, LocalStorageAdapter } from "./storage";
+export type {
+  IndexedDBAdapterOptions,
+  LocalStorageAdapterOptions,
+  StorageAdapterFactoryOptions,
+} from "./storage";
+export {
+  createStorageAdapter,
+  DEFAULT_INDEXEDDB_DATABASE,
+  DEFAULT_INDEXEDDB_STORE,
+  DEFAULT_STORAGE_KEY,
+  IndexedDBAdapter,
+  LocalStorageAdapter,
+} from "./storage";
 export type {
   KeepAction,
   KeepErrorContext,
@@ -31,6 +42,8 @@ export type {
   KeepEventHandlers,
   KeepItem,
   KeepItemInput,
+  KeepPlugin,
+  KeepPluginContext,
   KeepStorageOperation,
   StorageAdapter,
 } from "./types";

@@ -6,15 +6,17 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
+  useSyncExternalStore,
 } from "react";
 import { LocalStorageAdapter } from "./storage";
+import { KeepStore, type KeepStoreActions } from "./store";
 import type {
   KeepAction,
   KeepErrorContext,
   KeepErrorHandler,
   KeepEventHandlers,
   KeepItem,
+  KeepPlugin,
   StorageAdapter,
 } from "./types";
 import { normalizeKeepTags } from "./types";
@@ -29,6 +31,8 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   updateNote: (id: string, note?: string) => Promise<void>;
   updateTags: (id: string, tags?: string[]) => Promise<void>;
   updateTagsBatch: (ids: string[], tags?: string[]) => Promise<void>;
+  addTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
+  removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
   removeItems: (ids: string[]) => Promise<void>;
   clear: () => Promise<void>;
@@ -38,16 +42,36 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
 export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildren<
   KeepEventHandlers<TMeta> & {
     storage?: StorageAdapter<TMeta>;
+    plugins?: KeepPlugin<TMeta>[];
+    schemaVersion?: number;
+    migrateMeta?: (
+      meta: unknown,
+      fromVersion: number,
+      toVersion: number,
+      item: KeepItem<TMeta>,
+    ) => TMeta | Promise<TMeta>;
   }
 >;
 
 const defaultStorage = new LocalStorageAdapter();
 const KeepContext = createContext<KeepContextValue<unknown> | null>(null);
+const KeepStoreContext = createContext<KeepStoreAccess<unknown> | null>(null);
+
+type KeepStoreAccess<TMeta> = {
+  store: KeepStore<TMeta>;
+  actions: KeepStoreActions<TMeta>;
+};
 
 type MutationPlan<TMeta> = {
   next: KeepItem<TMeta>[];
   persist: () => Promise<void>;
   onSuccess?: () => void;
+  pluginContext?: {
+    action: KeepAction;
+    id?: string;
+    item?: KeepItem<TMeta>;
+    items?: KeepItem<TMeta>[];
+  };
 };
 
 export function KeepProvider<TMeta = Record<string, unknown>>({
@@ -57,24 +81,65 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   onNoteUpdate,
   onTagsUpdate,
   onError,
+  plugins = [],
+  schemaVersion,
+  migrateMeta,
   children,
 }: KeepProviderProps<TMeta>) {
-  const [items, setItems] = useState<KeepItem<TMeta>[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
-  const [error, setError] = useState<unknown | null>(null);
+  const storeRef = useRef<KeepStore<TMeta> | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = new KeepStore<TMeta>({
+      items: [],
+      isLoading: true,
+      isHydrated: false,
+      isMutating: false,
+      error: null,
+    });
+  }
+  const store = storeRef.current;
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const { items, isLoading, isHydrated, isMutating, error } = state;
   const itemsRef = useRef(items);
+  const pluginsRef = useRef(plugins);
+  pluginsRef.current = plugins;
+  const handlersRef = useRef({ onSave, onRemove, onNoteUpdate, onTagsUpdate, onError });
+  handlersRef.current = { onSave, onRemove, onNoteUpdate, onTagsUpdate, onError };
+  const migrationRef = useRef({ schemaVersion, migrateMeta });
+  migrationRef.current = { schemaVersion, migrateMeta };
   const operationTailRef = useRef<Promise<unknown>>(Promise.resolve());
   const pendingRefreshesRef = useRef(0);
   const pendingMutationsRef = useRef(0);
 
   const reportError = useCallback(
     (cause: unknown, context: KeepErrorContext) => {
-      setError(cause);
-      onError?.(cause, context);
+      store.setState({ error: cause });
+      handlersRef.current.onError?.(cause, context);
+      for (const plugin of pluginsRef.current) plugin.onError?.(cause, context);
     },
-    [onError],
+    [store],
+  );
+
+  const setItems = useCallback(
+    (next: KeepItem<TMeta>[]) => {
+      itemsRef.current = next;
+      store.setState({ items: next });
+    },
+    [store],
+  );
+
+  const runBeforePlugins = useCallback(
+    async (context: NonNullable<MutationPlan<TMeta>["pluginContext"]>) => {
+      for (const plugin of pluginsRef.current) await plugin.before?.(context);
+      return context;
+    },
+    [],
+  );
+
+  const runAfterPlugins = useCallback(
+    async (context: NonNullable<MutationPlan<TMeta>["pluginContext"]>) => {
+      for (const plugin of pluginsRef.current) await plugin.after?.(context);
+    },
+    [],
   );
 
   const enqueueOperation = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
@@ -88,25 +153,46 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
 
   const refresh = useCallback(async () => {
     pendingRefreshesRef.current += 1;
-    setIsLoading(true);
+    store.setState({ isLoading: true });
 
     try {
       await enqueueOperation(async () => {
         try {
-          const next = await storage.getAll();
-          itemsRef.current = next;
+          let next = await storage.getAll();
+          if (migrationRef.current.schemaVersion !== undefined) {
+            const migrated = await Promise.all(
+              next.map(async (item) => {
+                const currentSchemaVersion = migrationRef.current.schemaVersion as number;
+                if (item.schemaVersion === currentSchemaVersion) return item;
+                const meta = migrationRef.current.migrateMeta
+                  ? await migrationRef.current.migrateMeta(
+                      item.meta,
+                      item.schemaVersion ?? 0,
+                      currentSchemaVersion,
+                      item,
+                    )
+                  : item.meta;
+                return { ...item, meta, schemaVersion: currentSchemaVersion };
+              }),
+            );
+            if (migrated.some((item, index) => item !== next[index])) {
+              if (storage.setMany) await storage.setMany(migrated);
+              else for (const item of migrated) await storage.set(item);
+              next = migrated;
+            }
+          }
           setItems(next);
-          setError(null);
+          store.setState({ error: null });
         } catch (cause) {
           reportError(cause, { action: "refresh" });
         }
       });
     } finally {
       pendingRefreshesRef.current -= 1;
-      if (pendingRefreshesRef.current === 0) setIsLoading(false);
-      setIsHydrated(true);
+      if (pendingRefreshesRef.current === 0) store.setState({ isLoading: false });
+      store.setState({ isHydrated: true });
     }
-  }, [enqueueOperation, reportError, storage]);
+  }, [enqueueOperation, reportError, setItems, storage, store]);
 
   useEffect(() => {
     void refresh();
@@ -124,50 +210,55 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       createPlan: (previous: KeepItem<TMeta>[]) => MutationPlan<TMeta> | undefined,
     ): Promise<void> => {
       pendingMutationsRef.current += 1;
-      setIsMutating(true);
+      store.setState({ isMutating: true });
 
       const run = enqueueOperation(async () => {
         const previous = itemsRef.current;
         const plan = createPlan(previous);
         if (!plan) return;
 
-        itemsRef.current = plan.next;
-        setItems(plan.next);
-        setError(null);
-
         try {
+          if (plan.pluginContext) await runBeforePlugins(plan.pluginContext);
+          setItems(plan.next);
+          store.setState({ error: null });
           await plan.persist();
+          plan.onSuccess?.();
+          if (plan.pluginContext) await runAfterPlugins(plan.pluginContext);
         } catch (cause) {
-          itemsRef.current = previous;
           setItems(previous);
           reportError(cause, { action, id });
           throw cause;
         }
-
-        plan.onSuccess?.();
       });
 
       return run.finally(() => {
         pendingMutationsRef.current -= 1;
-        if (pendingMutationsRef.current === 0) setIsMutating(false);
+        if (pendingMutationsRef.current === 0) store.setState({ isMutating: false });
       });
     },
-    [enqueueOperation, reportError],
+    [enqueueOperation, reportError, runAfterPlugins, runBeforePlugins, setItems, store],
   );
 
   const saveItem = useCallback(
     async (item: KeepItem<TMeta>) => {
-      const normalizedItem = { ...item, tags: normalizeKeepTags(item.tags) };
+      const normalizedItem = {
+        ...item,
+        tags: normalizeKeepTags(item.tags),
+        ...(migrationRef.current.schemaVersion === undefined
+          ? {}
+          : { schemaVersion: migrationRef.current.schemaVersion }),
+      };
       await runMutation("save", normalizedItem.id, (previous) => ({
         next: [
           ...previous.filter((current) => current.id !== normalizedItem.id),
           normalizedItem,
         ].sort((a, b) => b.updatedAt - a.updatedAt),
         persist: () => storage.set(normalizedItem),
-        onSuccess: () => onSave?.(normalizedItem),
+        onSuccess: () => handlersRef.current.onSave?.(normalizedItem),
+        pluginContext: { action: "save", id: normalizedItem.id, item: normalizedItem },
       }));
     },
-    [onSave, runMutation, storage],
+    [runMutation, storage],
   );
 
   const updateNote = useCallback(
@@ -180,11 +271,12 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
         return {
           next: previous.map((item) => (item.id === id ? next : item)),
           persist: () => storage.set(next),
-          onSuccess: () => onNoteUpdate?.(id, nextNote),
+          onSuccess: () => handlersRef.current.onNoteUpdate?.(id, nextNote),
+          pluginContext: { action: "updateNote", id, item: next },
         };
       });
     },
-    [onNoteUpdate, runMutation, storage],
+    [runMutation, storage],
   );
 
   const updateTags = useCallback(
@@ -197,11 +289,12 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
         return {
           next: previous.map((item) => (item.id === id ? next : item)),
           persist: () => storage.set(next),
-          onSuccess: () => onTagsUpdate?.(id, nextTags),
+          onSuccess: () => handlersRef.current.onTagsUpdate?.(id, nextTags),
+          pluginContext: { action: "updateTags", id, item: next },
         };
       });
     },
-    [onTagsUpdate, runMutation, storage],
+    [runMutation, storage],
   );
 
   const updateTagsBatch = useCallback(
@@ -243,13 +336,45 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
           },
           onSuccess: () => {
             updatedItems.forEach((item) => {
-              onTagsUpdate?.(item.id, nextTags);
+              handlersRef.current.onTagsUpdate?.(item.id, nextTags);
             });
           },
+          pluginContext: { action: "updateTagsBatch", items: updatedItems },
         };
       });
     },
-    [onTagsUpdate, runMutation, storage],
+    [runMutation, storage],
+  );
+
+  const addTagsBatch = useCallback(
+    async (ids: string[], tags: string[]) => {
+      const additions = normalizeKeepTags(tags) ?? [];
+      const idSet = new Set(ids);
+      const currentItems = itemsRef.current.filter((item) => idSet.has(item.id));
+      await Promise.all(
+        currentItems.map((item) =>
+          updateTags(item.id, normalizeKeepTags([...(item.tags ?? []), ...additions])),
+        ),
+      );
+    },
+    [updateTags],
+  );
+
+  const removeTagsBatch = useCallback(
+    async (ids: string[], tags: string[]) => {
+      const removals = new Set(normalizeKeepTags(tags) ?? []);
+      const idSet = new Set(ids);
+      const currentItems = itemsRef.current.filter((item) => idSet.has(item.id));
+      await Promise.all(
+        currentItems.map((item) =>
+          updateTags(
+            item.id,
+            normalizeKeepTags((item.tags ?? []).filter((tag) => !removals.has(tag))),
+          ),
+        ),
+      );
+    },
+    [updateTags],
   );
 
   const removeItem = useCallback(
@@ -260,11 +385,12 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
         return {
           next: previous.filter((item) => item.id !== id),
           persist: () => storage.remove(id),
-          onSuccess: () => onRemove?.(current),
+          onSuccess: () => handlersRef.current.onRemove?.(current),
+          pluginContext: { action: "remove", id, item: current },
         };
       });
     },
-    [onRemove, runMutation, storage],
+    [runMutation, storage],
   );
 
   const removeItems = useCallback(
@@ -293,13 +419,14 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
           },
           onSuccess: () => {
             removedItems.forEach((item) => {
-              onRemove?.(item);
+              handlersRef.current.onRemove?.(item);
             });
           },
+          pluginContext: { action: "removeBatch", items: removedItems },
         };
       });
     },
-    [onRemove, runMutation, storage],
+    [runMutation, storage],
   );
 
   const clear = useCallback(
@@ -307,6 +434,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       runMutation("clear", undefined, (_previous) => ({
         next: [],
         persist: () => storage.clear(),
+        pluginContext: { action: "clear", items: [] },
       })),
     [runMutation, storage],
   );
@@ -322,6 +450,8 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       updateNote,
       updateTags,
       updateTagsBatch,
+      addTagsBatch,
+      removeTagsBatch,
       removeItem,
       removeItems,
       clear,
@@ -340,14 +470,46 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       updateNote,
       updateTags,
       updateTagsBatch,
+      addTagsBatch,
+      removeTagsBatch,
       removeItems,
     ],
   );
 
+  const actions = useMemo<KeepStoreActions<TMeta>>(
+    () => ({
+      saveItem,
+      updateNote,
+      updateTags,
+      updateTagsBatch,
+      addTagsBatch,
+      removeTagsBatch,
+      removeItem,
+      removeItems,
+      clear,
+      refresh,
+    }),
+    [
+      addTagsBatch,
+      clear,
+      refresh,
+      removeItem,
+      removeItems,
+      removeTagsBatch,
+      saveItem,
+      updateNote,
+      updateTags,
+      updateTagsBatch,
+    ],
+  );
+  const storeAccess = useMemo<KeepStoreAccess<TMeta>>(() => ({ store, actions }), [actions, store]);
+
   return (
-    <KeepContext.Provider value={value as unknown as KeepContextValue<unknown>}>
-      {children}
-    </KeepContext.Provider>
+    <KeepStoreContext.Provider value={storeAccess as KeepStoreAccess<unknown>}>
+      <KeepContext.Provider value={value as unknown as KeepContextValue<unknown>}>
+        {children}
+      </KeepContext.Provider>
+    </KeepStoreContext.Provider>
   );
 }
 
@@ -355,6 +517,12 @@ export function useKeepContext<TMeta = Record<string, unknown>>(): KeepContextVa
   const context = useContext(KeepContext);
   if (!context) throw new Error("Keep hooks must be used inside a KeepProvider");
   return context as unknown as KeepContextValue<TMeta>;
+}
+
+export function useKeepStore<TMeta = Record<string, unknown>>(): KeepStoreAccess<TMeta> {
+  const context = useContext(KeepStoreContext);
+  if (!context) throw new Error("Keep hooks must be used inside a KeepProvider");
+  return context as unknown as KeepStoreAccess<TMeta>;
 }
 
 export type { KeepErrorHandler };

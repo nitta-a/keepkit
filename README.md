@@ -89,6 +89,38 @@ const { items, tags, removeBatch, updateTagsBatch } = useKeepList({
 });
 ```
 
+検索とページネーションにはクエリ形式のオプションも利用できます。`totalCount` はページング前の件数です。
+
+```tsx
+const { items, totalCount } = useKeepList({
+  targetType: "product",
+  tag: "favorite",
+  searchQuery: "keyword",
+  sortBy: "savedAt",
+  order: "desc",
+  limit: 20,
+  offset: 0,
+});
+```
+
+大きなデータや画像を含むメタデータには、`@keepkit/core/storage` の `IndexedDBAdapter` を利用できます。
+
+```tsx
+import { IndexedDBAdapter } from "@keepkit/core/storage";
+
+const storage = new IndexedDBAdapter({ databaseName: "my-app", storeName: "saved-items" });
+```
+
+保存前後の処理とメタデータ移行は `plugins`、`schemaVersion`、`migrateMeta` で設定できます。
+
+```tsx
+const { KeepProvider } = createKeepKit({
+  plugins: [{ before: ({ action }) => console.debug("keep", action) }],
+  schemaVersion: 2,
+  migrateMeta: (meta, fromVersion) => ({ ...(meta as object), migratedFrom: fromVersion }),
+});
+```
+
 `KeepProvider` は初回読み込みの完了を `isHydrated`、保存・削除中の状態を `isMutating` として公開します。`LocalStorageAdapter` の容量超過や破損データは `KeepStorageQuotaError` / `KeepStorageParseError` などで判別できます。
 
 データ移行やバックアップには `exportItems(adapter)` と `importItems(adapter, json, { mode: "replace" | "merge" })` を利用できます。結果には `imported` / `failed` 件数が含まれます。
@@ -199,6 +231,30 @@ const { items, tags, removeBatch, updateTagsBatch } = useKeepList({
   sort: { by: "updatedAt", direction: "desc" },
 });
 ```
+
+Query-style options also support search and pagination; `totalCount` is reported before pagination.
+
+```tsx
+const { items, totalCount } = useKeepList({
+  targetType: "product",
+  tag: "favorite",
+  searchQuery: "keyword",
+  sortBy: "savedAt",
+  order: "desc",
+  limit: 20,
+  offset: 0,
+});
+```
+
+For large metadata or image payloads, use `IndexedDBAdapter` from `@keepkit/core/storage`.
+
+```tsx
+import { IndexedDBAdapter } from "@keepkit/core/storage";
+
+const storage = new IndexedDBAdapter({ databaseName: "my-app", storeName: "saved-items" });
+```
+
+Configure mutation hooks and metadata migrations with `createKeepKit({ plugins, schemaVersion, migrateMeta })`.
 
 `KeepProvider` exposes `isHydrated` for the initial client-side load and `isMutating` while writes are pending. Storage failures can be distinguished with errors such as `KeepStorageQuotaError` and `KeepStorageParseError`.
 

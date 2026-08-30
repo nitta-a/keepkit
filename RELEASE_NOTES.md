@@ -18,6 +18,8 @@
 - `KeepItem.tags` と `useKeepList` のタグ絞り込み・ソート、`KeepButton` の render props / `asChild`、ノート更新イベントを追加しました。
 - Providerの保存・削除・再読み込みを直列化し、`isHydrated` / `isMutating`、タグ更新・一括操作を追加しました。
 - `KeepStorageQuotaError` などのストレージエラー型、`createStorageAdapter`、失敗件数を返せるversion付きJSONバックアップAPIを追加しました。
+- `useSyncExternalStore` ベースの内部ストア、検索・ページネーション用クエリ、タグ一括付与/除去を追加しました。
+- `IndexedDBAdapter` と `@keepkit/core/storage` サブパス、プラグインの保存前後フック、`schemaVersion` / `migrateMeta` を追加しました。
 
 #### 破壊的変更
 
@@ -39,6 +41,8 @@ This file records the current unreleased changes. The final version number and r
 - Added item tags with list filtering/sorting, render props / `asChild` support for `KeepButton`, and note-update events.
 - Serialized provider mutations and refreshes, exposed `isHydrated` / `isMutating`, and added bulk tag/removal actions.
 - Added typed storage errors, `createStorageAdapter`, and versioned JSON backup utilities with failure counts.
+- Added a `useSyncExternalStore`-based internal store, query-style search/pagination, and bulk tag add/remove operations.
+- Added `IndexedDBAdapter` through the `@keepkit/core/storage` subpath, plugin before/after hooks, and `schemaVersion` / `migrateMeta` support.
 
 #### Breaking changes
 

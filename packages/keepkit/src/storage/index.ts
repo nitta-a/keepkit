@@ -1,6 +1,7 @@
 import {
   type KeepItem,
   KeepStorageAccessError,
+  KeepStorageError,
   type KeepStorageOperation,
   KeepStorageParseError,
   KeepStorageQuotaError,
@@ -13,6 +14,19 @@ export type LocalStorageAdapterOptions = {
   key?: string;
   storage?: Storage;
 };
+
+export type IndexedDBAdapterOptions = {
+  databaseName?: string;
+  dbName?: string;
+  /** Alias for databaseName, useful when switching from LocalStorageAdapter. */
+  key?: string;
+  storeName?: string;
+  version?: number;
+  indexedDB?: IDBFactory;
+};
+
+export const DEFAULT_INDEXEDDB_DATABASE = "keepkit";
+export const DEFAULT_INDEXEDDB_STORE = "items";
 
 export type StorageAdapterFactoryOptions<TMeta = Record<string, unknown>> = {
   getAll: () => KeepItem<TMeta>[] | Promise<KeepItem<TMeta>[]>;
@@ -182,6 +196,155 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
   }
 }
 
+/** An async StorageAdapter backed by IndexedDB, with one object store per adapter. */
+export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements StorageAdapter<TMeta> {
+  public readonly storageKey: string;
+  private readonly databaseName: string;
+  private readonly storeName: string;
+  private readonly version: number;
+  private readonly indexedDB: IDBFactory | undefined;
+  private databasePromise: Promise<IDBDatabase | undefined> | undefined;
+
+  constructor(options: IndexedDBAdapterOptions = {}) {
+    this.databaseName =
+      options.databaseName ?? options.dbName ?? options.key ?? DEFAULT_INDEXEDDB_DATABASE;
+    this.storeName = options.storeName ?? DEFAULT_INDEXEDDB_STORE;
+    this.version = options.version ?? 1;
+    this.indexedDB = options.indexedDB ?? getBrowserIndexedDB();
+    this.storageKey = `${this.databaseName}:${this.storeName}`;
+  }
+
+  async getAll(): Promise<KeepItem<TMeta>[]> {
+    const database = await this.open("getAll");
+    if (!database) return [];
+    try {
+      const transaction = database.transaction(this.storeName, "readonly");
+      const value: unknown = await requestToPromise(
+        transaction.objectStore(this.storeName).getAll(),
+      );
+      if (!isKeepItemArray(value)) {
+        throw new KeepStorageParseError({ operation: "getAll", storageKey: this.storageKey });
+      }
+      return value as KeepItem<TMeta>[];
+    } catch (cause) {
+      if (cause instanceof KeepStorageParseError) throw cause;
+      throw new KeepStorageAccessError({ operation: "getAll", storageKey: this.storageKey, cause });
+    }
+  }
+
+  async set(item: KeepItem<TMeta>): Promise<void> {
+    return this.setMany([item]);
+  }
+
+  async setMany(items: KeepItem<TMeta>[]): Promise<void> {
+    const database = await this.open("set");
+    if (!database) return;
+    try {
+      const transaction = database.transaction(this.storeName, "readwrite");
+      const objectStore = transaction.objectStore(this.storeName);
+      for (const item of items) objectStore.put(item);
+      await transactionToPromise(transaction);
+      this.notifySubscribers();
+    } catch (cause) {
+      if (isQuotaExceededError(cause)) {
+        throw new KeepStorageQuotaError({ operation: "set", storageKey: this.storageKey, cause });
+      }
+      throw new KeepStorageAccessError({ operation: "set", storageKey: this.storageKey, cause });
+    }
+  }
+
+  async remove(id: string): Promise<void> {
+    return this.removeMany([id]);
+  }
+
+  async removeMany(ids: string[]): Promise<void> {
+    const database = await this.open("remove");
+    if (!database) return;
+    try {
+      const transaction = database.transaction(this.storeName, "readwrite");
+      const objectStore = transaction.objectStore(this.storeName);
+      for (const id of new Set(ids)) objectStore.delete(id);
+      await transactionToPromise(transaction);
+      this.notifySubscribers();
+    } catch (cause) {
+      throw new KeepStorageAccessError({ operation: "remove", storageKey: this.storageKey, cause });
+    }
+  }
+
+  async clear(): Promise<void> {
+    const database = await this.open("clear");
+    if (!database) return;
+    try {
+      const transaction = database.transaction(this.storeName, "readwrite");
+      transaction.objectStore(this.storeName).clear();
+      await transactionToPromise(transaction);
+      this.notifySubscribers();
+    } catch (cause) {
+      throw new KeepStorageAccessError({ operation: "clear", storageKey: this.storageKey, cause });
+    }
+  }
+
+  async merge(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
+    try {
+      const remoteItems = await this.getAll();
+      const byId = new Map(remoteItems.map((item) => [item.id, item]));
+      for (const localItem of localItems) {
+        const remoteItem = byId.get(localItem.id);
+        if (!remoteItem || localItem.updatedAt > remoteItem.updatedAt)
+          byId.set(localItem.id, localItem);
+      }
+      const merged = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+      await this.setMany(merged);
+      return merged;
+    } catch (cause) {
+      if (cause instanceof KeepStorageError) throw cause;
+      throw new KeepStorageAccessError({ operation: "merge", storageKey: this.storageKey, cause });
+    }
+  }
+
+  subscribe(listener: () => void): () => void {
+    if (!this.indexedDB || typeof BroadcastChannel === "undefined") return () => undefined;
+    const channel = new BroadcastChannel(`keepkit:${this.storageKey}`);
+    channel.onmessage = () => listener();
+    return () => channel.close();
+  }
+
+  private notifySubscribers(): void {
+    if (!this.indexedDB || typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel(`keepkit:${this.storageKey}`);
+    channel.postMessage({ type: "keepkit:changed" });
+    channel.close();
+  }
+
+  private open(operation: KeepStorageOperation): Promise<IDBDatabase | undefined> {
+    if (!this.indexedDB) return Promise.resolve(undefined);
+    if (!this.databasePromise) {
+      this.databasePromise = new Promise((resolve, reject) => {
+        let request: IDBOpenDBRequest;
+        try {
+          request = this.indexedDB?.open(this.databaseName, this.version) as IDBOpenDBRequest;
+        } catch (cause) {
+          reject(new KeepStorageAccessError({ operation, storageKey: this.storageKey, cause }));
+          return;
+        }
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains(this.storeName)) {
+            request.result.createObjectStore(this.storeName, { keyPath: "id" });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => reject(request.error ?? new Error("IndexedDB open was blocked."));
+      });
+    }
+    return this.databasePromise.catch((cause) => {
+      this.databasePromise = undefined;
+      if (cause instanceof KeepStorageError) throw cause;
+      throw new KeepStorageAccessError({ operation, storageKey: this.storageKey, cause });
+    });
+  }
+}
+
 function isKeepItemArray(value: unknown): value is KeepItem[] {
   return (
     Array.isArray(value) &&
@@ -196,6 +359,8 @@ function isKeepItemArray(value: unknown): value is KeepItem[] {
         "meta" in item &&
         (item.targetType === undefined || typeof item.targetType === "string") &&
         (item.note === undefined || typeof item.note === "string") &&
+        (item.schemaVersion === undefined ||
+          (typeof item.schemaVersion === "number" && Number.isFinite(item.schemaVersion))) &&
         (item.tags === undefined ||
           (Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string"))),
     )
@@ -213,6 +378,27 @@ function getBrowserStorage(): Storage | undefined {
   } catch {
     return undefined;
   }
+}
+
+function getBrowserIndexedDB(): IDBFactory | undefined {
+  if (typeof indexedDB === "undefined") return undefined;
+  return indexedDB;
+}
+
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function transactionToPromise(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
+  });
 }
 
 function isQuotaExceededError(cause: unknown): boolean {

@@ -22,7 +22,7 @@ const storage = new LocalStorageAdapter({ key: "my-app:items" });
 </KeepProvider>;
 ```
 
-`useKeepItem(id, payload)` では保存、切り替え、削除、ノート・タグ更新を行えます。`useKeepList()` ではコレクションの取得、タグ絞り込み・ソート、`removeBatch` / `updateTagsBatch` による一括操作ができます。`KeepProvider` は `isHydrated` / `isMutating` と typed storage errors を公開します。`LocalStorageAdapter` はSSR環境からimportでき、`StorageAdapter<TMeta>` または `createStorageAdapter` でサーバー側のストアに接続できます。
+`useKeepItem(id, payload)` では保存、切り替え、削除、ノート・タグ更新を行えます。`useKeepList()` ではコレクションの取得、タグ絞り込み・検索・ソート・ページネーション、`removeBatch` / `updateTagsBatch` / `addTagsBatch` / `removeTagsBatch` による一括操作ができます。`KeepProvider` は `isHydrated` / `isMutating` と typed storage errors を公開します。`LocalStorageAdapter` はSSR環境からimportでき、`StorageAdapter<TMeta>` または `createStorageAdapter` でサーバー側のストアに接続できます。
 
 `exportItems(adapter)` / `importItems(adapter, json, { mode: "replace" | "merge" })` でversion付きJSONバックアップを扱えます。結果には `imported` / `failed` 件数が含まれます。
 

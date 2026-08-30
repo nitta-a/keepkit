@@ -145,6 +145,8 @@ function isKeepItem(value: unknown): value is KeepItem {
     "meta" in value &&
     (value.targetType === undefined || typeof value.targetType === "string") &&
     (value.note === undefined || typeof value.note === "string") &&
+    (value.schemaVersion === undefined ||
+      (typeof value.schemaVersion === "number" && Number.isFinite(value.schemaVersion))) &&
     (value.tags === undefined ||
       (Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === "string")))
   );

@@ -6,6 +6,7 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
   targetType?: string;
   note?: string;
   tags?: string[];
+  schemaVersion?: number;
 };
 
 export type KeepItemInput<TMeta = Record<string, unknown>> = Omit<
@@ -34,6 +35,20 @@ export type KeepAction =
   | "remove"
   | "removeBatch"
   | "clear";
+
+export type KeepPluginContext<TMeta = Record<string, unknown>> = {
+  action: KeepAction;
+  id?: string;
+  item?: KeepItem<TMeta>;
+  items?: KeepItem<TMeta>[];
+};
+
+export type KeepPlugin<TMeta = Record<string, unknown>> = {
+  name?: string;
+  before?: (context: KeepPluginContext<TMeta>) => void | Promise<void>;
+  after?: (context: KeepPluginContext<TMeta>) => void | Promise<void>;
+  onError?: (error: unknown, context: KeepErrorContext) => void;
+};
 
 export type KeepStorageOperation = "getAll" | "set" | "remove" | "clear" | "merge";
 

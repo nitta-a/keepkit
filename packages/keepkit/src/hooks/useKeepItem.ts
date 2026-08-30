@@ -1,6 +1,7 @@
 import { useCallback } from "react";
-import { useKeepContext } from "../KeepProvider";
+import { useKeepStore } from "../KeepProvider";
 import type { KeepItem, KeepItemInput } from "../types";
+import { useKeepStoreSelector } from "./useKeepStoreSelector";
 
 export type UseKeepItemResult<TMeta = Record<string, unknown>> = {
   item: KeepItem<TMeta> | undefined;
@@ -19,33 +20,48 @@ export function useKeepItem<TMeta = Record<string, unknown>>(
   id: string,
   itemPayload?: KeepItemInput<TMeta>,
 ): UseKeepItemResult<TMeta> {
-  const context = useKeepContext<TMeta>();
-  const item = context.items.find((current) => current.id === id);
+  const { store, actions } = useKeepStore<TMeta>();
+  const item = useKeepStoreSelector(
+    store,
+    useCallback((state) => state.items.find((current) => current.id === id), [id]),
+  );
+  const isLoading = useKeepStoreSelector(
+    store,
+    useCallback((state) => state.isLoading, []),
+  );
+  const isMutating = useKeepStoreSelector(
+    store,
+    useCallback((state) => state.isMutating, []),
+  );
+  const error = useKeepStoreSelector(
+    store,
+    useCallback((state) => state.error, []),
+  );
 
   const save = useCallback(async () => {
     if (!itemPayload) {
       throw new Error(`An itemPayload is required to save item "${id}".`);
     }
     const now = Date.now();
-    await context.saveItem({
+    await actions.saveItem({
       id,
       ...itemPayload,
       savedAt: item?.savedAt ?? now,
       updatedAt: now,
     });
-  }, [context, id, item?.savedAt, itemPayload]);
+  }, [actions, id, item?.savedAt, itemPayload]);
 
-  const remove = useCallback(() => context.removeItem(id), [context, id]);
+  const remove = useCallback(() => actions.removeItem(id), [actions, id]);
   const toggle = useCallback(() => (item ? remove() : save()), [item, remove, save]);
-  const updateNote = useCallback((note?: string) => context.updateNote(id, note), [context, id]);
-  const updateTags = useCallback((tags?: string[]) => context.updateTags(id, tags), [context, id]);
+  const updateNote = useCallback((note?: string) => actions.updateNote(id, note), [actions, id]);
+  const updateTags = useCallback((tags?: string[]) => actions.updateTags(id, tags), [actions, id]);
 
   return {
     item,
     isSaved: Boolean(item),
-    isLoading: context.isLoading,
-    isMutating: context.isMutating,
-    error: context.error,
+    isLoading,
+    isMutating,
+    error,
     save,
     remove,
     toggle,
