@@ -119,3 +119,20 @@ test("rolls back only the failed mutation and preserves queued work", async () =
   expect(screen.getByTestId("items")).not.toHaveTextContent("a");
   expect(testStorage.getItems().map((item) => item.id)).toEqual(["b"]);
 });
+
+test("renders an injected initial snapshot while storage hydrates", () => {
+  const storage: StorageAdapter<Meta> = {
+    getAll: () => new Promise<KeepItem<Meta>[]>(() => undefined),
+    set: async () => undefined,
+    remove: async () => undefined,
+    clear: async () => undefined,
+  };
+
+  render(
+    <KeepProvider<Meta> storage={storage} initialItems={[itemA]}>
+      <Probe />
+    </KeepProvider>,
+  );
+
+  expect(screen.getByTestId("items")).toHaveTextContent("a");
+});

@@ -49,6 +49,8 @@ const storage = new SyncStorageAdapter({
 
 `useKeepList` は `savedBetween`、`search: { query, mode: "and" | "or" }`、`filterFn`、`tagCounts` をサポートします。TanStack Query や SWR のキャッシュ連携には、依存関係を core に追加しない `createKeepInvalidationPlugin` を利用できます。
 
+サーバーで取得した一覧を初期表示に使う場合は `KeepProvider initialItems={itemsFromServer}` を指定できます。クライアント adapter の初回読み込み中も同じスナップショットを描画し、refresh 完了後は adapter の値に更新されます。Reactを使わない環境やRSCのサーバー側コードでは `@keepkit/core/core`、React binding は `@keepkit/core/react`、ストレージは `@keepkit/core/storage`、スキーマ処理は `@keepkit/core/schema` からimportできます。
+
 ブラウザの制限環境では `createBrowserStorageAdapter` が IndexedDB を優先し、アクセスできない場合は `LocalStorageAdapter` に切り替えます。自前の主／代替 adapter を組み合わせる場合は `FallbackStorageAdapter` を利用できます。`useKeepShortcut({ key: "k", modifier: "meta", id, itemPayload })` は編集可能なフィールドを除外して保存操作をキーボードに割り当てます。`asChild` の `KeepButton` には `aria-pressed`、`aria-disabled`、button role、Space／Enter 操作が自動で付与されます。
 
 詳細な使い方と開発コマンドは [ルートREADME](../../README.md) を、現在の変更内容は [リリースノート](../../RELEASE_NOTES.md) を参照してください。
@@ -80,6 +82,8 @@ Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "
 For larger applications, wrap a local adapter with `SyncStorageAdapter` to persist a durable offline queue and flush it with `flushSync()` when connectivity returns. Use `syncState` from `KeepProvider` for `pending`, `syncing`, `conflict`, and `error` feedback. `KeepProvider` also accepts a Zod-like `parse`, `safeParse`, or Standard Schema validator through `schema`; invalid stored records can be rejected or dropped with `invalidItemPolicy`.
 
 `useKeepList` supports `savedBetween`, tokenized `search` with `and` / `or` modes, `filterFn`, and `tagCounts`. Use `createKeepInvalidationPlugin` to connect TanStack Query, SWR, or another cache without adding framework dependencies to core.
+
+Pass a server-loaded list as `KeepProvider initialItems={itemsFromServer}` when the initial client render should use the same snapshot while storage hydrates. The first refresh then updates the state from the adapter. Framework-neutral and RSC server code can import `@keepkit/core/core`; React bindings, storage, and schema helpers are also available from `@keepkit/core/react`, `@keepkit/core/storage`, and `@keepkit/core/schema` respectively.
 
 In restricted browser environments, `createBrowserStorageAdapter` prefers IndexedDB and switches to `LocalStorageAdapter` when IndexedDB cannot be accessed. Use `FallbackStorageAdapter` to compose your own primary and fallback adapters. `useKeepShortcut({ key: "k", modifier: "meta", id, itemPayload })` binds a save action while ignoring editable fields. `KeepButton asChild` automatically supplies `aria-pressed`, `aria-disabled`, a button role, and Space/Enter activation.
 

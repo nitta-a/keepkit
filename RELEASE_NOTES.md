@@ -20,6 +20,7 @@ KeepKit の初回公開リリースです。
 - `KeepStorageQuotaError` などのストレージエラー型、`createStorageAdapter`、失敗件数を返せるversion付きJSONバックアップAPIを追加しました。
 - `useSyncExternalStore` ベースの内部ストア、検索・ページネーション用クエリ、タグ一括付与/除去を追加しました。
 - `IndexedDBAdapter` と `@keepkit/core/storage` サブパス、プラグインの保存前後フック、`schemaVersion` / `migrateMeta` を追加しました。
+- `@keepkit/core/core`、`@keepkit/core/react`、`@keepkit/core/schema` のサブパスを追加し、React非依存コードとReact bindingを分離して利用できるようにしました。`KeepProvider initialItems` による初期スナップショット注入にも対応しました。
 
 #### 破壊的変更
 
@@ -43,6 +44,7 @@ This is the first public release of KeepKit.
 - Added typed storage errors, `createStorageAdapter`, and versioned JSON backup utilities with failure counts.
 - Added a `useSyncExternalStore`-based internal store, query-style search/pagination, and bulk tag add/remove operations.
 - Added `IndexedDBAdapter` through the `@keepkit/core/storage` subpath, plugin before/after hooks, and `schemaVersion` / `migrateMeta` support.
+- Added `@keepkit/core/core`, `@keepkit/core/react`, and `@keepkit/core/schema` subpaths so framework-neutral code can avoid the React binding, plus `KeepProvider initialItems` for injected initial snapshots.
 
 #### Breaking changes
 

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { KeepStore as FrameworkNeutralKeepStore } from "../dist/core.js";
 import {
   createStorageAdapter,
   exportItems,
@@ -11,6 +12,7 @@ import {
   KeepStorageError,
   KeepStorageParseError,
   KeepStorageQuotaError,
+  KeepStore,
   LocalStorageAdapter,
   mergeKeepItems,
   migrateKeepItems,
@@ -33,6 +35,18 @@ const itemB = {
   updatedAt: 20,
   meta: { title: "B" },
 };
+
+test("publishes framework-neutral primitives through the core entry point", () => {
+  assert.equal(FrameworkNeutralKeepStore, KeepStore);
+  const store = new FrameworkNeutralKeepStore({
+    items: [itemA],
+    isLoading: false,
+    isHydrated: true,
+    isMutating: false,
+    error: null,
+  });
+  assert.deepEqual(store.getSnapshot().items, [itemA]);
+});
 
 function createStorage(initial = []) {
   const values = new Map([["keepkit:items", JSON.stringify(initial)]]);

@@ -7,6 +7,7 @@ import { KeepProvider, type KeepProviderProps, useKeepContext } from "./KeepProv
 import type { KeepInvalidItemPolicy, KeepItemInput, KeepPlugin, KeepSchema } from "./types";
 
 export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = {
+  initialItems?: KeepProviderProps<TMeta>["initialItems"];
   plugins?: KeepPlugin<TMeta>[];
   schemaVersion?: number;
   schema?: KeepSchema<TMeta>;

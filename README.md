@@ -132,6 +132,19 @@ const { KeepProvider } = createKeepKit({
 
 `KeepProvider` は初回読み込みの完了を `isHydrated`、保存・削除中の状態を `isMutating` として公開します。`LocalStorageAdapter` の容量超過や破損データは `KeepStorageQuotaError` / `KeepStorageParseError` などで判別できます。
 
+Next.js App Router などでサーバー側で一覧を取得済みの場合は、`initialItems` に渡すとクライアント adapter の読み込み中も同じ一覧を先に描画できます。クライアント側の最初の refresh 後は adapter の値が正式な状態になります。
+
+フレームワーク中立のコードは `@keepkit/core/core`、React のコンポーネントと hooks は `@keepkit/core/react`、ストレージは `@keepkit/core/storage`、スキーマ処理は `@keepkit/core/schema` から個別にimportできます。`@keepkit/core` のルートimportは後方互換のため維持されています。
+
+```tsx
+import { LocalStorageAdapter } from "@keepkit/core/core";
+import { KeepProvider } from "@keepkit/core/react";
+
+<KeepProvider storage={storage} initialItems={itemsFromServer}>
+  <SavedItems />
+</KeepProvider>;
+```
+
 データ移行やバックアップには `exportItems(adapter)` と `importItems(adapter, json, { mode: "replace" | "merge" })` を利用できます。結果には `imported` / `failed` 件数が含まれます。
 
 ### 開発
@@ -275,6 +288,17 @@ const storage = new IndexedDBAdapter({ databaseName: "my-app", storeName: "saved
 Configure mutation hooks and metadata migrations with `createKeepKit({ plugins, schemaVersion, migrateMeta })`.
 
 `KeepProvider` exposes `isHydrated` for the initial client-side load and `isMutating` while writes are pending. Storage failures can be distinguished with errors such as `KeepStorageQuotaError` and `KeepStorageParseError`.
+
+When a server loader already has the saved list, pass it as `initialItems` to render the same snapshot while the client adapter hydrates. After the first refresh, the adapter becomes the source of truth. Framework-neutral and RSC server code can import `@keepkit/core/core`; React bindings, storage, and schema helpers are also available from `@keepkit/core/react`, `@keepkit/core/storage`, and `@keepkit/core/schema`. The package root remains a backwards-compatible convenience entry point.
+
+```tsx
+import { LocalStorageAdapter } from "@keepkit/core/core";
+import { KeepProvider } from "@keepkit/core/react";
+
+<KeepProvider storage={storage} initialItems={itemsFromServer}>
+  <SavedItems />
+</KeepProvider>;
+```
 
 Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "merge" })` for portable backups and migrations. Results include imported and failed counts.
 

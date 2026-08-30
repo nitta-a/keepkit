@@ -50,6 +50,12 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
 export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildren<
   KeepEventHandlers<TMeta> & {
     storage?: StorageAdapter<TMeta>;
+    /**
+     * Optional server-provided snapshot rendered before the client adapter
+     * finishes hydrating. The adapter remains the source of truth after the
+     * first refresh.
+     */
+    initialItems?: KeepItem<TMeta>[];
     plugins?: KeepPlugin<TMeta>[];
     schemaVersion?: number;
     schema?: KeepSchema<TMeta>;
@@ -87,6 +93,7 @@ type MutationPlan<TMeta> = {
 
 export function KeepProvider<TMeta = Record<string, unknown>>({
   storage = defaultStorage as StorageAdapter<TMeta>,
+  initialItems,
   onSave,
   onRemove,
   onNoteUpdate,
@@ -104,7 +111,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   const storeRef = useRef<KeepStore<TMeta> | null>(null);
   if (!storeRef.current) {
     storeRef.current = new KeepStore<TMeta>({
-      items: [],
+      items: initialItems ? [...initialItems] : [],
       isLoading: true,
       isHydrated: false,
       isMutating: false,
