@@ -9,6 +9,8 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
+    "package:check": "node scripts/check-package.mjs",
+    "release:check": "node scripts/check-release-version.mjs",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint:biome": "biome lint .",
