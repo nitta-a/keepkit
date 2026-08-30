@@ -1,22 +1,30 @@
-export type FavoriteItem = {
+export type KeepItem<TMeta = Record<string, unknown>> = {
   id: string;
-  resourceId: string;
-  title?: string;
-  url?: string;
-  image?: string;
-  comment?: string;
-  createdAt: string;
-  updatedAt: string;
-  metadata?: Record<string, unknown>;
+  savedAt: number;
+  updatedAt: number;
+  meta: TMeta;
+  targetType?: string;
+  note?: string;
 };
 
-export type FavoriteInput = Omit<FavoriteItem, "id" | "createdAt" | "updatedAt">;
+export type KeepItemInput<TMeta = Record<string, unknown>> = Omit<
+  KeepItem<TMeta>,
+  "id" | "savedAt" | "updatedAt"
+>;
 
-export type FavoriteUpdate = Partial<Omit<FavoriteItem, "id" | "resourceId" | "createdAt">>;
-
-export interface FavoriteStorage {
-  getAll(): Promise<FavoriteItem[]>;
-  add(item: FavoriteItem): Promise<void>;
-  update(id: string, item: Partial<FavoriteItem>): Promise<void>;
+export interface StorageAdapter<TMeta = Record<string, unknown>> {
+  getAll(): Promise<KeepItem<TMeta>[]>;
+  set(item: KeepItem<TMeta>): Promise<void>;
   remove(id: string): Promise<void>;
+  clear(): Promise<void>;
+  merge?(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]>;
+  readonly storageKey?: string;
 }
+
+export type KeepErrorHandler = (error: unknown) => void;
+
+export type KeepEventHandlers<TMeta = Record<string, unknown>> = {
+  onSave?: (item: KeepItem<TMeta>) => void;
+  onRemove?: (item: KeepItem<TMeta>) => void;
+  onError?: KeepErrorHandler;
+};

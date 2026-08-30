@@ -1,61 +1,67 @@
-import { FavoriteButton, type FavoriteInput, type FavoriteItem, useFavorites } from "@keepkit/core";
+import { KeepButton, type KeepItem, useKeepItem, useKeepList } from "@keepkit/core";
 import { useState } from "react";
+import type { DemoMeta } from "./main";
 
-const content: FavoriteInput[] = [
+type Content = KeepItem<DemoMeta> & { kindLabel: string };
+
+const content: Content[] = [
   {
-    resourceId: "react-2025",
-    title: "React documentation",
-    url: "https://react.dev",
-    image:
-      "https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=800&q=80",
+    id: "article-react-server-components",
+    targetType: "article",
+    kindLabel: "Article",
+    savedAt: 0,
+    updatedAt: 0,
+    meta: {
+      title: "A practical guide to React Server Components",
+      url: "https://react.dev/reference/rsc/server-components",
+      image:
+        "https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=800&q=80",
+      description: "A useful reference for understanding where server-rendered UI fits.",
+    },
   },
   {
-    resourceId: "pnpm-workspaces",
-    title: "pnpm workspaces",
-    url: "https://pnpm.io/workspaces",
-    image:
-      "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80",
+    id: "article-pnpm-workspaces",
+    targetType: "article",
+    kindLabel: "Article",
+    savedAt: 0,
+    updatedAt: 0,
+    meta: {
+      title: "pnpm workspaces in a growing monorepo",
+      url: "https://pnpm.io/workspaces",
+      image:
+        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80",
+      description: "Patterns for keeping packages and apps moving together.",
+    },
   },
   {
-    resourceId: "web-platform",
-    title: "Web platform baseline",
-    url: "https://web.dev/baseline",
-    image:
-      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80",
+    id: "product-field-notebook",
+    targetType: "product",
+    kindLabel: "Product",
+    savedAt: 0,
+    updatedAt: 0,
+    meta: {
+      title: "The everyday field notebook",
+      url: "https://example.com/products/field-notebook",
+      image:
+        "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=800&q=80",
+      description: "A compact notebook for ideas, observations, and plans.",
+      price: "$18",
+    },
   },
 ];
 
 export function App() {
-  const { favorites, isLoading, updateFavorite, removeFavorite } = useFavorites();
-  const [comments, setComments] = useState<Record<string, string>>({});
-  const [editing, setEditing] = useState<Record<string, string>>({});
-
-  function commentFor(item: FavoriteInput): string | undefined {
-    const comment = comments[item.resourceId]?.trim();
-    return comment ? comment : undefined;
-  }
-
-  function beginEditing(item: FavoriteItem) {
-    setEditing((current) => ({ ...current, [item.id]: item.comment ?? "" }));
-  }
-
-  async function saveComment(item: FavoriteItem) {
-    await updateFavorite(item.id, { comment: editing[item.id]?.trim() || undefined });
-    setEditing((current) => {
-      const next = { ...current };
-      delete next[item.id];
-      return next;
-    });
-  }
+  const [targetType, setTargetType] = useState<string | undefined>();
+  const { items, isLoading, error, clear } = useKeepList<DemoMeta>({ targetType });
 
   return (
     <main className="shell">
       <header className="hero">
-        <p className="eyebrow">@keepkit/core · demo</p>
+        <p className="eyebrow">@keepkit/core · phase 1—3 demo</p>
         <h1>A small place for things worth returning to.</h1>
         <p className="lede">
-          This app uses only Keepkit&apos;s public API. Add a note, reload the page, and your
-          collection will still be here in localStorage.
+          Save articles and products with the same headless API. Notes and the collection persist in
+          localStorage, while changes in another tab are reloaded automatically.
         </p>
       </header>
 
@@ -68,32 +74,22 @@ export function App() {
           <span className="count">{content.length} resources</span>
         </div>
         <div className="content-grid">
-          {content.map((item) => (
-            <article className="content-card" key={item.resourceId}>
-              <img src={item.image} alt="" />
+          {content.map((entry) => (
+            <article className="content-card" key={entry.id}>
+              <img src={entry.meta.image} alt="" />
               <div className="card-body">
-                <h3>{item.title}</h3>
-                <a href={item.url} target="_blank" rel="noreferrer">
-                  {item.url}
+                <span className="type-badge">{entry.kindLabel}</span>
+                <h3>{entry.meta.title}</h3>
+                <p>{entry.meta.description}</p>
+                <a href={entry.meta.url} target="_blank" rel="noreferrer">
+                  Open resource ↗
                 </a>
-                <label className="comment-field">
-                  <span>Optional note</span>
-                  <input
-                    value={comments[item.resourceId] ?? ""}
-                    onChange={(event) =>
-                      setComments((current) => ({
-                        ...current,
-                        [item.resourceId]: event.target.value,
-                      }))
-                    }
-                    placeholder="Why save this?"
-                  />
-                </label>
-                <FavoriteButton
+                {entry.meta.price && <strong className="price">{entry.meta.price}</strong>}
+                <KeepButton
                   className="favorite-button"
-                  item={{ ...item, comment: commentFor(item) }}
-                  activeLabel="Saved ✓"
-                  inactiveLabel="Add to favorites"
+                  item={{ id: entry.id, targetType: entry.targetType, meta: entry.meta }}
+                  savedLabel="Saved ✓"
+                  unsavedLabel="Save for later"
                 />
               </div>
             </article>
@@ -105,63 +101,97 @@ export function App() {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Your collection</p>
-            <h2 id="collection-heading">Favorites</h2>
+            <h2 id="collection-heading">Kept items</h2>
           </div>
-          <span className="count">{favorites.length} saved</span>
+          <div className="collection-actions">
+            <span className="count">{items.length} saved</span>
+            <button className="text-button" onClick={() => void clear()} type="button">
+              Clear all
+            </button>
+          </div>
         </div>
 
+        <fieldset className="filters">
+          <legend>Filter saved items</legend>
+          {[
+            [undefined, "All"],
+            ["article", "Articles"],
+            ["product", "Products"],
+          ].map(([value, label]) => (
+            <button
+              className={targetType === value ? "filter-button active" : "filter-button"}
+              key={label}
+              onClick={() => setTargetType(value)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </fieldset>
+
+        {error ? (
+          <p className="error-state">Could not load the collection. Please try again.</p>
+        ) : null}
         {isLoading ? (
-          <p className="empty-state">Restoring your favorites…</p>
-        ) : favorites.length === 0 ? (
+          <p className="empty-state">Restoring your collection…</p>
+        ) : items.length === 0 ? (
           <p className="empty-state">Nothing here yet. Save a resource above.</p>
         ) : (
           <ul className="favorite-list">
-            {favorites.map((item) => {
-              const draft = editing[item.id];
-              return (
-                <li className="favorite-row" key={item.id}>
-                  <div className="favorite-info">
-                    <a href={item.url} target="_blank" rel="noreferrer">
-                      <strong>{item.title || item.resourceId}</strong>
-                      <span>{item.url || item.resourceId}</span>
-                    </a>
-                    {draft === undefined ? (
-                      <button
-                        className="text-button"
-                        onClick={() => beginEditing(item)}
-                        type="button"
-                      >
-                        {item.comment ? `“${item.comment}” · Edit note` : "Add a note"}
-                      </button>
-                    ) : (
-                      <div className="edit-comment">
-                        <input
-                          value={draft}
-                          onChange={(event) =>
-                            setEditing((current) => ({ ...current, [item.id]: event.target.value }))
-                          }
-                          aria-label={`Edit note for ${item.title || item.resourceId}`}
-                        />
-                        <button onClick={() => void saveComment(item)} type="button">
-                          Save note
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    className="remove-button"
-                    aria-label={`Remove ${item.title || item.resourceId}`}
-                    onClick={() => void removeFavorite(item.id)}
-                    type="button"
-                  >
-                    Remove
-                  </button>
-                </li>
-              );
-            })}
+            {items.map((item) => (
+              <SavedRow item={item} key={item.id} />
+            ))}
           </ul>
         )}
       </section>
     </main>
+  );
+}
+
+function SavedRow({ item }: { item: KeepItem<DemoMeta> }) {
+  const { updateNote, remove } = useKeepItem<DemoMeta>(item.id);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(item.note ?? "");
+
+  async function saveNote() {
+    await updateNote(draft);
+    setEditing(false);
+  }
+
+  return (
+    <li className="favorite-row">
+      <div className="favorite-info">
+        <span className="type-badge">{item.targetType ?? "item"}</span>
+        <a href={item.meta.url} target="_blank" rel="noreferrer">
+          <strong>{item.meta.title}</strong>
+          <span>{item.meta.url}</span>
+        </a>
+        {editing ? (
+          <div className="edit-comment">
+            <input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              aria-label={`Edit note for ${item.meta.title}`}
+              placeholder="Add a note"
+            />
+            <button onClick={() => void saveNote()} type="button">
+              Save note
+            </button>
+          </div>
+        ) : (
+          <button className="text-button" onClick={() => setEditing(true)} type="button">
+            {item.note ? `“${item.note}” · Edit note` : "Add a note"}
+          </button>
+        )}
+      </div>
+      <button
+        className="remove-button"
+        aria-label={`Remove ${item.meta.title}`}
+        onClick={() => void remove()}
+        type="button"
+      >
+        Remove
+      </button>
+    </li>
   );
 }

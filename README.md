@@ -1,60 +1,159 @@
 # keepkit
 
-Keepkit is a small React favorites package with a replaceable storage adapter. The workspace
-contains the publishable package in `packages/keepkit` and a real usage example in `apps/demo`.
+[日本語](#日本語) | [English](#english)
 
-## Development
+## 日本語
+
+keepkitは、Reactアプリケーションに保存・コレクション機能を追加するための、ヘッドレスで非同期処理を前提としたツールキットです。保存先は差し替え可能なストレージアダプターとして切り離されています。
+
+このリポジトリには、公開用パッケージ（`packages/keepkit`）と、実際の利用例（`apps/demo`）が含まれています。
+
+### 主な機能
+
+- `KeepProvider` による保存アイテムの状態管理
+- スタイルを持たないアクセシブルな `KeepButton`
+- `useKeepItem` による保存・切り替え・削除・ノート更新
+- `useKeepList` による一覧取得、絞り込み、クリア
+- ブラウザの `localStorage` に対応した `LocalStorageAdapter`
+- `StorageAdapter` を実装したAPI・Supabase・Firebaseなどへの拡張
+- `mergeKeepItems` によるローカルアイテムとリモートアイテムの統合
+
+### インストール
+
+```bash
+pnpm add @keepkit/core
+```
+
+### 使い方
+
+```tsx
+import { KeepButton, KeepProvider, LocalStorageAdapter, useKeepList } from "@keepkit/core";
+
+const storage = new LocalStorageAdapter({ key: "my-app:items" });
+
+function Article({ id, title, url }: { id: string; title: string; url: string }) {
+  return (
+    <KeepButton
+      item={{
+        id,
+        targetType: "article",
+        meta: { title, url },
+      }}
+    />
+  );
+}
+
+function SavedItems() {
+  const { items } = useKeepList({ targetType: "article" });
+  return <p>{items.length}件保存されています</p>;
+}
+
+export function App() {
+  return (
+    <KeepProvider storage={storage}>
+      <Article id="article-123" title="Example article" url="/articles/123" />
+      <SavedItems />
+    </KeepProvider>
+  );
+}
+```
+
+`StorageAdapter<TMeta>` が保存処理の境界です。独自アダプターでは `getAll`、`set`、`remove`、`clear` を実装します。認証機能やサーバーへの永続化機能はパッケージに含まれません。`LocalStorageAdapter` はSSR環境からimportできますが、ブラウザのストレージが利用できない場合は空の一覧として動作します。
+
+### 開発
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-The demo supports saving resources with an optional comment, viewing saved favorites, editing
-comments, removing favorites, and restoring the collection after a reload.
+デモでは、任意のノート付きアイテムの保存、保存一覧の表示、ノートの編集、削除、再読み込み後の復元を確認できます。
 
-## Package usage
-
-```tsx
-import {
-  FavoriteButton,
-  FavoriteProvider,
-  LocalStorageAdapter,
-  useFavorites
-} from "@keepkit/core";
-
-const storage = new LocalStorageAdapter({ key: "my-app:favorites" });
-
-function Article({ id, title, url }: { id: string; title: string; url: string }) {
-  return <FavoriteButton item={{ resourceId: id, title, url }} />;
-}
-
-function Favorites() {
-  const { favorites, isFavorite } = useFavorites();
-  return <p>{favorites.length} saved · {isFavorite("article-123") ? "saved" : "not saved"}</p>;
-}
-
-export function App() {
-  return (
-    <FavoriteProvider storage={storage}>
-      <Article id="article-123" title="Example article" url="/articles/123" />
-      <Favorites />
-    </FavoriteProvider>
-  );
-}
-```
-
-`FavoriteStorage` is the boundary for future API, Supabase, or Firebase adapters. The package
-does not include authentication or server persistence.
-
-## Verification
+### 検証
 
 ```bash
-pnpm install
 pnpm typecheck
 pnpm lint
 pnpm test
 pnpm build
 ```
 
-`packages/keepkit` publishes only its built `dist` output through the package `exports` map.
+パッケージは `exports` マップを通じてビルド済みの `dist` のみを公開します。現在の変更内容は [リリースノート](./RELEASE_NOTES.md) を参照してください。
+
+## English
+
+keepkit is a headless, async-first toolkit for adding save-and-collect functionality to React applications. Persistence is isolated behind replaceable storage adapters.
+
+This repository contains the publishable package in `packages/keepkit` and a real usage example in `apps/demo`.
+
+### Features
+
+- State management for saved items through `KeepProvider`
+- A style-free, accessible `KeepButton`
+- Save, toggle, remove, and note updates with `useKeepItem`
+- Listing, filtering, and clearing items with `useKeepList`
+- A browser `localStorage` adapter with `LocalStorageAdapter`
+- Extensibility through `StorageAdapter` implementations for APIs, Supabase, Firebase, and more
+- Local-to-remote item merging with `mergeKeepItems`
+
+### Installation
+
+```bash
+pnpm add @keepkit/core
+```
+
+### Usage
+
+```tsx
+import { KeepButton, KeepProvider, LocalStorageAdapter, useKeepList } from "@keepkit/core";
+
+const storage = new LocalStorageAdapter({ key: "my-app:items" });
+
+function Article({ id, title, url }: { id: string; title: string; url: string }) {
+  return (
+    <KeepButton
+      item={{
+        id,
+        targetType: "article",
+        meta: { title, url },
+      }}
+    />
+  );
+}
+
+function SavedItems() {
+  const { items } = useKeepList({ targetType: "article" });
+  return <p>{items.length} saved</p>;
+}
+
+export function App() {
+  return (
+    <KeepProvider storage={storage}>
+      <Article id="article-123" title="Example article" url="/articles/123" />
+      <SavedItems />
+    </KeepProvider>
+  );
+}
+```
+
+`StorageAdapter<TMeta>` is the persistence boundary. Custom adapters implement `getAll`, `set`, `remove`, and `clear`. Authentication and server persistence are intentionally outside the package. `LocalStorageAdapter` is safe to import in SSR environments; when browser storage is unavailable, it behaves as an empty collection.
+
+### Development
+
+```bash
+pnpm install
+pnpm dev
+```
+
+The demo covers saving items with optional notes, viewing the saved collection, editing notes, removing items, and restoring the collection after a reload.
+
+### Verification
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+```
+
+The package publishes only its built `dist` output through the `exports` map. See the [release notes](./RELEASE_NOTES.md) for the current changes.

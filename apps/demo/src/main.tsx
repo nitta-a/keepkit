@@ -1,10 +1,18 @@
-import { FavoriteProvider, LocalStorageAdapter } from "@keepkit/core";
+import { KeepProvider, LocalStorageAdapter } from "@keepkit/core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
 
-const storage = new LocalStorageAdapter({ key: "keepkit-demo:favorites" });
+export type DemoMeta = {
+  title: string;
+  url: string;
+  image: string;
+  description: string;
+  price?: string;
+};
+
+const storage = new LocalStorageAdapter<DemoMeta>({ key: "keepkit-demo:items" });
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
@@ -13,8 +21,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <FavoriteProvider storage={storage}>
+    <KeepProvider<DemoMeta> storage={storage}>
       <App />
-    </FavoriteProvider>
+    </KeepProvider>
   </StrictMode>,
 );
