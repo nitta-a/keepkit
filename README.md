@@ -26,7 +26,8 @@ keepkitは、Reactアプリケーションに保存・コレクション機能�
 - `SyncStorageAdapter` の永続キュー自動再開とオンライン復帰同期
 - version付きJSONバックアップのエクスポート・インポート
 - `KeepButton` の多言語ARIAラベルと、保存アイテムのメタデータ再取得・状態検出
-- `@keepkit/ui` による `KeepList`、`KeepItemCard`、`KeepTagFilter`、`KeepNoteEditor`、`KeepEmptyState`、`KeepStatus`
+- `@keepkit/ui` による一覧、検索、ソート、ページネーション、タグ編集、一括操作UI
+- `KeepUiProvider` によるUI全体の多言語ラベル管理と `KeepAnnouncements` の成功通知
 
 ### インストール
 
@@ -142,15 +143,18 @@ import { KeepProvider } from "@keepkit/core/react";
 </KeepProvider>;
 ```
 
-UIパーツは状態管理とスタイルを持たず、`@keepkit/ui` から個別に利用できます。`className`、`asChild`、render props、`labels`、各種コールバックで既存のデザインと翻訳に接続できます。標準の一覧には読み込み中・空・エラー状態と削除操作が含まれます。
+UIパーツは状態管理とスタイルを持たず、`@keepkit/ui` から個別に利用できます。`KeepUiProvider` の `labels` / `locale` / `labelResolver` でラベルを一元設定し、`KeepSearchInput`、`KeepSortSelect`、`KeepPagination`、`KeepTagEditor`、`KeepBulkActions` を組み合わせられます。`KeepItemCard` の画像は `getImageProps`、`imageComponent`、`renderImage` で差し替えられます。標準の一覧には読み込み中・空・エラー状態と削除操作が含まれます。
 
 ```tsx
-import { KeepItemCard, KeepList, KeepNoteEditor, KeepStatus, KeepTagFilter } from "@keepkit/ui";
+import { KeepAnnouncements, KeepItemCard, KeepList, KeepNoteEditor, KeepStatus, KeepTagFilter, KeepUiProvider } from "@keepkit/ui";
 
-<KeepTagFilter value={selectedTag} onValueChange={setSelectedTag} />
-<KeepList options={{ tag: selectedTag }} renderItem={(item) => <KeepItemCard item={item} />} />
-<KeepNoteEditor item={item} />
-<KeepStatus />
+<KeepUiProvider locale="ja-JP" labels={{ save: "保存", remove: "削除" }}>
+  <KeepTagFilter value={selectedTag} onValueChange={setSelectedTag} />
+  <KeepList options={{ tag: selectedTag }} renderItem={(item) => <KeepItemCard item={item} />} />
+  <KeepNoteEditor item={item} />
+  <KeepStatus />
+  <KeepAnnouncements />
+</KeepUiProvider>
 ```
 
 データ移行やバックアップには `exportItems(adapter)` と `importItems(adapter, json, { mode: "replace" | "merge" })` を利用できます。結果には `imported` / `failed` 件数が含まれます。
@@ -201,7 +205,7 @@ This repository contains the publishable packages in `packages/keepkit` and `pac
 - Durable sync queues that resume on startup and flush when connectivity returns
 - Versioned JSON backup export and import utilities
 - Localized `KeepButton` ARIA labels and saved-item metadata/status revalidation
-- Optional `@keepkit/ui` package with `KeepList`, `KeepItemCard`, `KeepTagFilter`, `KeepNoteEditor`, `KeepEmptyState`, and `KeepStatus`
+- Optional `@keepkit/ui` package with list, search, sort, pagination, tag editing, bulk actions, centralized labels, image replacement, and success announcements
 
 ### Installation
 
@@ -307,15 +311,18 @@ import { KeepProvider } from "@keepkit/core/react";
 </KeepProvider>;
 ```
 
-The optional UI package is state-aware but style-free, so each component can be used independently. Use `className`, `asChild`, render props, `labels`, and callbacks to connect it to an existing design system and localization layer. `KeepList` includes loading, empty, error, and removal states by default.
+The optional UI package is state-aware but style-free, so each component can be used independently. Use `KeepUiProvider` with `labels`, `locale`, and `labelResolver` for centralized localization. It also provides search, sort, pagination, tag editing, bulk actions, image replacement, and success announcements.
 
 ```tsx
-import { KeepItemCard, KeepList, KeepNoteEditor, KeepStatus, KeepTagFilter } from "@keepkit/ui";
+import { KeepAnnouncements, KeepItemCard, KeepList, KeepNoteEditor, KeepStatus, KeepTagFilter, KeepUiProvider } from "@keepkit/ui";
 
-<KeepTagFilter value={selectedTag} onValueChange={setSelectedTag} />
-<KeepList options={{ tag: selectedTag }} renderItem={(item) => <KeepItemCard item={item} />} />
-<KeepNoteEditor item={item} />
-<KeepStatus />
+<KeepUiProvider>
+  <KeepTagFilter value={selectedTag} onValueChange={setSelectedTag} />
+  <KeepList options={{ tag: selectedTag }} renderItem={(item) => <KeepItemCard item={item} />} />
+  <KeepNoteEditor item={item} />
+  <KeepStatus />
+  <KeepAnnouncements />
+</KeepUiProvider>
 ```
 
 Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "merge" })` for portable backups and migrations. Results include imported and failed counts.

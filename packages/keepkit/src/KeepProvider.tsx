@@ -40,6 +40,7 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   isHydrated: boolean;
   isMutating: boolean;
   error: unknown | null;
+  lastChange?: KeepChangeContext<TMeta>;
   syncState: KeepSyncState;
   saveItem: (item: KeepItem<TMeta>) => Promise<void>;
   updateNote: (id: string, note?: string) => Promise<void>;
@@ -128,11 +129,12 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       isHydrated: false,
       isMutating: false,
       error: null,
+      lastChange: undefined,
     });
   }
   const store = storeRef.current;
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  const { items, isLoading, isHydrated, isMutating, error } = state;
+  const { items, isLoading, isHydrated, isMutating, error, lastChange } = state;
   const itemsRef = useRef(items);
   const pluginsRef = useRef(plugins);
   pluginsRef.current = plugins;
@@ -284,6 +286,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
           if (plan.pluginContext) await runAfterPlugins(plan.pluginContext);
           if (plan.pluginContext) {
             const change: KeepChangeContext<TMeta> = { ...plan.pluginContext, phase: "local" };
+            store.setState({ lastChange: change });
             void Promise.resolve(handlersRef.current.onChange?.(change)).catch((cause) =>
               reportError(cause, { action, id }),
             );
@@ -578,6 +581,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       isHydrated,
       isMutating,
       error,
+      lastChange,
       syncState,
       saveItem,
       updateNote,
@@ -596,6 +600,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
     [
       clear,
       error,
+      lastChange,
       flushSync,
       isHydrated,
       isLoading,

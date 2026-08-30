@@ -1,10 +1,16 @@
 import type { KeepItem } from "@keepkit/core/core";
 import { KeepButton, useKeepList } from "@keepkit/core/react";
+import { type KeepImageProps, KeepItemCard, KeepList } from "@keepkit/ui";
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
+import Image from "next/image";
 import { getSession } from "../lib/auth";
 import { listKeepItems } from "../lib/serverKeepApi";
 
-type ArticleMeta = { title: string; url: string };
+type ArticleMeta = { title: string; url: string; image?: string };
+
+function NextImage({ src, alt, width, height }: Pick<KeepImageProps, "src" | "alt" | "width" | "height">) {
+  return <Image src={src} alt={alt} width={width ?? 640} height={height ?? 360} />;
+}
 
 export const getServerSideProps: GetServerSideProps<{ keepItems: KeepItem<ArticleMeta>[] }> = async ({ req }) => {
   const session = getSession(req);
@@ -28,6 +34,18 @@ export default function Home({ keepItems }: InferGetServerSidePropsType<typeof g
       <p>
         Saved locally: {items.length}. Sync: {syncState.status}
       </p>
+      <KeepList<ArticleMeta>
+        options={{ targetType: "article" }}
+        renderItem={(entry) => (
+          <KeepItemCard
+            item={entry}
+            getImageProps={(current, title) =>
+              current.meta.image ? { src: current.meta.image, alt: String(title), width: 320, height: 180 } : undefined
+            }
+            imageComponent={NextImage}
+          />
+        )}
+      />
     </main>
   );
 }

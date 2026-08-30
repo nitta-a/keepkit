@@ -1,5 +1,39 @@
 # Release notes
 
+## [0.4.0] - 2026-08-31
+
+### 日本語
+
+#### 破壊的変更
+
+- `@keepkit/ui` のpeer dependencyを `@keepkit/core >=0.4.0` に更新しました。
+- `KeepItemCard.getImageUrl` を廃止し、`getImageProps`、`imageComponent`、`renderImage` による画像差し替えAPIへ移行しました。
+
+#### 追加・改善
+
+- `KeepSearchInput`、`KeepSortSelect`、`KeepPagination` を追加しました。
+- `KeepTagEditor`、`KeepBulkActions` と複数選択・一括削除・一括タグ更新を追加しました。
+- `KeepUiProvider`、`labels`、`locale`、`labelResolver` によるUI全体のラベル管理を追加しました。
+- `KeepAnnouncements` とcoreの `lastChange` により、保存・削除・ノート保存の成功を `aria-live` で通知できるようにしました。
+- Next.js 15 Pages Router、SSR/hydration、Jest、Testing Library、Next Imageの公式サンプルを拡充しました。
+- UI動作テストとヘッドレスUIのカスタマイズ仕様ドキュメントを拡充しました。
+
+### English
+
+#### Breaking changes
+
+- Updated the `@keepkit/ui` peer dependency to `@keepkit/core >=0.4.0`.
+- Replaced `KeepItemCard.getImageUrl` with the structured `getImageProps`, `imageComponent`, and `renderImage` image API.
+
+#### Added and changed
+
+- Added `KeepSearchInput`, `KeepSortSelect`, and `KeepPagination`.
+- Added `KeepTagEditor`, `KeepBulkActions`, multi-item selection, bulk deletion, and bulk tag updates.
+- Added app-wide labels through `KeepUiProvider`, `labels`, `locale`, and `labelResolver`.
+- Added `KeepAnnouncements` and core `lastChange` support for `aria-live` success messages after saves, removals, and note saves.
+- Expanded the official Next.js 15 Pages Router example with SSR/hydration, Jest, Testing Library, and Next Image guidance.
+- Expanded UI behavior tests and headless customization documentation.
+
 ## [0.3.0] - 2026-08-31
 
 ### 日本語

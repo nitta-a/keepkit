@@ -4,7 +4,7 @@ import type {
   KeepItemRevalidator,
   RevalidateKeepItemsOptions,
 } from "./revalidation";
-import type { KeepItem } from "./types";
+import type { KeepChangeContext, KeepItem } from "./types";
 
 export type KeepStoreState<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
@@ -12,6 +12,7 @@ export type KeepStoreState<TMeta = Record<string, unknown>> = {
   isHydrated: boolean;
   isMutating: boolean;
   error: unknown | null;
+  lastChange?: KeepChangeContext<TMeta>;
 };
 
 export type KeepStoreActions<TMeta = Record<string, unknown>> = {
