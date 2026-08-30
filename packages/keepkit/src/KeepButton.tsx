@@ -105,8 +105,8 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     }
     (buttonProps as { onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void }).onKeyDown?.(event);
     if (!event.defaultPrevented && !isDisabled && asChild && (event.key === "Enter" || event.key === " ")) {
-      event.preventDefault();
       void handleClick(event as unknown as MouseEvent<HTMLElement>);
+      event.preventDefault();
     }
   }
 

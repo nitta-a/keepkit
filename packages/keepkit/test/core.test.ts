@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { KeepStore as FrameworkNeutralKeepStore } from "../dist/core.js";
 import {
+  createKeepInvalidationPlugin,
   createStorageAdapter,
   exportItems,
   getTagCounts,
   importItems,
   KeepBackupImportError,
   KeepBackupParseError,
+  KeepSchemaValidationError,
   KeepStorageAccessError,
   KeepStorageError,
   KeepStorageParseError,
@@ -84,6 +86,49 @@ test("normalizes tags and exposes typed storage errors", () => {
   assert.equal(quota.name, "KeepStorageQuotaError");
   assert.equal(access.name, "KeepStorageAccessError");
   assert.equal(parse.name, "KeepStorageParseError");
+});
+
+test("notifies store subscribers only when state changes", () => {
+  const store = new KeepStore({
+    items: [],
+    isLoading: false,
+    isHydrated: false,
+    isMutating: false,
+    error: null,
+  });
+  let calls = 0;
+  const unsubscribe = store.subscribe(() => calls++);
+  const initial = store.getSnapshot();
+  store.setState({ isLoading: false });
+  assert.equal(calls, 0);
+  store.setState({ isHydrated: true });
+  assert.equal(calls, 1);
+  assert.equal(store.getSnapshot().isHydrated, true);
+  assert.notEqual(store.getSnapshot(), initial);
+  unsubscribe();
+  store.setState({ isLoading: true });
+  assert.equal(calls, 1);
+});
+
+test("invalidates static and context-derived query keys after plugin completion", async () => {
+  const invalidated: string[] = [];
+  const staticPlugin = createKeepInvalidationPlugin({
+    name: "static-cache",
+    queryKeys: ["items", "all"],
+    invalidate: async (key, context) => {
+      invalidated.push(`${key.join(":")}:${context.action}`);
+    },
+  });
+  assert.equal(staticPlugin.name, "static-cache");
+  await staticPlugin.after?.({ action: "save", id: "a", item: itemA });
+
+  const dynamicPlugin = createKeepInvalidationPlugin({
+    queryKeys: (context) => [["items", context.id], ["tags"]],
+    invalidate: (key) => invalidated.push(key.join(":")),
+  });
+  assert.equal(dynamicPlugin.name, "keepkit-cache-invalidation");
+  await dynamicPlugin.after?.({ action: "remove", id: "a" });
+  assert.deepEqual(invalidated, ["items:all:save", "items:a", "tags"]);
 });
 
 test("supports batch local-storage operations and missing browser storage", async () => {
@@ -340,6 +385,49 @@ test("supports date ranges, tokenized search, and tag counts", () => {
   );
 });
 
+test("supports every list filter, search field, sorting, and pagination boundary", () => {
+  const items = [
+    { ...itemA, savedAt: 10, updatedAt: 30, targetType: "article", note: "First note", tags: ["one", "shared"] },
+    { ...itemB, savedAt: 20, updatedAt: 20, targetType: "article", note: "Second note", tags: ["two", "shared"] },
+    { ...itemA, id: "c", savedAt: 30, updatedAt: 10, targetType: "video", note: "Third note", tags: ["three"] },
+  ];
+  assert.deepEqual(
+    queryKeepItems(items, { targetType: "article", tag: "shared", tags: ["one"] }).items.map((item) => item.id),
+    ["a"],
+  );
+  assert.deepEqual(
+    queryKeepItems(items, { filterFn: (item) => item.id !== "b" }).items.map((item) => item.id),
+    ["a", "c"],
+  );
+  assert.deepEqual(
+    queryKeepItems(items, { search: { query: "third", fields: ["note"], tokenize: false } }).items.map(
+      (item) => item.id,
+    ),
+    ["c"],
+  );
+  assert.deepEqual(
+    queryKeepItems(items, { search: { query: "one missing", fields: ["tags"], tokenize: false } }).items,
+    [],
+  );
+  assert.deepEqual(
+    queryKeepItems(items, { search: { query: "one missing", fields: ["tags"], mode: "or" } }).items.map(
+      (item) => item.id,
+    ),
+    ["a"],
+  );
+  assert.deepEqual(
+    queryKeepItems(items, { sort: { by: "updatedAt", direction: "desc" }, offset: 1, limit: 1 }).items.map(
+      (item) => item.id,
+    ),
+    ["b"],
+  );
+  assert.deepEqual(
+    queryKeepItems(items, { savedBetween: [11, 29] }).items.map((item) => item.id),
+    ["b"],
+  );
+  assert.deepEqual(queryKeepItems(items, { limit: 0 }).items, []);
+});
+
 test("parses metadata with parse, safeParse, and Standard Schema contracts", async () => {
   assert.equal(await parseKeepMeta({ parse: (value) => String(value).trim() }, " value "), "value");
   assert.equal(await parseKeepMeta({ safeParse: (value) => ({ success: true, data: Number(value) }) }, "42"), 42);
@@ -347,6 +435,25 @@ test("parses metadata with parse, safeParse, and Standard Schema contracts", asy
   assert.deepEqual(await parseKeepMeta({ "~standard": { validate: async () => ({ value: { ok: true } }) } }, null), {
     ok: true,
   });
+});
+
+test("wraps schema failures and preserves validation error details", async () => {
+  const cause = new Error("parse failed");
+  await assert.rejects(parseKeepMeta({ parse: () => Promise.reject(cause) }, itemA.meta), (error) => {
+    assert.equal(error instanceof KeepSchemaValidationError, true);
+    assert.equal(error.cause, cause);
+    return true;
+  });
+  await assert.rejects(
+    parseKeepMeta({ "~standard": { validate: () => ({ issues: ["invalid"] }) } }, itemA.meta),
+    (error) => {
+      assert.equal(error instanceof KeepSchemaValidationError, true);
+      assert.deepEqual(error.cause, ["invalid"]);
+      return true;
+    },
+  );
+  const validated = await parseKeepMeta({ safeParse: () => ({ success: true, data: { title: "validated" } }) }, null);
+  assert.deepEqual(validated, { title: "validated" });
 });
 
 test("drops invalid metadata during backup import when requested", async () => {

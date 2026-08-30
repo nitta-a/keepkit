@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createBrowserStorageAdapter,
   createStorageAdapter,
   exportItems,
   FallbackStorageAdapter,
@@ -218,6 +219,129 @@ test("switches to a fallback adapter after an IndexedDB access failure", async (
   assert.equal(fallbackWrites, 1);
   assert.equal(adapter.isUsingFallback, true);
   assert.equal(fallbackError, cause);
+});
+
+test("preserves parse errors, mirrors healthy writes, and routes subscriptions by active adapter", async () => {
+  const parseError = new KeepStorageParseError({ operation: "getAll", storageKey: "primary" });
+  const primaryListeners = new Set<() => void>();
+  const fallbackListeners = new Set<() => void>();
+  const primaryItems: (typeof item)[] = [];
+  const fallbackItems: (typeof item)[] = [];
+  const createAdapter = (
+    values: (typeof item)[],
+    listeners: Set<() => void>,
+    shouldFail = false,
+  ): StorageAdapter<typeof item.meta> => ({
+    storageKey: "shared",
+    getAll: async () => {
+      if (shouldFail) throw parseError;
+      return [...values];
+    },
+    set: async (next) => {
+      values.splice(0, values.length, next);
+      listeners.forEach((listener) => {
+        listener();
+      });
+    },
+    setMany: async (next) => {
+      values.splice(0, values.length, ...next);
+    },
+    remove: async () => undefined,
+    clear: async () => values.splice(0),
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  });
+  const parsePrimary = createAdapter(primaryItems, primaryListeners, true);
+  const fallback = createAdapter(fallbackItems, fallbackListeners);
+  const parseAdapter = new FallbackStorageAdapter({ primary: parsePrimary, fallback });
+  await assert.rejects(parseAdapter.getAll(), (error) => error === parseError);
+  assert.equal(parseAdapter.isUsingFallback, false);
+
+  const healthyPrimary = createAdapter(primaryItems, primaryListeners);
+  const mirrored = new FallbackStorageAdapter({
+    primary: healthyPrimary,
+    fallback,
+    mirrorWrites: true,
+  });
+  let calls = 0;
+  const unsubscribe = mirrored.subscribe(() => calls++);
+  await mirrored.set(item);
+  assert.deepEqual(primaryItems, [item]);
+  assert.deepEqual(fallbackItems, [item]);
+  primaryListeners.forEach((listener) => {
+    listener();
+  });
+  fallbackListeners.forEach((listener) => {
+    listener();
+  });
+  assert.equal(calls, 2);
+  unsubscribe();
+  primaryListeners.forEach((listener) => {
+    listener();
+  });
+  assert.equal(calls, 2);
+});
+
+test("uses fallback batch methods and honors custom fallback predicates", async () => {
+  const calls: string[] = [];
+  const cause = new Error("temporary");
+  const primary: StorageAdapter<typeof item.meta> = {
+    getAll: async () => [],
+    set: async () => {
+      calls.push("primary:set");
+      throw cause;
+    },
+    remove: async () => {
+      calls.push("primary:remove");
+      throw cause;
+    },
+    clear: async () => {
+      calls.push("primary:clear");
+      throw cause;
+    },
+  };
+  const fallback: StorageAdapter<typeof item.meta> = {
+    getAll: async () => [],
+    set: async () => calls.push("fallback:set"),
+    setMany: async () => calls.push("fallback:setMany"),
+    remove: async () => calls.push("fallback:remove"),
+    removeMany: async () => calls.push("fallback:removeMany"),
+    clear: async () => calls.push("fallback:clear"),
+  };
+  const adapter = new FallbackStorageAdapter({
+    primary,
+    fallback,
+    shouldFallback: (error) => error === cause,
+  });
+  await adapter.setMany([item]);
+  await adapter.removeMany([item.id]);
+  await adapter.clear();
+  assert.equal(adapter.isUsingFallback, true);
+  assert.deepEqual(calls, ["primary:set", "fallback:setMany", "fallback:removeMany", "fallback:clear"]);
+
+  const notRecoverable = new Error("not recoverable");
+  const noFallback = new FallbackStorageAdapter({
+    primary: {
+      ...primary,
+      set: async () => {
+        throw notRecoverable;
+      },
+    },
+    fallback,
+    shouldFallback: () => false,
+  });
+  await assert.rejects(noFallback.set(item), (error) => error === notRecoverable);
+  assert.equal(noFallback.isUsingFallback, false);
+});
+
+test("creates a local-storage adapter when IndexedDB is unavailable", async () => {
+  const storage = createStorage();
+  const adapter = createBrowserStorageAdapter({ key: "browser-fallback", indexedDB: undefined, storage });
+  assert.equal(adapter instanceof LocalStorageAdapter, true);
+  await adapter.set(item);
+  assert.deepEqual(await adapter.getAll(), [item]);
 });
 
 test("migrates legacy fallback data into an empty primary adapter", async () => {
