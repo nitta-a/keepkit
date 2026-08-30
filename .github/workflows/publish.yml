@@ -99,16 +99,16 @@ jobs:
         run: |
           set -euo pipefail
           version="${RELEASE_VERSION#v}"
-          package_name="@keepkit/core"
-
-          if npm view "${package_name}@${version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
-            echo "${package_name}@${version} is already published; skipping."
-          else
-            pnpm --filter "${package_name}" publish \
-              --access public \
-              --provenance \
-              --no-git-checks
-          fi
+          for package_name in @keepkit/core @keepkit/ui; do
+            if npm view "${package_name}@${version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+              echo "${package_name}@${version} is already published; skipping."
+            else
+              pnpm --filter "${package_name}" publish \
+                --access public \
+                --provenance \
+                --no-git-checks
+            fi
+          done
 
       - name: Create GitHub Release
         env:

@@ -1,33 +1,25 @@
 {
-  "name": "@keepkit/core",
+  "name": "@keepkit/ui",
   "version": "0.3.0",
-  "description": "A flexible save-and-collect toolkit for React apps.",
+  "description": "Headless, accessible React UI components for KeepKit.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/nitta-a/keepkit.git",
-    "directory": "packages/keepkit"
+    "directory": "packages/keepkit-ui"
   },
   "files": [
     "dist"
   ],
   "exports": {
-    "./core": {
-      "types": "./dist/core.d.ts",
-      "import": "./dist/core.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
-    },
-    "./schema": {
-      "types": "./dist/schema.d.ts",
-      "import": "./dist/schema.js"
-    },
-    "./storage": {
-      "types": "./dist/storage.d.ts",
-      "import": "./dist/storage.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "sideEffects": false,
@@ -43,9 +35,11 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
+    "@keepkit/core": ">=0.2.0",
     "react": ">=18"
   },
   "devDependencies": {
+    "@keepkit/core": "workspace:*",
     "@types/react": "^19.2.18",
     "react": "^19.2.8",
     "tsup": "^8.5.1",

@@ -1,6 +1,6 @@
 # KeepKit migration guide
 
-This guide is maintained alongside [`RELEASE_NOTES.md`](./RELEASE_NOTES.md). The new revalidation and label APIs are currently listed under `Unreleased`; apply them when upgrading to the release that contains them. KeepKit does not use a root export; each public surface is imported from its explicit subpath.
+This guide is maintained alongside [`RELEASE_NOTES.md`](./RELEASE_NOTES.md). The revalidation, label, and UI APIs are included in `0.3.0`. KeepKit does not use a root export; each public surface is imported from its explicit subpath.
 
 ## 日本語
 

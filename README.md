@@ -6,7 +6,7 @@
 
 keepkitは、Reactアプリケーションに保存・コレクション機能を追加するための、ヘッドレスで非同期処理を前提としたツールキットです。保存先は差し替え可能なストレージアダプターとして切り離されています。
 
-このリポジトリには、公開用パッケージ（`packages/keepkit`）と、実際の利用例（`apps/demo`）が含まれています。
+このリポジトリには、保存プリミティブ（`@keepkit/core`）、React UIパーツ（`@keepkit/ui`）、実際の利用例（`apps/demo`）が含まれています。
 
 ### 主な機能
 
@@ -26,11 +26,12 @@ keepkitは、Reactアプリケーションに保存・コレクション機能�
 - `SyncStorageAdapter` の永続キュー自動再開とオンライン復帰同期
 - version付きJSONバックアップのエクスポート・インポート
 - `KeepButton` の多言語ARIAラベルと、保存アイテムのメタデータ再取得・状態検出
+- `@keepkit/ui` による `KeepList`、`KeepItemCard`、`KeepTagFilter`、`KeepNoteEditor`、`KeepEmptyState`、`KeepStatus`
 
 ### インストール
 
 ```bash
-pnpm add @keepkit/core
+pnpm add @keepkit/core @keepkit/ui
 ```
 
 ### 使い方
@@ -141,6 +142,17 @@ import { KeepProvider } from "@keepkit/core/react";
 </KeepProvider>;
 ```
 
+UIパーツは状態管理とスタイルを持たず、`@keepkit/ui` から個別に利用できます。`className`、`asChild`、render props、`labels`、各種コールバックで既存のデザインと翻訳に接続できます。標準の一覧には読み込み中・空・エラー状態と削除操作が含まれます。
+
+```tsx
+import { KeepItemCard, KeepList, KeepNoteEditor, KeepStatus, KeepTagFilter } from "@keepkit/ui";
+
+<KeepTagFilter value={selectedTag} onValueChange={setSelectedTag} />
+<KeepList options={{ tag: selectedTag }} renderItem={(item) => <KeepItemCard item={item} />} />
+<KeepNoteEditor item={item} />
+<KeepStatus />
+```
+
 データ移行やバックアップには `exportItems(adapter)` と `importItems(adapter, json, { mode: "replace" | "merge" })` を利用できます。結果には `imported` / `failed` 件数が含まれます。
 
 `KeepButton` の標準ラベルは `savedAriaLabel` / `unsavedAriaLabel`、または `getAriaLabel` で翻訳できます。保存対象の再取得には `useKeepItem(id).refreshMetadata` と `isKeepItemMetadataStale`、削除・非公開・期限切れの検出と整理には `revalidateItems` を利用します。詳しい移行手順は [MIGRATION.md](./MIGRATION.md)、Next.js Pages Routerと認証付き同期の実装例は [公式サンプル](./examples/next-pages-router/README.md) を参照してください。
@@ -169,7 +181,7 @@ pnpm build
 
 keepkit is a headless, async-first toolkit for adding save-and-collect functionality to React applications. Persistence is isolated behind replaceable storage adapters.
 
-This repository contains the publishable package in `packages/keepkit` and a real usage example in `apps/demo`.
+This repository contains the publishable packages in `packages/keepkit` and `packages/keepkit-ui`, plus a real usage example in `apps/demo`.
 
 ### Features
 
@@ -189,11 +201,12 @@ This repository contains the publishable package in `packages/keepkit` and a rea
 - Durable sync queues that resume on startup and flush when connectivity returns
 - Versioned JSON backup export and import utilities
 - Localized `KeepButton` ARIA labels and saved-item metadata/status revalidation
+- Optional `@keepkit/ui` package with `KeepList`, `KeepItemCard`, `KeepTagFilter`, `KeepNoteEditor`, `KeepEmptyState`, and `KeepStatus`
 
 ### Installation
 
 ```bash
-pnpm add @keepkit/core
+pnpm add @keepkit/core @keepkit/ui
 ```
 
 ### Usage
@@ -292,6 +305,17 @@ import { KeepProvider } from "@keepkit/core/react";
 <KeepProvider storage={storage} initialItems={itemsFromServer}>
   <SavedItems />
 </KeepProvider>;
+```
+
+The optional UI package is state-aware but style-free, so each component can be used independently. Use `className`, `asChild`, render props, `labels`, and callbacks to connect it to an existing design system and localization layer. `KeepList` includes loading, empty, error, and removal states by default.
+
+```tsx
+import { KeepItemCard, KeepList, KeepNoteEditor, KeepStatus, KeepTagFilter } from "@keepkit/ui";
+
+<KeepTagFilter value={selectedTag} onValueChange={setSelectedTag} />
+<KeepList options={{ tag: selectedTag }} renderItem={(item) => <KeepItemCard item={item} />} />
+<KeepNoteEditor item={item} />
+<KeepStatus />
 ```
 
 Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "merge" })` for portable backups and migrations. Results include imported and failed counts.
