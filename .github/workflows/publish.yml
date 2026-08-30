@@ -82,7 +82,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/setup@v2
         with:
-          version: 11.19.0
+          version: 11.24.0
           cache: true
           install: false
 
