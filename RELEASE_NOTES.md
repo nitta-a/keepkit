@@ -16,6 +16,8 @@
 - 保存・削除・エラーのイベントハンドラーと、複数タブでのストレージ変更の再読み込みに対応しました。
 - `StorageAdapter.subscribe` によるマルチタブ同期、失敗時のロールバックを伴う楽観的更新、`createKeepKit<TMeta>()` による型付きAPIセットを追加しました。
 - `KeepItem.tags` と `useKeepList` のタグ絞り込み・ソート、`KeepButton` の render props / `asChild`、ノート更新イベントを追加しました。
+- Providerの保存・削除・再読み込みを直列化し、`isHydrated` / `isMutating`、タグ更新・一括操作を追加しました。
+- `KeepStorageQuotaError` などのストレージエラー型、`createStorageAdapter`、失敗件数を返せるversion付きJSONバックアップAPIを追加しました。
 
 #### 破壊的変更
 
@@ -35,6 +37,8 @@ This file records the current unreleased changes. The final version number and r
 - Added save, remove, and error event handlers, plus refreshes triggered by storage changes in other tabs.
 - Added adapter-level multi-tab subscriptions, optimistic updates with rollback on failure, and `createKeepKit<TMeta>()` for app-wide typed components and hooks.
 - Added item tags with list filtering/sorting, render props / `asChild` support for `KeepButton`, and note-update events.
+- Serialized provider mutations and refreshes, exposed `isHydrated` / `isMutating`, and added bulk tag/removal actions.
+- Added typed storage errors, `createStorageAdapter`, and versioned JSON backup utilities with failure counts.
 
 #### Breaking changes
 

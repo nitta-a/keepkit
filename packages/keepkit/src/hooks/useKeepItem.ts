@@ -6,11 +6,13 @@ export type UseKeepItemResult<TMeta = Record<string, unknown>> = {
   item: KeepItem<TMeta> | undefined;
   isSaved: boolean;
   isLoading: boolean;
+  isMutating: boolean;
   error: unknown | null;
   save: () => Promise<void>;
   remove: () => Promise<void>;
   toggle: () => Promise<void>;
   updateNote: (note?: string) => Promise<void>;
+  updateTags: (tags?: string[]) => Promise<void>;
 };
 
 export function useKeepItem<TMeta = Record<string, unknown>>(
@@ -36,15 +38,18 @@ export function useKeepItem<TMeta = Record<string, unknown>>(
   const remove = useCallback(() => context.removeItem(id), [context, id]);
   const toggle = useCallback(() => (item ? remove() : save()), [item, remove, save]);
   const updateNote = useCallback((note?: string) => context.updateNote(id, note), [context, id]);
+  const updateTags = useCallback((tags?: string[]) => context.updateTags(id, tags), [context, id]);
 
   return {
     item,
     isSaved: Boolean(item),
     isLoading: context.isLoading,
+    isMutating: context.isMutating,
     error: context.error,
     save,
     remove,
     toggle,
     updateNote,
+    updateTags,
   };
 }

@@ -2,6 +2,7 @@ import {
   type ButtonHTMLAttributes,
   Children,
   cloneElement,
+  type HTMLAttributes,
   isValidElement,
   type MouseEvent,
   type ReactElement,
@@ -14,28 +15,39 @@ export type KeepButtonItem<TMeta = Record<string, unknown>> = KeepItemInput<TMet
   id: string;
 };
 
-export type KeepButtonProps<TMeta = Record<string, unknown>> = Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  "children" | "onClick" | "aria-pressed"
-> & {
+type KeepButtonSharedProps<TMeta> = {
   item: KeepButtonItem<TMeta>;
   children?: ReactNode | ((state: KeepButtonState<TMeta>) => ReactNode);
-  asChild?: boolean;
   savedLabel?: ReactNode;
   unsavedLabel?: ReactNode;
+  disabled?: boolean;
   onToggleError?: (error: unknown) => void;
-  onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
 };
+
+export type KeepButtonProps<TMeta = Record<string, unknown>> = KeepButtonSharedProps<TMeta> &
+  (
+    | (Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick" | "aria-pressed"> & {
+        asChild?: false;
+        onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+      })
+    | (Omit<HTMLAttributes<HTMLElement>, "children" | "onClick" | "aria-pressed"> & {
+        asChild: true;
+        children: ReactElement | ((state: KeepButtonState<TMeta>) => ReactElement);
+        onClick?: (event: MouseEvent<HTMLElement>) => void;
+      })
+  );
 
 export type KeepButtonState<TMeta = Record<string, unknown>> = {
   item: ReturnType<typeof useKeepItem<TMeta>>["item"];
   isSaved: boolean;
   isLoading: boolean;
+  isMutating: boolean;
   error: unknown | null;
   save: () => Promise<void>;
   remove: () => Promise<void>;
   toggle: () => Promise<void>;
   updateNote: (note?: string) => Promise<void>;
+  updateTags: (tags?: string[]) => Promise<void>;
 };
 
 /** A style-free accessible save toggle. Consumers provide all visual styling. */
@@ -57,9 +69,16 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     tags: item.tags,
   });
   const { isSaved, toggle } = state;
+  const isDisabled = disabled ?? state.isMutating;
 
-  async function handleClick(event: MouseEvent<HTMLButtonElement>) {
-    onClick?.(event);
+  async function handleClick(event: MouseEvent<HTMLElement>) {
+    if (asChild) {
+      (onClick as ((event: MouseEvent<HTMLElement>) => void) | undefined)?.(event);
+    } else {
+      (onClick as ((event: MouseEvent<HTMLButtonElement>) => void) | undefined)?.(
+        event as MouseEvent<HTMLButtonElement>,
+      );
+    }
     if (event.defaultPrevented) return;
     try {
       await toggle();
@@ -79,14 +98,16 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     ) {
       content.props.onClick?.(event);
     }
-    if (!event.defaultPrevented) void handleClick(event as MouseEvent<HTMLButtonElement>);
+    if (!event.defaultPrevented) void handleClick(event);
   }
 
   const commonProps = {
     ...buttonProps,
     "aria-pressed": isSaved,
-    "aria-label": buttonProps["aria-label"] ?? (isSaved ? "Remove saved item" : "Save item"),
-    disabled,
+    "aria-label":
+      ("aria-label" in buttonProps ? buttonProps["aria-label"] : undefined) ??
+      (isSaved ? "Remove saved item" : "Save item"),
+    disabled: isDisabled,
     onClick: handleElementClick,
   };
 
@@ -99,7 +120,10 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   }
 
   return (
-    <button {...commonProps} type={buttonProps.type ?? "button"}>
+    <button
+      {...commonProps}
+      type={"type" in buttonProps ? (buttonProps.type ?? "button") : "button"}
+    >
       {content}
     </button>
   );

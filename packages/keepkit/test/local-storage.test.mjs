@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LocalStorageAdapter, mergeKeepItems, migrateKeepItems } from "../dist/index.js";
+import {
+  createStorageAdapter,
+  exportItems,
+  importItems,
+  KeepBackupImportError,
+  KeepBackupParseError,
+  KeepStorageAccessError,
+  KeepStorageParseError,
+  KeepStorageQuotaError,
+  LocalStorageAdapter,
+  mergeKeepItems,
+  migrateKeepItems,
+} from "../dist/index.js";
 
 function createStorage() {
   const values = new Map();
@@ -56,14 +68,118 @@ test("removes and clears items", async () => {
   assert.deepEqual(await adapter.getAll(), []);
 });
 
-test("ignores malformed JSON and invalid item arrays", async () => {
+test("reports malformed JSON and invalid item arrays", async () => {
   const storage = createStorage();
   const adapter = new LocalStorageAdapter({ storage });
   storage.setItem(adapter.storageKey, "not-json");
-  assert.deepEqual(await adapter.getAll(), []);
+  await assert.rejects(adapter.getAll(), (error) => {
+    assert.equal(error instanceof KeepStorageParseError, true);
+    assert.equal(error.operation, "getAll");
+    return true;
+  });
 
   storage.setItem(adapter.storageKey, JSON.stringify([{ id: "missing-fields" }]));
-  assert.deepEqual(await adapter.getAll(), []);
+  await assert.rejects(adapter.getAll(), KeepStorageParseError);
+});
+
+test("wraps storage access failures", async () => {
+  const cause = new Error("storage is blocked");
+  const storage = {
+    ...createStorage(),
+    getItem: () => {
+      throw cause;
+    },
+  };
+  const adapter = new LocalStorageAdapter({ storage });
+
+  await assert.rejects(adapter.getAll(), (error) => {
+    assert.equal(error instanceof KeepStorageAccessError, true);
+    assert.equal(error.cause, cause);
+    assert.equal(error.storageKey, adapter.storageKey);
+    return true;
+  });
+});
+
+test("wraps quota failures with a typed error", async () => {
+  const cause = Object.assign(new Error("full"), { name: "QuotaExceededError", code: 22 });
+  const storage = {
+    ...createStorage(),
+    setItem: () => {
+      throw cause;
+    },
+  };
+  const adapter = new LocalStorageAdapter({ storage });
+
+  await assert.rejects(adapter.set(item), (error) => {
+    assert.equal(error instanceof KeepStorageQuotaError, true);
+    assert.equal(error.cause, cause);
+    assert.equal(error.operation, "set");
+    return true;
+  });
+});
+
+test("exports and imports versioned backups", async () => {
+  const storage = createStorage();
+  const adapter = new LocalStorageAdapter({ key: "backup:source", storage });
+  const target = new LocalStorageAdapter({ key: "backup:target", storage });
+  await adapter.set({ ...item, tags: ["reading"] });
+
+  const backup = await exportItems(adapter);
+  const result = await importItems(target, backup, { mode: "replace" });
+
+  assert.equal(JSON.parse(backup).format, "keepkit");
+  assert.equal(JSON.parse(backup).version, 1);
+  assert.equal(result.imported, 1);
+  assert.equal(result.failed, 0);
+  assert.deepEqual(await target.getAll(), [{ ...item, tags: ["reading"] }]);
+});
+
+test("rejects unsupported backup data", async () => {
+  const adapter = new LocalStorageAdapter({ storage: createStorage() });
+  await assert.rejects(
+    importItems(adapter, JSON.stringify({ version: 999 })),
+    KeepBackupParseError,
+  );
+});
+
+test("reports persistence failures during backup import", async () => {
+  const cause = new Error("write failed");
+  const adapter = {
+    getAll: async () => [],
+    set: async () => {
+      throw cause;
+    },
+    remove: async () => undefined,
+    clear: async () => undefined,
+  };
+  const backup = JSON.stringify({
+    format: "keepkit",
+    version: 1,
+    exportedAt: 1,
+    items: [item],
+  });
+
+  await assert.rejects(importItems(adapter, backup, { mode: "replace" }), (error) => {
+    assert.equal(error instanceof KeepBackupImportError, true);
+    assert.equal(error.failed, 1);
+    assert.equal(error.cause, cause);
+    return true;
+  });
+});
+
+test("creates an adapter from sync persistence functions", async () => {
+  const saved = new Map();
+  const adapter = createStorageAdapter({
+    storageKey: "sync:adapter",
+    getAll: () => [...saved.values()],
+    set: (entry) => saved.set(entry.id, entry),
+    remove: (id) => saved.delete(id),
+    clear: () => saved.clear(),
+  });
+
+  await adapter.set(item);
+  assert.equal(adapter.storageKey, "sync:adapter");
+  assert.deepEqual(await adapter.getAll(), [item]);
 });
 
 test("merges local items and keeps the newest version", async () => {

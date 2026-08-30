@@ -22,7 +22,9 @@ const storage = new LocalStorageAdapter({ key: "my-app:items" });
 </KeepProvider>;
 ```
 
-`useKeepItem(id, payload)` では保存、切り替え、削除、ノート更新を行えます。`useKeepList()` ではコレクションの取得、絞り込み、クリアができます。`LocalStorageAdapter` はSSR環境からimportでき、`StorageAdapter<TMeta>` を実装することでサーバー側のストアに接続できます。
+`useKeepItem(id, payload)` では保存、切り替え、削除、ノート・タグ更新を行えます。`useKeepList()` ではコレクションの取得、タグ絞り込み・ソート、`removeBatch` / `updateTagsBatch` による一括操作ができます。`KeepProvider` は `isHydrated` / `isMutating` と typed storage errors を公開します。`LocalStorageAdapter` はSSR環境からimportでき、`StorageAdapter<TMeta>` または `createStorageAdapter` でサーバー側のストアに接続できます。
+
+`exportItems(adapter)` / `importItems(adapter, json, { mode: "replace" | "merge" })` でversion付きJSONバックアップを扱えます。結果には `imported` / `failed` 件数が含まれます。
 
 詳細な使い方と開発コマンドは [ルートREADME](../../README.md) を、現在の変更内容は [リリースノート](../../RELEASE_NOTES.md) を参照してください。
 
@@ -46,6 +48,8 @@ const storage = new LocalStorageAdapter({ key: "my-app:items" });
 </KeepProvider>;
 ```
 
-Use `useKeepItem(id, payload)` for saving, toggling, removing, and updating notes. Use `useKeepList()` to read, filter, or clear the collection. `LocalStorageAdapter` is safe to import in SSR environments; implement `StorageAdapter<TMeta>` to connect a server-backed store.
+Use `useKeepItem(id, payload)` for saving, toggling, removing, and updating notes or tags. Use `useKeepList()` to read, filter, sort, and perform bulk removal/tag updates. `KeepProvider` exposes `isHydrated`, `isMutating`, and typed storage errors. `LocalStorageAdapter` is safe to import in SSR environments; implement `StorageAdapter<TMeta>` or use `createStorageAdapter` to connect a server-backed store.
+
+Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "merge" })` for versioned JSON backups. Results include imported and failed counts.
 
 See the [root README](../../README.md) for detailed usage and development commands, and the [release notes](../../RELEASE_NOTES.md) for the current changes.

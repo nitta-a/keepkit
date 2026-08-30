@@ -17,14 +17,20 @@ import type {
   KeepItem,
   StorageAdapter,
 } from "./types";
+import { normalizeKeepTags } from "./types";
 
 export type KeepContextValue<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
   isLoading: boolean;
+  isHydrated: boolean;
+  isMutating: boolean;
   error: unknown | null;
   saveItem: (item: KeepItem<TMeta>) => Promise<void>;
   updateNote: (id: string, note?: string) => Promise<void>;
+  updateTags: (id: string, tags?: string[]) => Promise<void>;
+  updateTagsBatch: (ids: string[], tags?: string[]) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
+  removeItems: (ids: string[]) => Promise<void>;
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -38,18 +44,30 @@ export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildr
 const defaultStorage = new LocalStorageAdapter();
 const KeepContext = createContext<KeepContextValue<unknown> | null>(null);
 
+type MutationPlan<TMeta> = {
+  next: KeepItem<TMeta>[];
+  persist: () => Promise<void>;
+  onSuccess?: () => void;
+};
+
 export function KeepProvider<TMeta = Record<string, unknown>>({
   storage = defaultStorage as StorageAdapter<TMeta>,
   onSave,
   onRemove,
   onNoteUpdate,
+  onTagsUpdate,
   onError,
   children,
 }: KeepProviderProps<TMeta>) {
   const [items, setItems] = useState<KeepItem<TMeta>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<unknown | null>(null);
   const itemsRef = useRef(items);
+  const operationTailRef = useRef<Promise<unknown>>(Promise.resolve());
+  const pendingRefreshesRef = useRef(0);
+  const pendingMutationsRef = useRef(0);
 
   const reportError = useCallback(
     (cause: unknown, context: KeepErrorContext) => {
@@ -59,19 +77,36 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
     [onError],
   );
 
+  const enqueueOperation = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
+    const run = operationTailRef.current.then(operation, operation);
+    operationTailRef.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }, []);
+
   const refresh = useCallback(async () => {
+    pendingRefreshesRef.current += 1;
     setIsLoading(true);
+
     try {
-      const next = await storage.getAll();
-      itemsRef.current = next;
-      setItems(next);
-      setError(null);
-    } catch (cause) {
-      reportError(cause, { action: "refresh" });
+      await enqueueOperation(async () => {
+        try {
+          const next = await storage.getAll();
+          itemsRef.current = next;
+          setItems(next);
+          setError(null);
+        } catch (cause) {
+          reportError(cause, { action: "refresh" });
+        }
+      });
     } finally {
-      setIsLoading(false);
+      pendingRefreshesRef.current -= 1;
+      if (pendingRefreshesRef.current === 0) setIsLoading(false);
+      setIsHydrated(true);
     }
-  }, [reportError, storage]);
+  }, [enqueueOperation, reportError, storage]);
 
   useEffect(() => {
     void refresh();
@@ -82,92 +117,231 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
     return storage.subscribe(() => void refresh());
   }, [refresh, storage]);
 
-  const persistItem = useCallback(
-    async (item: KeepItem<TMeta>, action: KeepAction = "save") => {
-      const previous = itemsRef.current;
-      const next = [...previous.filter((current) => current.id !== item.id), item].sort(
-        (a, b) => b.updatedAt - a.updatedAt,
-      );
-      itemsRef.current = next;
-      setItems(next);
-      setError(null);
+  const runMutation = useCallback(
+    (
+      action: Exclude<KeepAction, "refresh">,
+      id: string | undefined,
+      createPlan: (previous: KeepItem<TMeta>[]) => MutationPlan<TMeta> | undefined,
+    ): Promise<void> => {
+      pendingMutationsRef.current += 1;
+      setIsMutating(true);
 
-      try {
-        await storage.set(item);
-      } catch (cause) {
-        itemsRef.current = previous;
-        setItems(previous);
-        reportError(cause, { action, id: item.id });
-        throw cause;
-      }
+      const run = enqueueOperation(async () => {
+        const previous = itemsRef.current;
+        const plan = createPlan(previous);
+        if (!plan) return;
+
+        itemsRef.current = plan.next;
+        setItems(plan.next);
+        setError(null);
+
+        try {
+          await plan.persist();
+        } catch (cause) {
+          itemsRef.current = previous;
+          setItems(previous);
+          reportError(cause, { action, id });
+          throw cause;
+        }
+
+        plan.onSuccess?.();
+      });
+
+      return run.finally(() => {
+        pendingMutationsRef.current -= 1;
+        if (pendingMutationsRef.current === 0) setIsMutating(false);
+      });
     },
-    [reportError, storage],
+    [enqueueOperation, reportError],
   );
 
   const saveItem = useCallback(
     async (item: KeepItem<TMeta>) => {
-      await persistItem(item);
-      onSave?.(item);
+      const normalizedItem = { ...item, tags: normalizeKeepTags(item.tags) };
+      await runMutation("save", normalizedItem.id, (previous) => ({
+        next: [
+          ...previous.filter((current) => current.id !== normalizedItem.id),
+          normalizedItem,
+        ].sort((a, b) => b.updatedAt - a.updatedAt),
+        persist: () => storage.set(normalizedItem),
+        onSuccess: () => onSave?.(normalizedItem),
+      }));
     },
-    [onSave, persistItem],
+    [onSave, runMutation, storage],
   );
 
   const updateNote = useCallback(
     async (id: string, note?: string) => {
-      const current = itemsRef.current.find((item) => item.id === id);
-      if (!current) return;
       const nextNote = note?.trim() || undefined;
-      const next = {
-        ...current,
-        note: nextNote,
-        updatedAt: Date.now(),
-      };
-      await persistItem(next, "updateNote");
-      onNoteUpdate?.(id, nextNote);
+      await runMutation("updateNote", id, (previous) => {
+        const current = previous.find((item) => item.id === id);
+        if (!current) return undefined;
+        const next = { ...current, note: nextNote, updatedAt: Date.now() };
+        return {
+          next: previous.map((item) => (item.id === id ? next : item)),
+          persist: () => storage.set(next),
+          onSuccess: () => onNoteUpdate?.(id, nextNote),
+        };
+      });
     },
-    [onNoteUpdate, persistItem],
+    [onNoteUpdate, runMutation, storage],
+  );
+
+  const updateTags = useCallback(
+    async (id: string, tags?: string[]) => {
+      const nextTags = normalizeKeepTags(tags);
+      await runMutation("updateTags", id, (previous) => {
+        const current = previous.find((item) => item.id === id);
+        if (!current) return undefined;
+        const next = { ...current, tags: nextTags, updatedAt: Date.now() };
+        return {
+          next: previous.map((item) => (item.id === id ? next : item)),
+          persist: () => storage.set(next),
+          onSuccess: () => onTagsUpdate?.(id, nextTags),
+        };
+      });
+    },
+    [onTagsUpdate, runMutation, storage],
+  );
+
+  const updateTagsBatch = useCallback(
+    async (ids: string[], tags?: string[]) => {
+      const idSet = new Set(ids);
+      const nextTags = normalizeKeepTags(tags);
+      await runMutation("updateTagsBatch", undefined, (previous) => {
+        const currentItems = previous.filter((item) => idSet.has(item.id));
+        if (currentItems.length === 0) return undefined;
+        const updatedItems = currentItems.map((item) => ({
+          ...item,
+          tags: nextTags,
+          updatedAt: Date.now(),
+        }));
+        const updatedById = new Map(updatedItems.map((item) => [item.id, item]));
+        return {
+          next: previous.map((item) => updatedById.get(item.id) ?? item),
+          persist: async () => {
+            if (storage.setMany) {
+              await storage.setMany(updatedItems);
+              return;
+            }
+            const completed: KeepItem<TMeta>[] = [];
+            try {
+              for (const item of updatedItems) {
+                await storage.set(item);
+                completed.push(item);
+              }
+            } catch (cause) {
+              const previousById = new Map(currentItems.map((item) => [item.id, item]));
+              await Promise.allSettled(
+                completed.map((item) => {
+                  const previousItem = previousById.get(item.id);
+                  return previousItem ? storage.set(previousItem) : Promise.resolve();
+                }),
+              );
+              throw cause;
+            }
+          },
+          onSuccess: () => {
+            updatedItems.forEach((item) => {
+              onTagsUpdate?.(item.id, nextTags);
+            });
+          },
+        };
+      });
+    },
+    [onTagsUpdate, runMutation, storage],
   );
 
   const removeItem = useCallback(
     async (id: string) => {
-      const current = itemsRef.current.find((item) => item.id === id);
-      if (!current) return;
-      const previous = itemsRef.current;
-      const next = previous.filter((item) => item.id !== id);
-      itemsRef.current = next;
-      setItems(next);
-      setError(null);
-      try {
-        await storage.remove(id);
-        onRemove?.(current);
-      } catch (cause) {
-        itemsRef.current = previous;
-        setItems(previous);
-        reportError(cause, { action: "remove", id });
-        throw cause;
-      }
+      await runMutation("remove", id, (previous) => {
+        const current = previous.find((item) => item.id === id);
+        if (!current) return undefined;
+        return {
+          next: previous.filter((item) => item.id !== id),
+          persist: () => storage.remove(id),
+          onSuccess: () => onRemove?.(current),
+        };
+      });
     },
-    [onRemove, reportError, storage],
+    [onRemove, runMutation, storage],
   );
 
-  const clear = useCallback(async () => {
-    const previous = itemsRef.current;
-    itemsRef.current = [];
-    setItems([]);
-    setError(null);
-    try {
-      await storage.clear();
-    } catch (cause) {
-      itemsRef.current = previous;
-      setItems(previous);
-      reportError(cause, { action: "clear" });
-      throw cause;
-    }
-  }, [reportError, storage]);
+  const removeItems = useCallback(
+    async (ids: string[]) => {
+      const idSet = new Set(ids);
+      await runMutation("removeBatch", undefined, (previous) => {
+        const removedItems = previous.filter((item) => idSet.has(item.id));
+        if (removedItems.length === 0) return undefined;
+        return {
+          next: previous.filter((item) => !idSet.has(item.id)),
+          persist: async () => {
+            if (storage.removeMany) {
+              await storage.removeMany(removedItems.map((item) => item.id));
+              return;
+            }
+            const completed: KeepItem<TMeta>[] = [];
+            try {
+              for (const item of removedItems) {
+                await storage.remove(item.id);
+                completed.push(item);
+              }
+            } catch (cause) {
+              await Promise.allSettled(completed.map((item) => storage.set(item)));
+              throw cause;
+            }
+          },
+          onSuccess: () => {
+            removedItems.forEach((item) => {
+              onRemove?.(item);
+            });
+          },
+        };
+      });
+    },
+    [onRemove, runMutation, storage],
+  );
+
+  const clear = useCallback(
+    () =>
+      runMutation("clear", undefined, (_previous) => ({
+        next: [],
+        persist: () => storage.clear(),
+      })),
+    [runMutation, storage],
+  );
 
   const value = useMemo<KeepContextValue<TMeta>>(
-    () => ({ items, isLoading, error, saveItem, updateNote, removeItem, clear, refresh }),
-    [clear, error, isLoading, items, refresh, removeItem, saveItem, updateNote],
+    () => ({
+      items,
+      isLoading,
+      isHydrated,
+      isMutating,
+      error,
+      saveItem,
+      updateNote,
+      updateTags,
+      updateTagsBatch,
+      removeItem,
+      removeItems,
+      clear,
+      refresh,
+    }),
+    [
+      clear,
+      error,
+      isHydrated,
+      isLoading,
+      isMutating,
+      items,
+      refresh,
+      removeItem,
+      saveItem,
+      updateNote,
+      updateTags,
+      updateTagsBatch,
+      removeItems,
+    ],
   );
 
   return (

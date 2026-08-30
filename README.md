@@ -13,12 +13,14 @@ keepkitは、Reactアプリケーションに保存・コレクション機能�
 - `KeepProvider` による保存アイテムの状態管理
 - スタイルを持たないアクセシブルな `KeepButton`
 - `useKeepItem` による保存・切り替え・削除・ノート更新
-- `useKeepList` による一覧取得、絞り込み、クリア
+- `useKeepList` による一覧取得、タグ絞り込み・ソート、一括削除・タグ更新
 - ブラウザの `localStorage` に対応した `LocalStorageAdapter`
 - `StorageAdapter` を実装したAPI・Supabase・Firebaseなどへの拡張
 - `mergeKeepItems` によるローカルアイテムとリモートアイテムの統合
 - `tags` による分類、`useKeepList` のタグ絞り込み・ソート
 - `createKeepKit<TMeta>()` によるアプリ全体の型推論、`KeepButton` の render props / `asChild`
+- `createStorageAdapter` による同期・非同期Adapterの接続
+- version付きJSONバックアップのエクスポート・インポート
 
 ### インストール
 
@@ -77,6 +79,20 @@ const { KeepProvider, KeepButton, useKeepItem, useKeepList } = createKeepKit<Pro
 
 `KeepButton` は `children={(state) => ...}` の render props、または `asChild` と単一の子要素で既存のデザインシステムに接続できます。保存・削除・ノート更新・エラーは `KeepProvider` のイベントハンドラーで購読できます。
 
+一覧では、`tags` で利用可能なタグを取得し、`removeBatch` と `updateTagsBatch` で一括操作できます。
+
+```tsx
+const { items, tags, removeBatch, updateTagsBatch } = useKeepList({
+  targetType: "article",
+  tag: selectedTag,
+  sort: { by: "updatedAt", direction: "desc" },
+});
+```
+
+`KeepProvider` は初回読み込みの完了を `isHydrated`、保存・削除中の状態を `isMutating` として公開します。`LocalStorageAdapter` の容量超過や破損データは `KeepStorageQuotaError` / `KeepStorageParseError` などで判別できます。
+
+データ移行やバックアップには `exportItems(adapter)` と `importItems(adapter, json, { mode: "replace" | "merge" })` を利用できます。結果には `imported` / `failed` 件数が含まれます。
+
 ### 開発
 
 ```bash
@@ -108,12 +124,14 @@ This repository contains the publishable package in `packages/keepkit` and a rea
 - State management for saved items through `KeepProvider`
 - A style-free, accessible `KeepButton`
 - Save, toggle, remove, and note updates with `useKeepItem`
-- Listing, filtering, and clearing items with `useKeepList`
+- Listing, tag filtering/sorting, clearing, and bulk actions with `useKeepList`
 - A browser `localStorage` adapter with `LocalStorageAdapter`
 - Extensibility through `StorageAdapter` implementations for APIs, Supabase, Firebase, and more
 - Local-to-remote item merging with `mergeKeepItems`
 - Tag-based organization with filtering and sorting through `useKeepList`
 - App-wide type inference through `createKeepKit<TMeta>()`, plus render props / `asChild` for `KeepButton`
+- Sync/async adapter composition with `createStorageAdapter`
+- Versioned JSON backup export and import utilities
 
 ### Installation
 
@@ -171,6 +189,20 @@ const { KeepProvider, KeepButton, useKeepItem, useKeepList } = createKeepKit<Pro
 ```
 
 `KeepButton` supports render props (`children={(state) => ...}`) and `asChild` for connecting an existing design system. Save, remove, note-update, and error events can be observed from `KeepProvider`.
+
+The list hook exposes the available `tags`, plus `removeBatch` and `updateTagsBatch` for bulk actions.
+
+```tsx
+const { items, tags, removeBatch, updateTagsBatch } = useKeepList({
+  targetType: "article",
+  tag: selectedTag,
+  sort: { by: "updatedAt", direction: "desc" },
+});
+```
+
+`KeepProvider` exposes `isHydrated` for the initial client-side load and `isMutating` while writes are pending. Storage failures can be distinguished with errors such as `KeepStorageQuotaError` and `KeepStorageParseError`.
+
+Use `exportItems(adapter)` and `importItems(adapter, json, { mode: "replace" | "merge" })` for portable backups and migrations. Results include imported and failed counts.
 
 ### Development
 
