@@ -86,6 +86,7 @@ export {
   LocalStorageSyncQueueAdapter,
   SyncStorageAdapter,
 } from "@keepkit/core/storage";
+export { isAllSelected, toggleSelectAll } from "./KeepBulkActions";
 export type { RenderProp } from "./shared";
 export type {
   KeepAnnouncementsProps,

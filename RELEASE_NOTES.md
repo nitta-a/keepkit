@@ -1,5 +1,27 @@
 # Release notes
 
+## [0.8.0] - 2026-08-31
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepTagEditor`がIME変換中のEnterをタグ追加として処理しないようにしました。
+- `KeepBulkActions`に表示中アイテム向けの`isAllSelected` / `toggleSelectAll`状態とヘルパーを追加しました。ページやquery外の選択は全解除時も維持されます。
+- GitHub Actionsで`@keepkit/core`のnpm反映を確認してから`@keepkit/ui`を公開し、公開済みバージョンを隔離環境から検証するようにしました。
+- Next.js Pages Router / App Router Examplesをpnpm workspaceへ追加し、Turbo経由のbuild / typecheckをCIで実行するようにしました。
+- `@keepkit/core`と`@keepkit/ui`を`0.8.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Guarded `KeepTagEditor` so Enter during IME composition is not treated as a tag submission.
+- Added `isAllSelected` / `toggleSelectAll` state and helpers to `KeepBulkActions` for visible items, preserving selections outside the current page or query when deselecting.
+- Updated GitHub Actions to wait for `@keepkit/core` to propagate on npm before publishing `@keepkit/ui`, then verify the exact release versions in an isolated environment.
+- Added both Next.js examples to the pnpm workspace and run their Turbo build/typecheck tasks in CI.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.8.0`.
+
 ## [0.7.0] - 2026-08-31
 
 ### 日本語

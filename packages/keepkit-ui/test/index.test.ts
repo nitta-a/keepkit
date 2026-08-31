@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   createKeepKit,
+  isAllSelected,
   KeepAnnouncements,
   KeepAnnouncer,
   KeepBulkActions,
@@ -20,6 +21,7 @@ import {
   KeepTagEditor,
   KeepTagFilter,
   KeepUiProvider,
+  toggleSelectAll,
 } from "../dist/index.js";
 
 test("publishes the complete UI component set", () => {
@@ -42,4 +44,12 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepKitProvider, "function");
   assert.equal(typeof KeepCollection, "function");
   assert.equal(typeof createKeepKit, "function");
+});
+
+test("select-all helpers operate on visible items and preserve hidden selections", () => {
+  const items = [{ id: "visible-1" }, { id: "visible-2" }];
+  assert.equal(isAllSelected(items, ["hidden", "visible-1", "visible-2"]), true);
+  assert.deepEqual(toggleSelectAll(items, ["hidden"]), ["hidden", "visible-1", "visible-2"]);
+  assert.deepEqual(toggleSelectAll(items, ["hidden", "visible-1", "visible-2"]), ["hidden"]);
+  assert.equal(isAllSelected([], []), false);
 });

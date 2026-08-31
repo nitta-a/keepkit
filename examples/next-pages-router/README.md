@@ -1,6 +1,6 @@
 # KeepKit Next.js Pages Router example
 
-This example documents the Pages Router integration. Copy the directory into a Next.js application and install its dependencies; it is intentionally not part of the pnpm workspace.
+This example documents the Pages Router integration. Copy the directory into a Next.js application or run it from this monorepo; it uses the shared pnpm workspace for CI build and typecheck coverage.
 
 ## Provider placement and SSR/hydration
 

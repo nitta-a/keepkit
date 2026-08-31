@@ -1,5 +1,5 @@
 import type { KeepItem } from "@keepkit/core/core";
-import { KeepButton, type KeepImageProps, KeepItemCard, KeepList, useKeepList } from "@keepkit/ui";
+import { KeepButton, type KeepImageProps, KeepItemCard, KeepList, useKeepContext, useKeepList } from "@keepkit/ui";
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import Image from "next/image";
 import { getSession } from "../lib/auth";
@@ -8,7 +8,9 @@ import { listKeepItems } from "../lib/serverKeepApi";
 type ArticleMeta = { title: string; url: string; image?: string };
 
 function NextImage({ src, alt, width, height }: Pick<KeepImageProps, "src" | "alt" | "width" | "height">) {
-  return <Image src={src} alt={alt} width={width ?? 640} height={height ?? 360} />;
+  const imageWidth = typeof width === "number" ? width : 640;
+  const imageHeight = typeof height === "number" ? height : 360;
+  return <Image src={src} alt={alt} width={imageWidth} height={imageHeight} />;
 }
 
 export const getServerSideProps: GetServerSideProps<{ keepItems: KeepItem<ArticleMeta>[] }> = async ({ req }) => {
@@ -17,7 +19,8 @@ export const getServerSideProps: GetServerSideProps<{ keepItems: KeepItem<Articl
 };
 
 export default function Home({ keepItems }: InferGetServerSidePropsType<typeof getServerSideProps>) {
-  const { items, isHydrated, syncState } = useKeepList({ targetType: "article" });
+  const { items, isHydrated } = useKeepList({ targetType: "article" });
+  const { syncState } = useKeepContext();
   const article = {
     id: "article-123",
     targetType: "article",

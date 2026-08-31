@@ -11,15 +11,41 @@ export type KeepBulkActionsState<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
   selectedIds: string[];
   selectedCount: number;
+  isAllSelected: boolean;
   allSelected: boolean;
   tagsInput: string;
   setTagsInput: (value: string) => void;
   toggle: (id: string) => void;
+  toggleSelectAll: () => void;
   toggleAll: () => void;
   remove: () => Promise<void>;
   updateTags: () => Promise<void>;
   isMutating: boolean;
 };
+
+/** Returns whether every visible item is selected. Empty lists are never all selected. */
+export function isAllSelected<TMeta>(
+  items: readonly Pick<KeepItem<TMeta>, "id">[],
+  selectedIds: readonly string[],
+): boolean {
+  if (items.length === 0) return false;
+  const selected = new Set(selectedIds);
+  return items.every((item) => selected.has(item.id));
+}
+
+/** Toggles only the visible items, preserving selections outside the current query or page. */
+export function toggleSelectAll<TMeta>(
+  items: readonly Pick<KeepItem<TMeta>, "id">[],
+  selectedIds: readonly string[],
+): string[] {
+  const visibleIds = new Set(items.map((item) => item.id));
+  if (isAllSelected(items, selectedIds)) return selectedIds.filter((id) => !visibleIds.has(id));
+  const nextIds = [...selectedIds];
+  for (const item of items) {
+    if (!nextIds.includes(item.id)) nextIds.push(item.id);
+  }
+  return nextIds;
+}
 
 export type KeepBulkActionsProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   query?: KeepListQuery<TMeta>;
@@ -60,8 +86,8 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   };
   const toggle = (id: string) =>
     setSelectedIds(selected.has(id) ? selectedIds.filter((current) => current !== id) : [...selectedIds, id]);
-  const allSelected = list.items.length > 0 && list.items.every((item) => selected.has(item.id));
-  const toggleAll = () => setSelectedIds(allSelected ? [] : list.items.map((item) => item.id));
+  const allSelected = isAllSelected(list.items, selectedIds);
+  const toggleAll = () => setSelectedIds(toggleSelectAll(list.items, selectedIds));
   const remove = async () => {
     const ids = [...selectedIds];
     await list.removeBatch(ids);
@@ -78,10 +104,12 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
     items: list.items,
     selectedIds,
     selectedCount: selectedIds.length,
+    isAllSelected: allSelected,
     allSelected,
     tagsInput,
     setTagsInput,
     toggle,
+    toggleSelectAll: toggleAll,
     toggleAll,
     remove,
     updateTags,

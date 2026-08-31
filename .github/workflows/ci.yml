@@ -56,3 +56,6 @@ jobs:
 
       - name: Check package contents
         run: pnpm package:check
+
+      - name: Build and typecheck examples
+        run: pnpm turbo run build typecheck --filter='./examples/*'

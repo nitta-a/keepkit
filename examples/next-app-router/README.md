@@ -11,4 +11,4 @@ pnpm install
 pnpm --dir examples/next-app-router dev
 ```
 
-The example uses `@keepkit/core@^0.7.0` and `@keepkit/ui@^0.7.0`. Replace the static snapshot with a server loader or route handler in a real application; authentication and remote APIs remain application concerns.
+The example uses `@keepkit/core@^0.8.0` and `@keepkit/ui@^0.8.0`. Replace the static snapshot with a server loader or route handler in a real application; authentication and remote APIs remain application concerns.

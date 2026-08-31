@@ -67,6 +67,7 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
           onChange={(event) => setInput(event.currentTarget.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
+              if (event.nativeEvent.isComposing) return;
               event.preventDefault();
               if (input.trim()) addTag(input);
             } else if (event.key === "Backspace" && input.length === 0 && tags.length > 0) {
