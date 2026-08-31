@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { type KeepItem, KeepStorageAccessError, type SyncOperation, type SyncQueueAdapter } from "../dist/core.js";
+import {
+  createAuthenticatedSyncKit,
+  type KeepItem,
+  KeepStorageAccessError,
+  KeepSyncAuthError,
+  type SyncOperation,
+  type SyncQueueAdapter,
+} from "../dist/core.js";
 import {
   FallbackSyncQueueAdapter,
   IndexedDBSyncQueueAdapter,
@@ -403,6 +410,80 @@ test("retries transient pushes and carries user and tenant scope", async () => {
   adapter.dispose();
 });
 
+test("authenticated sync refreshes tokens per request and isolates scope changes", async () => {
+  const { local, values } = createLocal();
+  const queue = createMemoryQueue();
+  const tokens = ["token-a", "token-b", "token-c"];
+  const requests: Array<{ token: string | null; scope?: { userId?: string; tenantId?: string } }> = [];
+  let scopeChanges = 0;
+  let activeScope = { userId: "user-a", tenantId: "tenant-a" };
+  const kit = createAuthenticatedSyncKit({
+    local,
+    queue: queue.queue,
+    scope: activeScope,
+    getScope: () => activeScope,
+    getAuthToken: async () => tokens.shift() ?? null,
+    transport: {
+      push: async (_operation, context) => {
+        requests.push({ token: context.token, scope: context.scope });
+        return { type: "synced" };
+      },
+    },
+    clientId: "auth-client",
+    now: () => 10,
+  });
+  const unsubscribeScope = kit.storage.subscribeScope?.(() => scopeChanges++);
+
+  await kit.storage.set(itemA);
+  await kit.storage.flushSync();
+  assert.deepEqual(requests, [{ token: "token-a", scope: { userId: "user-a", tenantId: "tenant-a" } }]);
+  assert.equal(kit.scopeKey, ":tenant-a:user-a");
+
+  activeScope = { userId: "user-b", tenantId: "tenant-a" };
+  assert.deepEqual(await kit.storage.getAll(), []);
+  assert.equal(scopeChanges, 1);
+  await kit.storage.set(itemB);
+  await kit.storage.flushSync();
+  assert.equal(requests[1]?.token, "token-b");
+  assert.deepEqual(requests[1]?.scope, { userId: "user-b", tenantId: "tenant-a" });
+
+  activeScope = { userId: "user-a", tenantId: "tenant-a" };
+  assert.deepEqual(await kit.storage.getAll(), [{ ...itemA, scope: { userId: "user-a", tenantId: "tenant-a" } }]);
+  assert.equal(values.get("a")?.scope?.userId, "user-a");
+  assert.equal(values.get("b")?.scope?.userId, "user-b");
+  unsubscribeScope?.();
+  kit.dispose();
+});
+
+test("authenticated sync reports 401/403 errors once without retrying them", async () => {
+  const { local } = createLocal();
+  const queue = createMemoryQueue();
+  let pushes = 0;
+  const authErrors: KeepSyncAuthError<{ title: string }>[] = [];
+  const kit = createAuthenticatedSyncKit({
+    local,
+    queue: queue.queue,
+    getAuthToken: async () => "expired-token",
+    transport: {
+      push: async () => {
+        pushes += 1;
+        throw Object.assign(new Error("expired"), { status: 401 });
+      },
+    },
+    maxRetries: 3,
+    onAuthError: (error) => void authErrors.push(error),
+  });
+
+  await kit.storage.set(itemA);
+  await kit.storage.flushSync();
+  assert.equal(pushes, 1);
+  assert.equal(authErrors.length, 1);
+  assert.ok(authErrors[0] instanceof KeepSyncAuthError);
+  assert.equal(authErrors[0]?.status, 401);
+  assert.equal(kit.storage.getSyncState().status, "error");
+  kit.dispose();
+});
+
 test("keeps unresolved conflicts pending and carries remote revisions into resolved retries", async () => {
   const { local, values } = createLocal([itemA]);
   const firstQueue = createMemoryQueue();
@@ -417,7 +498,11 @@ test("keeps unresolved conflicts pending and carries remote revisions into resol
   await unresolved.flushSync();
   assert.equal(unresolved.getSyncState().status, "conflict");
   assert.deepEqual(unresolved.getSyncState().conflictIds, ["a"]);
-  assert.equal(firstQueue.operations.length, 1);
+  assert.equal(unresolved.getSyncState().conflicts?.[0]?.remote.note, "remote");
+  await unresolved.resolveSyncConflict("a", "remote");
+  assert.equal(unresolved.getSyncState().status, "synced");
+  assert.equal(unresolved.getSyncState().conflicts?.length, 0);
+  assert.equal(firstQueue.operations.length, 0);
   unresolved.dispose();
 
   const resolvedQueue = createMemoryQueue();

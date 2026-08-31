@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.11.0では、URL同期、レイアウトプリセット、一括選択範囲、Undo、多言語、スコープ分離、自動再検証を追加しました。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.12.0では、公開整合性検証、16言語辞書、認証付き同期、テーマ、状態復旧UIを追加しました。
 
 ### インストール
 
@@ -86,7 +86,7 @@ export function SavedArticle({ article }: { article: Meta & { id: string } }) {
 
 ### ストレージと同期
 
-`createBrowserStorageAdapter`はIndexedDBを優先し、利用できない場合はlocalStorageへ切り替えます。サーバー同期が必要な場合は`SyncStorageAdapter`と`RemoteSyncDriver`を組み合わせます。認証やAPIクライアントはアプリ側で用意します。
+`createBrowserStorageAdapter`はIndexedDBを優先し、利用できない場合はlocalStorageへ切り替えます。サーバー同期が必要な場合は`SyncStorageAdapter`と`RemoteSyncDriver`を組み合わせます。認証方式を固定しない`createAuthenticatedSyncKit`では、リクエストごとのトークン取得、401/403 callback、ユーザー／テナントscope切替、永続オフラインキューをまとめて利用できます。
 
 ```tsx
 import { SyncStorageAdapter } from "@keepkit/ui";
@@ -123,17 +123,19 @@ pnpm build
 
 JSONバックアップUIは`<KeepBackup />`として利用できます。エクスポート、merge / replaceインポート、件数表示、容量エラー表示を提供します。
 
-### v0.11.0の一覧連携と導入プリセット
+Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepPruneStaleButton />`、`<KeepSyncStatusBanner />`、`<KeepSyncRecoveryDialog />`として利用できます。任意で`import "@keepkit/ui/theme.css"`を追加すると、`--keepkit-primary`、`--keepkit-bg`、`--keepkit-radius`などのCSS変数、ダークモード、モバイル向け文字サイズを有効にできます。
+
+### v0.12.0の一覧連携と導入プリセット
 
 `<keep.Collection urlSync layout="grid" />`で検索・タグ・ソート・ページをURL、戻る／進む、共有URLと同期できます。Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`に渡してください。`layout`は`list`、`grid`、`compact`に対応し、`itemCardProps`の`getImageProps`、`renderTags`、`href`、`onOpen`でカード表示と遷移を差し替えられます。
 
 `KeepBulkActions`の`selectionScope="page" | "query" | "all"`で一括操作の範囲を変更できます。削除を`useKeepList().removeWithUndo`または`removeBatchWithUndo`で実行し、`<KeepUndo />`を配置すると期限内の復元操作を表示できます。`KeepProvider autoRevalidation={{ intervalMs: 60000 }}`は一覧表示後、間隔経過後、オンライン復帰時に再検証します。
 
-ユーザー／テナント分離が必要な場合は、`createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })`を使うとstorage、同期キュー、バックアップの構成をまとめられます。ラベルは`locale="ja" | "en" | "ko" | "zh-CN" | "zh-TW"`で切り替え、`labels`で上書きできます。
+ユーザー／テナント分離が必要な場合は、`createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })`を使うとstorage、同期キュー、バックアップの構成をまとめられます。ラベルは16個の組み込みlocale（`en`、`ja`、`ko`、`zh-Hans`、`zh-Hant`、`th`、`fr`、`es`、`pt-BR`、`it`、`de`、`ru`、`fil`、`vi`、`id`、`ms`）で切り替えられ、`labels`で上書きできます。`zh-CN`と`zh-TW`も互換aliasとして利用できます。
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.11.0, it adds URL synchronization, responsive layout presets, bulk-selection scopes, undo, localization, scope isolation, and automatic revalidation.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.12.0, it adds release consistency checks, complete 16-locale dictionaries, authenticated sync, theming, and recovery UI.
 
 ### Installation
 
@@ -192,13 +194,19 @@ The typed factory returns `Provider`, `Button`, `Collection`, `useItem`, `useLis
 
 See `examples/next-app-router` for the Server Component/client boundary pattern and `examples/next-pages-router` for the Pages Router integration.
 
-### v0.11.0 URL, layouts, and setup presets
+### v0.12.0 URL, layouts, and setup presets
 
 Use `<keep.Collection urlSync layout="grid" />` to synchronize search, tags, sorting, and pagination with shareable URLs and browser history. For Next.js Pages Router, pass `createNextPagesRouterAdapter(router)` as `urlAdapter`. Layouts are `list`, `grid`, and `compact`; customize thumbnails, tags, and detail navigation through `itemCardProps`.
 
 Set `selectionScope="page" | "query" | "all"` on `KeepBulkActions` to choose the bulk-action range. Use `useKeepList().removeWithUndo` or `removeBatchWithUndo`, and mount `<KeepUndo />` for timed restoration. `KeepProvider autoRevalidation={{ intervalMs: 60000 }}` revalidates after hydration, on an interval, and after reconnecting.
 
-Use `createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })` to compose isolated storage, sync queues, and backups for a user/tenant. Set `locale` to `ja`, `en`, `ko`, `zh-CN`, or `zh-TW`; individual `labels` override the dictionary.
+Use `createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })` to compose isolated storage, sync queues, and backups for a user/tenant. Set `locale` to any of the 16 built-in locales; individual `labels` override the dictionary.
+
+Use `createAuthenticatedSyncKit` when the host supplies authentication. It refreshes the token for each request, reports 401/403 failures through callbacks, isolates storage and queues by scope, and resumes durable offline work after reconnecting. See `examples/authenticated-sync` for a transport recipe.
+
+Use `KeepItemStatusBadge`, `KeepStaleNotice`, and `KeepPruneStaleButton` for unavailable-item recovery. `KeepSyncStatusBanner` and `KeepSyncRecoveryDialog` expose retry, local/server/manual conflict resolution, and backup restoration guidance. Optionally import `@keepkit/ui/theme.css` for CSS-variable theming, dark mode, and mobile typography.
+
+The UI includes complete built-in dictionaries for 16 locales: `en`, `ja`, `ko`, `zh-Hans`, `zh-Hant`, `th`, `fr`, `es`, `pt-BR`, `it`, `de`, `ru`, `fil`, `vi`, `id`, and `ms`. `zh-CN` and `zh-TW` remain supported aliases.
 
 See [MIGRATION.md](./MIGRATION.md) for the v0.4 migration and [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the complete changelog.
 

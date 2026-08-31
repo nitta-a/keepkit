@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { KeepButton, type KeepButtonLabels } from "./KeepButton";
+import { KeepStaleNotice } from "./KeepStaleNotice";
 import { getMetaTitle, type RenderProp, renderRoot, toKeepButtonItem } from "./shared";
 import { useUiLabel } from "./ui-context";
 
@@ -55,6 +56,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   removeLabel?: string;
   onRemoveError?: (error: unknown) => void;
   onRemoved?: (item: KeepItem<TMeta>) => void;
+  onRetry?: (item: KeepItem<TMeta>) => void | Promise<void>;
   showSaveButton?: boolean;
   saveButtonLabels?: KeepButtonLabels;
   asChild?: boolean;
@@ -82,6 +84,7 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
   removeLabel,
   onRemoveError,
   onRemoved,
+  onRetry,
   showSaveButton = true,
   saveButtonLabels,
   asChild = false,
@@ -163,8 +166,8 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
                 </ul>
               )
             ) : null}
-            {statusLabel ? <p data-status={item.status}>{statusLabel}</p> : null}
-            {showSaveButton ? (
+            {statusLabel ? <KeepStaleNotice item={item} onRetry={onRetry} onRemoved={onRemoved} /> : null}
+            {showSaveButton && !statusLabel ? (
               <KeepButton
                 item={toKeepButtonItem(item)}
                 labels={saveButtonLabels}
@@ -173,9 +176,11 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
                 }
               />
             ) : null}
-            <button type="button" onClick={() => void handleRemove()} disabled={itemState.isMutating}>
-              {removeLabel ?? removeActionLabel}
-            </button>
+            {!statusLabel ? (
+              <button type="button" onClick={() => void handleRemove()} disabled={itemState.isMutating}>
+                {removeLabel ?? removeActionLabel}
+              </button>
+            ) : null}
           </>
         ));
 

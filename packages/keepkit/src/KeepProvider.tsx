@@ -45,7 +45,7 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   isMutating: boolean;
   error: unknown | null;
   lastChange?: KeepChangeContext<TMeta>;
-  syncState: KeepSyncState;
+  syncState: KeepSyncState<TMeta>;
   undo: KeepUndoState;
   saveItem: (item: KeepItem<TMeta>) => Promise<void>;
   updateNote: (id: string, note?: string) => Promise<void>;
@@ -61,6 +61,7 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
   flushSync: () => Promise<void>;
+  resolveSyncConflict: (id: string, resolution: "local" | "remote" | "manual", item?: KeepItem<TMeta>) => Promise<void>;
   refreshItemMetadata: (id: string, refresh: KeepItemMetadataRefresher<TMeta>) => Promise<void>;
   revalidateItems: (
     revalidator?: KeepItemRevalidator<TMeta>,
@@ -354,6 +355,17 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     if (!storage.subscribe) return;
     return storage.subscribe(() => void refresh());
   }, [refresh, storage]);
+
+  useEffect(() => {
+    if (!isScopeAwareStorage(storage)) return;
+    return storage.subscribeScope(() => {
+      undoRef.current?.timer && clearTimeout(undoRef.current.timer);
+      undoRef.current = undefined;
+      itemsRef.current = [];
+      store.setState({ items: [], isHydrated: false, isLoading: true, error: null, undo: EMPTY_UNDO_STATE });
+      void refresh();
+    });
+  }, [refresh, storage, store]);
 
   const runMutation = useCallback(
     (
@@ -772,6 +784,15 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     [revalidateItems],
   );
   const flushSync = useCallback(() => (syncStorage ? syncStorage.flushSync() : Promise.resolve()), [syncStorage]);
+  const resolveSyncConflict = useCallback(
+    (id: string, resolution: "local" | "remote" | "manual", item?: KeepItem<TMeta>) => {
+      if (!syncStorage?.resolveSyncConflict) {
+        return Promise.reject(new Error("The configured storage does not support sync conflict resolution."));
+      }
+      return syncStorage.resolveSyncConflict(id, resolution, item);
+    },
+    [syncStorage],
+  );
   const exportBackup = useCallback(() => exportItems(storage), [storage]);
   const importBackup = useCallback(
     async (
@@ -828,6 +849,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       clear,
       refresh,
       flushSync,
+      resolveSyncConflict,
       refreshItemMetadata,
       revalidateItems,
       exportBackup,
@@ -838,6 +860,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       error,
       lastChange,
       flushSync,
+      resolveSyncConflict,
       isHydrated,
       isLoading,
       isMutating,
@@ -908,10 +931,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   );
 }
 
-const IDLE_SYNC_STATE: KeepSyncState = Object.freeze({
+const IDLE_SYNC_STATE: KeepSyncState<never> = Object.freeze({
   status: "idle",
   pendingCount: 0,
   conflictIds: [],
+  conflicts: [],
 });
 
 const EMPTY_UNDO_STATE: KeepUndoState = Object.freeze({ canUndo: false, ids: [] });
@@ -925,6 +949,12 @@ function isSyncCapableStorage<TMeta>(storage: StorageAdapter<TMeta>): storage is
     "flushSync" in storage &&
     typeof storage.flushSync === "function"
   );
+}
+
+function isScopeAwareStorage<TMeta>(
+  storage: StorageAdapter<TMeta>,
+): storage is StorageAdapter<TMeta> & { subscribeScope: (listener: () => void) => () => void } {
+  return "subscribeScope" in storage && typeof storage.subscribeScope === "function";
 }
 
 async function parseKeepMetaItem<TMeta>(item: KeepItem<unknown>, schema: KeepSchema<TMeta>): Promise<KeepItem<TMeta>> {

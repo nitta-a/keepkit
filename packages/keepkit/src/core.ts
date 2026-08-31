@@ -14,5 +14,6 @@ export * from "./schema";
 export * from "./scope";
 export * from "./storage/index";
 export * from "./store";
+export * from "./templates/auth-sync";
 export * from "./types";
 export * from "./url";

@@ -1,6 +1,8 @@
 import type {
   KeepConflictResolver,
   KeepItem,
+  KeepSyncConflict,
+  KeepSyncResolution,
   KeepSyncState,
   RemoteSyncDriver,
   RemoteSyncResult,
@@ -10,6 +12,7 @@ import type {
   SyncQueueAdapter,
   SyncScope,
 } from "../types";
+import { isKeepSyncAuthError } from "../types";
 
 export type LocalStorageSyncQueueOptions = {
   key?: string;
@@ -234,8 +237,10 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   private queueLoaded = false;
   private queueLoadPromise: Promise<void> | undefined;
   private flushPromise: Promise<void> | undefined;
-  private state: KeepSyncState = { status: "idle", pendingCount: 0, conflictIds: [] };
+  private state: KeepSyncState<TMeta> = { status: "idle", pendingCount: 0, conflictIds: [], conflicts: [] };
+  private readonly conflicts = new Map<string, KeepSyncConflict<TMeta>>();
   private onlineHandler?: () => void;
+  private disposed = false;
 
   constructor(options: SyncStorageAdapterOptions<TMeta>) {
     this.local = options.local;
@@ -256,7 +261,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     void this.resumeQueue();
   }
 
-  getSyncState = (): KeepSyncState => this.state;
+  getSyncState = (): KeepSyncState<TMeta> => this.state;
 
   subscribeSync = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -361,7 +366,46 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     return this.flushSync();
   }
 
+  async resolveSyncConflict(id: string, resolution: KeepSyncResolution, item?: KeepItem<TMeta>): Promise<void> {
+    await this.loadQueue();
+    const conflict = this.conflicts.get(id);
+    if (!conflict) return;
+    if (resolution === "manual" && !item) {
+      throw new Error(`KeepKit manual conflict resolution requires an item for "${id}".`);
+    }
+
+    if (resolution === "remote") {
+      await this.local.set(this.applyScope(conflict.remote));
+      await this.removeQueued(conflict.operation.operationId);
+    } else {
+      const retry = item
+        ? this.createOperation("upsert", item.id, {
+            ...item,
+            revision: conflict.revision ?? item.revision,
+          })
+        : {
+            ...conflict.operation,
+            operationId: `${this.clientId}:${this.now()}:${createId()}`,
+            createdAt: this.now(),
+            baseRevision: conflict.revision,
+            attempts: 0,
+          };
+      if (retry.item) await this.local.set(this.applyScope(retry.item));
+      await this.replaceQueued(conflict.operation, retry);
+    }
+
+    this.conflicts.delete(id);
+    this.updateState({
+      status: this.queueItems.length > 0 ? "pending" : "synced",
+      pendingCount: this.queueItems.length,
+      conflictIds: [...this.conflicts.keys()],
+      conflicts: [...this.conflicts.values()],
+    });
+    if (resolution !== "remote" && this.queueItems.length > 0) await this.flushSync();
+  }
+
   dispose(): void {
+    this.disposed = true;
     if (this.onlineHandler) window.removeEventListener("online", this.onlineHandler);
     this.listeners.clear();
     this.dataListeners.clear();
@@ -369,6 +413,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
 
   private async runFlush(): Promise<void> {
     await this.loadQueue();
+    if (this.disposed) return;
     if (!(await this.pullRemote())) return;
     if (this.queueItems.length === 0) {
       this.updateState({ status: "synced", pendingCount: 0, error: undefined });
@@ -376,6 +421,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     }
     this.updateState({ status: "syncing", error: undefined });
     for (const operation of [...this.queueItems]) {
+      if (this.disposed) return;
       try {
         const result = await this.pushWithRetry(operation);
         if (result.type === "conflict") {
@@ -387,9 +433,17 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
               })
             : undefined;
           if (!resolved) {
+            const conflict: KeepSyncConflict<TMeta> = {
+              id: operation.id,
+              operation,
+              remote: result.remote,
+              ...(result.revision ? { revision: result.revision } : {}),
+            };
+            this.conflicts.set(operation.id, conflict);
             this.updateState({
               status: "conflict",
-              conflictIds: [...new Set([...this.state.conflictIds, operation.id])],
+              conflictIds: [...this.conflicts.keys()],
+              conflicts: [...this.conflicts.values()],
             });
             continue;
           }
@@ -414,7 +468,8 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
         this.updateState({
           status: this.queueItems.length > 0 ? "syncing" : "synced",
           lastSyncedAt: this.now(),
-          conflictIds: this.state.conflictIds.filter((id) => id !== operation.id),
+          conflictIds: [...this.conflicts.keys()].filter((id) => id !== operation.id),
+          conflicts: [...this.conflicts.values()].filter((conflict) => conflict.id !== operation.id),
         });
       } catch (error) {
         this.updateState({ status: "error", error });
@@ -450,7 +505,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
       try {
         return await this.remote.push({ ...operation, attempts: attempt });
       } catch (error) {
-        if (attempt >= this.maxRetries) throw error;
+        if (isKeepSyncAuthError(error) || attempt >= this.maxRetries) throw error;
         attempt += 1;
         const delay = this.retryDelayMs * this.retryBackoff ** (attempt - 1);
         if (delay > 0) await wait(delay);
@@ -496,6 +551,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   private async resumeQueue(): Promise<void> {
     try {
       await this.loadQueue();
+      if (this.disposed) return;
       if (this.queueItems.length === 0) return;
       this.updateState({ status: "pending", pendingCount: this.queueItems.length });
       if (isBrowserOnline()) await this.flushSync();
@@ -564,7 +620,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     for (const listener of this.dataListeners) listener();
   }
 
-  private updateState(next: Partial<KeepSyncState>): void {
+  private updateState(next: Partial<KeepSyncState<TMeta>>): void {
     this.state = {
       ...this.state,
       ...next,

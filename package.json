@@ -11,6 +11,7 @@
     "clean": "turbo run clean",
     "package:check": "node scripts/check-package.mjs",
     "release:check": "node scripts/check-release-version.mjs",
+    "release:published-check": "node scripts/check-published-release.mjs",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint:biome": "biome lint .",

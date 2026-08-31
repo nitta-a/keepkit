@@ -1,5 +1,31 @@
 # Release notes
 
+## [0.12.0] - 2026-08-31
+
+### 日本語
+
+#### 追加・改善
+
+- npm公開時にCore公開後のレジストリ反映を待機し、Core/UIのタグ・README・package.json・公開済みパッケージを自動検証するリリースゲートを追加しました。
+- `@keepkit/ui`に16言語の完全な標準ラベル辞書とロケールaliasを追加しました。
+- `createAuthenticatedSyncKit`を追加し、リクエストごとのトークン取得、401/403通知、user/tenant scope分離、永続オフラインキュー、scope変更時のキャッシュパージを提供します。
+- `KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`を追加し、期限切れ・削除済みアイテムの再取得と一括削除に対応しました。
+- `KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`、同期競合のローカル優先／サーバー優先／手動マージを追加しました。
+- `@keepkit/ui/theme.css`とCSS変数による任意テーマ、ダークモード、モバイル向けタイポグラフィを追加しました。
+- `@keepkit/core`と`@keepkit/ui`を`0.12.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Added release gates that wait for npm registry propagation after the core publish and verify package versions, README versions, and isolated latest-package installation before completion.
+- Added complete built-in label dictionaries for all 16 supported locales with locale aliases.
+- Added `createAuthenticatedSyncKit` with per-request token loading, 401/403 callbacks, user/tenant scope isolation, durable offline queues, and cache purging on scope changes.
+- Added `KeepItemStatusBadge`, `KeepStaleNotice`, and `KeepPruneStaleButton` for expired or removed items, retry actions, and bulk cleanup.
+- Added `KeepSyncStatusBanner`, `KeepSyncRecoveryDialog`, and local/server/manual conflict resolution for sync recovery.
+- Added optional `@keepkit/ui/theme.css` with CSS variables, dark mode, and mobile typography.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.12.0`.
+
 ## [0.11.0] - 2026-08-31
 
 ### 日本語

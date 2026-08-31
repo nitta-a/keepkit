@@ -1,4 +1,10 @@
-import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
+import type {
+  KeepItem,
+  KeepSyncConflict,
+  KeepSyncState,
+  StorageAdapter,
+  SyncCapableStorageAdapter,
+} from "@keepkit/core/core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import {
@@ -11,13 +17,18 @@ import {
   KeepErrorBoundary,
   KeepItemCard,
   KeepItemCheckbox,
+  KeepItemStatusBadge,
   KeepList,
   KeepNoteEditor,
   KeepPagination,
   KeepProvider,
+  KeepPruneStaleButton,
   KeepSearchInput,
   KeepSortSelect,
+  KeepStaleNotice,
   KeepStatus,
+  KeepSyncRecoveryDialog,
+  KeepSyncStatusBanner,
   KeepTagEditor,
   KeepTagFilter,
 } from "../src/index";
@@ -193,6 +204,70 @@ test("links available card titles and blocks unavailable card links", async () =
   expect(onOpen).toHaveBeenCalled();
   expect(screen.queryByRole("link", { name: "Second interaction item" })).toBeNull();
   expect(screen.getByText("Expired")).not.toBeNull();
+});
+
+test("offers localized stale-item recovery actions and bulk cleanup", async () => {
+  const staleItem = { ...item, id: "stale-item", status: "expired" as const, statusReason: "Source expired" };
+  const onRetry = vi.fn().mockResolvedValue(undefined);
+  render(
+    <KeepProvider<Meta> storage={createStorage([staleItem])}>
+      <KeepItemStatusBadge status="expired" data-testid="status-badge" />
+      <KeepStaleNotice item={staleItem} onRetry={onRetry} />
+      <KeepPruneStaleButton />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByTestId("status-badge")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(onRetry).toHaveBeenCalledWith(staleItem));
+  fireEvent.click(screen.getByRole("button", { name: "Remove unavailable items (1)" }));
+  await waitFor(() =>
+    expect((screen.getByRole("button", { name: "Remove unavailable items (0)" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    ),
+  );
+});
+
+test("surfaces sync conflicts and delegates server resolution from the recovery dialog", async () => {
+  const notifications = new Set<() => void>();
+  const conflict: KeepSyncConflict<Meta> = {
+    id: item.id,
+    operation: { operationId: "conflict-operation", type: "upsert", id: item.id, item, createdAt: 1 },
+    remote: { ...item, note: "server note" },
+    revision: "server-revision",
+  };
+  let syncState: KeepSyncState<Meta> = {
+    status: "conflict",
+    pendingCount: 1,
+    conflictIds: [item.id],
+    conflicts: [conflict],
+  };
+  const storage: SyncCapableStorageAdapter<Meta> = {
+    ...createStorage([item]),
+    getSyncState: () => syncState,
+    subscribeSync: (listener) => {
+      notifications.add(listener);
+      return () => notifications.delete(listener);
+    },
+    flushSync: async () => undefined,
+    resolveSyncConflict: async () => {
+      syncState = { status: "synced", pendingCount: 0, conflictIds: [], conflicts: [] };
+      notifications.forEach((listener) => {
+        listener();
+      });
+    },
+  };
+
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepSyncStatusBanner onResolveConflicts={() => undefined} />
+      <KeepSyncRecoveryDialog open />
+    </KeepProvider>,
+  );
+
+  expect((await screen.findAllByText("Some changes need conflict resolution.")).length).toBe(2);
+  fireEvent.click(screen.getByRole("button", { name: "Use server" }));
+  await waitFor(() => expect(screen.queryByText("Some changes need conflict resolution.")).toBeNull());
 });
 
 test("exports and imports JSON backups through the standard UI", async () => {

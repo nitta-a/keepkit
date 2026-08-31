@@ -160,17 +160,8 @@ jobs:
           echo "Timed out waiting for @keepkit/ui@${version} to propagate." >&2
           exit 1
 
-      - name: Verify published packages from an isolated directory
-        env:
-          RELEASE_VERSION: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          verification_dir="$(mktemp -d)"
-          cd "$verification_dir"
-          npm init --yes >/dev/null
-          version="${RELEASE_VERSION#v}"
-          npm install --ignore-scripts --no-package-lock "@keepkit/core@${version}" "@keepkit/ui@${version}"
-          node --input-type=module -e "await import('@keepkit/core/core'); await import('@keepkit/core/react'); await import('@keepkit/ui');"
+      - name: Verify npm latest versions and clean installation
+        run: pnpm release:published-check "${{ github.ref_name }}"
 
       - name: Create GitHub Release
         env:

@@ -36,9 +36,18 @@ import {
   type KeepItemCardState,
 } from "./KeepItemCard";
 import { KeepItemCheckbox, type KeepItemCheckboxProps } from "./KeepItemCheckbox";
+import { KeepItemStatusBadge, type KeepItemStatusBadgeProps } from "./KeepItemStatusBadge";
 import { KeepLayout, type KeepLayoutProps } from "./KeepLayout";
 import { KeepList, type KeepListProps, type KeepListState } from "./KeepList";
 import { KeepNoteEditor, type KeepNoteEditorProps, type KeepNoteEditorState } from "./KeepNoteEditor";
+import {
+  KeepPruneStaleButton,
+  type KeepPruneStaleButtonProps,
+  KeepStaleNotice,
+  type KeepStaleNoticeProps,
+} from "./KeepStaleNotice";
+import { KeepSyncRecoveryDialog, type KeepSyncRecoveryDialogProps } from "./KeepSyncRecoveryDialog";
+import { KeepSyncStatusBanner, type KeepSyncStatusBannerProps } from "./KeepSyncStatusBanner";
 import { KeepTagEditor, type KeepTagEditorProps, type KeepTagEditorState } from "./KeepTagEditor";
 import { KeepTagFilter, type KeepTagFilterProps, type KeepTagFilterState } from "./KeepTagFilter";
 import { KeepUndo, type KeepUndoProps } from "./KeepUndo";
@@ -69,6 +78,8 @@ import {
   type KeepUiLabelContext,
   type KeepUiLabelKey,
   type KeepUiLabels,
+  type KeepUiLocale,
+  type KeepUiLocaleLabels,
   KeepUiProvider,
   type KeepUiProviderProps,
   useKeepUiLabels,
@@ -101,7 +112,21 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
   );
 }
 
-export type { KeepItem, KeepItemInput, KeepListQuery, KeepSyncStatus } from "@keepkit/core/core";
+export type {
+  AuthenticatedSyncAuthContext,
+  AuthenticatedSyncKit,
+  AuthenticatedSyncKitOptions,
+  AuthenticatedSyncRequestContext,
+  AuthenticatedSyncTransport,
+  KeepItem,
+  KeepItemInput,
+  KeepListQuery,
+  KeepSyncConflict,
+  KeepSyncResolution,
+  KeepSyncState,
+  KeepSyncStatus,
+} from "@keepkit/core/core";
+export { createAuthenticatedSyncKit } from "@keepkit/core/core";
 export type {
   KeepButtonState,
   KeepContextValue,
@@ -145,6 +170,7 @@ export type {
   KeepItemCardProps,
   KeepItemCardState,
   KeepItemCheckboxProps,
+  KeepItemStatusBadgeProps,
   KeepLayoutPreset,
   KeepLayoutProps,
   KeepListProps,
@@ -154,14 +180,18 @@ export type {
   KeepPagesRouterLike,
   KeepPaginationProps,
   KeepPaginationState,
+  KeepPruneStaleButtonProps,
   KeepScope,
   KeepSearchInputProps,
   KeepSortSelectProps,
   KeepSortValue,
+  KeepStaleNoticeProps,
   KeepStatusLabels,
   KeepStatusProps,
   KeepStatusState,
   KeepStatusValue,
+  KeepSyncRecoveryDialogProps,
+  KeepSyncStatusBannerProps,
   KeepTagEditorProps,
   KeepTagEditorState,
   KeepTagFilterProps,
@@ -169,6 +199,8 @@ export type {
   KeepUiLabelContext,
   KeepUiLabelKey,
   KeepUiLabels,
+  KeepUiLocale,
+  KeepUiLocaleLabels,
   KeepUiProviderProps,
   KeepUndoProps,
   KeepUndoState,
@@ -187,13 +219,18 @@ export {
   KeepEmptyState,
   KeepItemCard,
   KeepItemCheckbox,
+  KeepItemStatusBadge,
   KeepLayout,
   KeepList,
   KeepNoteEditor,
   KeepPagination,
+  KeepPruneStaleButton,
   KeepSearchInput,
   KeepSortSelect,
+  KeepStaleNotice,
   KeepStatus,
+  KeepSyncRecoveryDialog,
+  KeepSyncStatusBanner,
   KeepTagEditor,
   KeepTagFilter,
   KeepUiProvider,
