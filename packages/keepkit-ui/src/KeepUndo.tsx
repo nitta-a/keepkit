@@ -16,7 +16,7 @@ export function KeepUndo({ children, label, ...props }: KeepUndoProps) {
   const undoLabel = useUiLabel("undo");
   if (!context.undo.canUndo) return null;
   return (
-    <div {...props} role="status" aria-live="polite" data-state="available">
+    <div {...props} role="status" aria-live="polite" data-keepkit="undo" data-state="available">
       {children ?? message}
       <button type="button" onClick={() => void context.undoLastRemoval()}>
         {label ?? undoLabel}

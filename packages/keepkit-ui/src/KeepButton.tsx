@@ -6,33 +6,67 @@ import {
   type KeepButtonState,
   useKeepItem,
 } from "@keepkit/core/react";
-import type { ReactNode } from "react";
-import type { KeepButtonLabels } from "./shared";
+import { createElement, type ReactNode } from "react";
+import type { KeepButtonIcon, KeepButtonIcons, KeepButtonLabels } from "./shared";
 import { useUiLabel } from "./ui-context";
 
-export type { KeepButtonLabels } from "./shared";
+export type { KeepButtonIcon, KeepButtonIconProps, KeepButtonIcons, KeepButtonLabels } from "./shared";
 
 export type KeepButtonProps<TMeta = Record<string, unknown>> = CoreKeepButtonProps<TMeta> & {
   labels?: KeepButtonLabels;
+  icons?: KeepButtonIcons;
+  iconOnly?: boolean;
+  showLabel?: boolean;
+  iconClassName?: string;
 };
 
 /** A style-free save toggle with localized labels and the core button's ARIA/asChild behavior. */
-export function KeepButton<TMeta = Record<string, unknown>>({ labels, ...props }: KeepButtonProps<TMeta>) {
+export function KeepButton<TMeta = Record<string, unknown>>({
+  labels,
+  icons,
+  iconOnly = false,
+  showLabel = true,
+  iconClassName,
+  ...props
+}: KeepButtonProps<TMeta>) {
   const saveLabel = useUiLabel("save", typeof labels?.unsaved === "string" ? labels.unsaved : undefined);
   const savedLabel = useUiLabel("saved", typeof labels?.saved === "string" ? labels.saved : undefined);
   const loadingLabel = useUiLabel("loading", typeof labels?.loading === "string" ? labels.loading : undefined);
   const errorLabel = useUiLabel("error", typeof labels?.error === "string" ? labels.error : undefined);
   const buttonState = useKeepItem<TMeta>(props.item);
-  const customStateLabel = labels?.loading !== undefined || labels?.error !== undefined;
+  const customStateLabel =
+    labels?.loading !== undefined ||
+    labels?.error !== undefined ||
+    (icons !== undefined && props.children === undefined);
   const getStateContent = (state: KeepButtonState<TMeta>): ReactNode => {
-    if (state.error) return labels?.error ?? errorLabel;
-    if (state.isMutating) return labels?.loading ?? loadingLabel;
     if (typeof props.children === "function") return props.children(state);
     if (props.children !== undefined) return props.children;
-    return state.isSaved ? (labels?.saved ?? savedLabel) : (labels?.unsaved ?? saveLabel);
+    const label = state.error
+      ? (labels?.error ?? errorLabel)
+      : state.isMutating
+        ? (labels?.loading ?? loadingLabel)
+        : state.isSaved
+          ? (labels?.saved ?? savedLabel)
+          : (labels?.unsaved ?? saveLabel);
+    if (!icons) return label;
+    const icon = state.error
+      ? icons.error
+      : state.isMutating
+        ? icons.loading
+        : state.isSaved
+          ? (icons.remove ?? icons.saved)
+          : icons.save;
+    return (
+      <>
+        {renderIcon(icon, iconClassName)}
+        {showLabel && !iconOnly ? label : null}
+      </>
+    );
   };
   const sharedProps = {
     ...props,
+    "data-keepkit": "button",
+    "data-icon-only": iconOnly ? "true" : undefined,
     "aria-busy": props["aria-busy"] ?? (buttonState.isLoading || buttonState.isMutating),
     savedLabel: labels?.saved ?? props.savedLabel ?? savedLabel,
     unsavedLabel: labels?.unsaved ?? props.unsavedLabel ?? saveLabel,
@@ -45,4 +79,9 @@ export function KeepButton<TMeta = Record<string, unknown>>({ labels, ...props }
       {(state: KeepButtonState<TMeta>) => <>{getStateContent(state)}</>}
     </CoreKeepButton>
   );
+}
+
+function renderIcon(icon: KeepButtonIcon | undefined, className?: string): ReactNode {
+  if (typeof icon === "function") return createElement(icon, { "aria-hidden": true, className });
+  return icon ?? null;
 }

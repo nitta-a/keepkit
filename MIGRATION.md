@@ -90,6 +90,16 @@ useKeepShortcut({
 
 `KeepUiProvider`と`KeepProvider`は、通常は`KeepKitProvider`またはfactoryの`Provider`に置き換えます。同期adapterの構成は引き続き`StorageAdapter` / `RemoteSyncDriver`の境界で行います。
 
+## v0.13.0 theme layer
+
+### 日本語
+
+既存の`@keepkit/ui/theme.css`利用者はそのまま利用できます。Tailwind CSS v4へ移行する場合は`@keepkit/ui/tailwind.css`を追加し、必要な範囲だけ`@keepkit/ui/styles/base.css`、`button.css`、`collection.css`、`sync.css`を読み込めます。既存の`--keepkit-*`変数を直接参照している場合は、`--keep-*`変数へ移行してください。既存のヘッドレス利用、`className`、render props、`data-*`属性には変更ありません。
+
+### English
+
+Existing `@keepkit/ui/theme.css` imports continue to work. For Tailwind CSS v4, add `@keepkit/ui/tailwind.css`, or load only the needed feature files: `@keepkit/ui/styles/base.css`, `button.css`, `collection.css`, and `sync.css`. Applications that referenced the old `--keepkit-*` variables directly should migrate to the scoped `--keep-*` tokens. Headless usage, `className`, render props, and `data-*` attributes remain supported.
+
 ## English
 
 v0.5.0 includes breaking changes from v0.4.x. Standard React applications should use `@keepkit/ui` as the default entry point.

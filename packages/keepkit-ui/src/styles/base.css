@@ -1,0 +1,218 @@
+:root {
+  --keep-background: var(--background, #ffffff);
+  --keep-foreground: var(--foreground, #0f172a);
+  --keep-card: var(--card, var(--keep-background));
+  --keep-card-foreground: var(--card-foreground, var(--keep-foreground));
+  --keep-muted: var(--muted, #f1f5f9);
+  --keep-muted-foreground: var(--muted-foreground, #64748b);
+  --keep-border: var(--border, #cbd5e1);
+  --keep-input: var(--input, var(--keep-border));
+  --keep-primary: var(--keep-accent, var(--primary, #2563eb));
+  --keep-primary-foreground: var(--primary-foreground, #ffffff);
+  --keep-destructive: var(--destructive, #b91c1c);
+  --keep-destructive-foreground: var(--destructive-foreground, #ffffff);
+  --keep-ring: var(--ring, var(--keep-primary));
+  --keep-accent: var(--primary, #2563eb);
+  --keep-radius: 0.5rem;
+  --keep-card-padding: 1rem;
+  --keep-card-gap: 0.75rem;
+  --keep-thumbnail-size: 5rem;
+  --keep-title-size: 1rem;
+  --keep-button-size: 2.75rem;
+  --keep-tag-size: 0.8125rem;
+  --keep-list-columns: 1;
+  --keep-grid-columns: 3;
+  --keep-compact-columns: 4;
+  --keep-mobile-columns: 1;
+  --keep-list-gap: var(--keep-card-gap);
+}
+
+:where(.keep-theme, [data-keep-theme]) {
+  box-sizing: border-box;
+  color: var(--keep-foreground);
+  background-color: var(--keep-background);
+}
+
+:where(.keep-theme, [data-keep-theme]) *,
+:where(.keep-theme, [data-keep-theme]) *::before,
+:where(.keep-theme, [data-keep-theme]) *::after {
+  box-sizing: inherit;
+}
+
+:where(.keep-theme, [data-keep-theme]) :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--keep-ring);
+  outline-offset: 2px;
+}
+
+:where(.keep-theme, [data-keep-theme]) :is(input, select, textarea) {
+  min-height: var(--keep-button-size);
+  border: 1px solid var(--keep-input);
+  border-radius: var(--keep-radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--keep-background);
+  color: var(--keep-foreground);
+  font: inherit;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit] button:not([data-keepkit="button"]) {
+  min-height: var(--keep-button-size);
+  border: 1px solid var(--keep-border);
+  border-radius: var(--keep-radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--keep-muted);
+  color: var(--keep-foreground);
+  cursor: pointer;
+  font: inherit;
+}
+
+:where(.keep-theme, [data-keep-theme]) :is(button, input, select, textarea)[data-keepkit] {
+  min-height: var(--keep-button-size);
+  border: 1px solid var(--keep-border);
+  border-radius: var(--keep-radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--keep-muted);
+  color: var(--keep-foreground);
+  font: inherit;
+}
+
+:where(.keep-theme, [data-keep-theme])[data-mode="dark"],
+:where(.keep-theme, [data-keep-theme]).keep-theme--dark,
+.dark :where(.keep-theme, [data-keep-theme]) {
+  --keep-background: var(--background, #0f172a);
+  --keep-foreground: var(--foreground, #e2e8f0);
+  --keep-card: var(--card, #1e293b);
+  --keep-card-foreground: var(--card-foreground, var(--keep-foreground));
+  --keep-muted: var(--muted, #1e293b);
+  --keep-muted-foreground: var(--muted-foreground, #94a3b8);
+  --keep-border: var(--border, #475569);
+  --keep-input: var(--input, var(--keep-border));
+  --keep-primary: var(--keep-accent, var(--primary, #93c5fd));
+  --keep-primary-foreground: var(--primary-foreground, #172554);
+  --keep-destructive: var(--destructive, #fca5a5);
+  --keep-destructive-foreground: var(--destructive-foreground, #450a0a);
+  --keep-ring: var(--ring, var(--keep-primary));
+}
+
+@media (prefers-color-scheme: dark) {
+  :where(.keep-theme, [data-keep-theme])[data-mode="system"] {
+    --keep-background: var(--background, #0f172a);
+    --keep-foreground: var(--foreground, #e2e8f0);
+    --keep-card: var(--card, #1e293b);
+    --keep-card-foreground: var(--card-foreground, var(--keep-foreground));
+    --keep-muted: var(--muted, #1e293b);
+    --keep-muted-foreground: var(--muted-foreground, #94a3b8);
+    --keep-border: var(--border, #475569);
+    --keep-input: var(--input, var(--keep-border));
+    --keep-primary: var(--keep-accent, var(--primary, #93c5fd));
+    --keep-primary-foreground: var(--primary-foreground, #172554);
+    --keep-destructive: var(--destructive, #fca5a5);
+    --keep-destructive-foreground: var(--destructive-foreground, #450a0a);
+    --keep-ring: var(--ring, var(--keep-primary));
+  }
+}
+
+:where(.keep-theme, [data-keep-theme]).keep-theme--compact,
+:where(.keep-theme, [data-keep-theme])[data-density="compact"] {
+  --keep-card-padding: 0.625rem;
+  --keep-card-gap: 0.5rem;
+  --keep-thumbnail-size: 4rem;
+  --keep-title-size: 0.9375rem;
+  --keep-tag-size: 0.75rem;
+}
+
+:where(.keep-theme, [data-keep-theme])[data-density="spacious"] {
+  --keep-card-padding: 1.25rem;
+  --keep-card-gap: 1rem;
+}
+
+:where(.keep-theme, [data-keep-theme]).keep-theme--minimal {
+  --keep-card-padding: 0.5rem;
+  --keep-card-gap: 0.5rem;
+  --keep-border: transparent;
+  --keep-radius: 0.25rem;
+}
+
+:where(.keep-theme, [data-keep-theme]).keep-theme--rounded,
+:where(.keep-theme, [data-keep-theme])[data-radius="large"] {
+  --keep-radius: 1rem;
+}
+:where(.keep-theme, [data-keep-theme])[data-radius="none"] {
+  --keep-radius: 0;
+}
+:where(.keep-theme, [data-keep-theme])[data-radius="small"] {
+  --keep-radius: 0.25rem;
+}
+:where(.keep-theme, [data-keep-theme])[data-radius="medium"] {
+  --keep-radius: 0.5rem;
+}
+:where(.keep-theme, [data-keep-theme])[data-radius="full"] {
+  --keep-radius: 999px;
+}
+
+:where(.keep-theme, [data-keep-theme]).keep-theme--high-contrast,
+:where(.keep-theme, [data-keep-theme])[data-high-contrast="true"] {
+  --keep-foreground: #000000;
+  --keep-background: #ffffff;
+  --keep-card: #ffffff;
+  --keep-muted-foreground: #1f2937;
+  --keep-border: #000000;
+  --keep-primary: #0037b3;
+  --keep-primary-foreground: #ffffff;
+  --keep-destructive: #a40000;
+  --keep-ring: #000000;
+}
+
+:where(.keep-theme, [data-keep-theme])[data-reduced-motion="true"] *,
+:where(.keep-theme, [data-keep-theme])[data-reduced-motion="true"] *::before,
+:where(.keep-theme, [data-keep-theme])[data-reduced-motion="true"] *::after {
+  animation: none;
+  scroll-behavior: auto;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.keep-theme, [data-keep-theme]) *,
+  :where(.keep-theme, [data-keep-theme]) *::before,
+  :where(.keep-theme, [data-keep-theme]) *::after {
+    animation: none;
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-state="saved"]::after {
+  content: "✓";
+}
+:where(.keep-theme, [data-keep-theme]) [data-state="unsaved"] {
+  border-color: var(--keep-border);
+}
+:where(.keep-theme, [data-keep-theme]) [data-loading="true"] {
+  cursor: progress;
+  opacity: 0.72;
+}
+:where(.keep-theme, [data-keep-theme]) [data-disabled="true"],
+:where(.keep-theme, [data-keep-theme]) [aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+:where(.keep-theme, [data-keep-theme]) [data-state="error"],
+:where(.keep-theme, [data-keep-theme]) [data-state="expired"],
+:where(.keep-theme, [data-keep-theme]) [data-state="removed"],
+:where(.keep-theme, [data-keep-theme]) [data-status="expired"],
+:where(.keep-theme, [data-keep-theme]) [data-status="removed"],
+:where(.keep-theme, [data-keep-theme]) [data-status="deleted"] {
+  color: var(--keep-destructive);
+}
+:where(.keep-theme, [data-keep-theme]) [data-state="empty"] {
+  border-style: dashed;
+}
+:where(.keep-theme, [data-keep-theme]) [data-state="selected"],
+:where(.keep-theme, [data-keep-theme]) [data-state="checked"] {
+  outline: 2px solid var(--keep-ring);
+  outline-offset: -2px;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="bulk-actions"][data-state="selected"] {
+  border: 1px solid var(--keep-ring);
+  background: var(--keep-muted);
+}

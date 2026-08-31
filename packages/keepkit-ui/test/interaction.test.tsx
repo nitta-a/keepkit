@@ -31,6 +31,7 @@ import {
   KeepSyncStatusBanner,
   KeepTagEditor,
   KeepTagFilter,
+  KeepThemeProvider,
 } from "../src/index";
 
 type Meta = { title: string };
@@ -84,6 +85,32 @@ test("toggles the UI button from keyboard and propagates asChild state attribute
 
   fireEvent.keyDown(link, { key: " " });
   await waitFor(() => expect(link.textContent).toContain("false"));
+});
+
+test("scopes theme options and supports icon-only save buttons", async () => {
+  function SaveIcon({ className }: { className?: string }) {
+    return <svg data-testid="save-icon" className={className} aria-hidden="true" />;
+  }
+
+  render(
+    <KeepThemeProvider theme="compact" mode="dark" density="compact" highContrast reducedMotion data-testid="theme">
+      <KeepProvider<Meta> storage={createStorage()}>
+        <KeepButton item={item} iconOnly icons={{ save: SaveIcon }} data-testid="icon-button" />
+      </KeepProvider>
+    </KeepThemeProvider>,
+  );
+
+  const theme = screen.getByTestId("theme");
+  expect(theme.className).toContain("keep-theme--compact");
+  expect(theme.getAttribute("data-mode")).toBe("dark");
+  expect(theme.getAttribute("data-density")).toBe("compact");
+  expect(theme.getAttribute("data-high-contrast")).toBe("true");
+  expect(theme.getAttribute("data-reduced-motion")).toBe("true");
+  const button = await screen.findByTestId("icon-button");
+  expect(button.getAttribute("data-keepkit")).toBe("button");
+  expect(button.getAttribute("aria-label")).toBe("Save item");
+  expect(screen.getByTestId("save-icon")).not.toBeNull();
+  expect(button.textContent).toBe("");
 });
 
 test("debounces note persistence and saves with Ctrl+Enter", async () => {
@@ -198,6 +225,7 @@ test("links available card titles and blocks unavailable card links", async () =
   );
 
   const link = await screen.findByRole("link", { name: "Interaction item" });
+  expect(screen.getAllByText("1970-01-01")).toHaveLength(2);
   expect(link.getAttribute("href")).toBe("/items/ui-interaction-item");
   expect(link.getAttribute("target")).toBe("_blank");
   fireEvent.click(link);

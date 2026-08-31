@@ -42,6 +42,7 @@ export function KeepSearchInput({
   return (
     <input
       {...props}
+      data-keepkit="search-input"
       type="search"
       value={value}
       data-state={value ? "active" : "idle"}
@@ -94,6 +95,7 @@ export function KeepSortSelect({
   return (
     <select
       {...props}
+      data-keepkit="sort-select"
       value={value}
       data-state="selected"
       data-disabled={props.disabled ? "true" : undefined}
@@ -143,6 +145,7 @@ export function KeepPagination({
   };
   const navProps = {
     ...props,
+    "data-keepkit": "pagination",
     "aria-label": props["aria-label"] ?? paginationLabel,
     "data-state": pageCount > 1 ? "active" : "idle",
   };

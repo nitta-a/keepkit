@@ -17,7 +17,7 @@ export function KeepLayout({ layout = "list", children, style, ...props }: KeepL
         ? { display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))" }
         : { display: "flex", flexDirection: "column", gap: "1rem" };
   return (
-    <div {...props} style={{ ...layoutStyle, ...style }} data-layout={layout}>
+    <div {...props} style={{ ...layoutStyle, ...style }} data-keepkit="layout" data-layout={layout}>
       {children}
     </div>
   );

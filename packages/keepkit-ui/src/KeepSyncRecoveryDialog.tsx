@@ -84,6 +84,7 @@ export function KeepSyncRecoveryDialog<TMeta = Record<string, unknown>>({
       aria-labelledby="keepkit-sync-recovery-title"
       data-keepkit="sync-recovery"
       data-state={conflictList.length > 0 ? "conflict" : "error"}
+      data-loading={busyId !== undefined ? "true" : undefined}
     >
       <header>
         <h2 id="keepkit-sync-recovery-title">{dialogTitle}</h2>

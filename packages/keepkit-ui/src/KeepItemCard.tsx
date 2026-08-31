@@ -50,6 +50,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   renderImage?: (props: KeepImageProps, item: KeepItem<TMeta>) => ReactNode;
   renderTags?: (tags: string[], item: KeepItem<TMeta>) => ReactNode;
   showTags?: boolean;
+  showSavedAt?: boolean;
   imageAlt?: string;
   render?: RenderProp<KeepItemCardState<TMeta>>;
   children?: ReactNode | RenderProp<KeepItemCardState<TMeta>>;
@@ -78,6 +79,7 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
   renderImage,
   renderTags,
   showTags = true,
+  showSavedAt = true,
   imageAlt,
   render,
   children,
@@ -98,6 +100,8 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
   ...rootProps
 }: KeepItemCardProps<TMeta>) {
   const saveActionLabel = useUiLabel("save");
+  const savedAtLabel = useUiLabel("saved");
+  const errorLabel = useUiLabel("error");
   const removeActionLabel = useUiLabel("remove");
   const itemState = useKeepItem<TMeta>(item);
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
@@ -155,6 +159,12 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
                 )))
               : null}
             <h3>{linkTarget === "title" ? renderLink(resolvedTitle) : resolvedTitle}</h3>
+            {showSavedAt ? (
+              <div data-card-meta>
+                <span>{savedAtLabel}:</span>{" "}
+                <time dateTime={new Date(item.savedAt).toISOString()}>{formatSavedAt(item.savedAt)}</time>
+              </div>
+            ) : null}
             {showTags && (item.tags?.length ?? 0) > 0 ? (
               renderTags ? (
                 renderTags(item.tags ?? [], item)
@@ -166,6 +176,7 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
                 </ul>
               )
             ) : null}
+            {itemState.error ? <p role="alert">{getErrorMessage(itemState.error, errorLabel)}</p> : null}
             {statusLabel ? <KeepStaleNotice item={item} onRetry={onRetry} onRemoved={onRemoved} /> : null}
             {showSaveButton && !statusLabel ? (
               <KeepButton
@@ -191,8 +202,9 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
     {
       ...rootProps,
       className,
+      "data-keepkit": "card",
       "aria-busy": itemState.isMutating || rootProps["aria-busy"],
-      "data-state": itemState.isSaved ? "saved" : "unsaved",
+      "data-state": itemState.error ? "error" : itemState.isSaved ? "saved" : "unsaved",
       "data-status": item.status ?? "available",
       "data-loading": itemState.isMutating ? "true" : undefined,
     },
@@ -216,4 +228,12 @@ function getStatusLabelKey(
     default:
       return "statusUnknown";
   }
+}
+
+function formatSavedAt(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }

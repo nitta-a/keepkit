@@ -1,0 +1,22 @@
+@import "./theme.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--keep-background);
+  --color-foreground: var(--keep-foreground);
+  --color-card: var(--keep-card);
+  --color-card-foreground: var(--keep-card-foreground);
+  --color-muted: var(--keep-muted);
+  --color-muted-foreground: var(--keep-muted-foreground);
+  --color-border: var(--keep-border);
+  --color-input: var(--keep-input);
+  --color-primary: var(--keep-primary);
+  --color-primary-foreground: var(--keep-primary-foreground);
+  --color-destructive: var(--keep-destructive);
+  --color-destructive-foreground: var(--keep-destructive-foreground);
+  --color-ring: var(--keep-ring);
+  --radius-sm: calc(var(--keep-radius) - 4px);
+  --radius-md: calc(var(--keep-radius) - 2px);
+  --radius-lg: var(--keep-radius);
+}

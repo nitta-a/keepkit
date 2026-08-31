@@ -21,7 +21,14 @@ import {
 import type { ComponentType, ReactNode } from "react";
 import { KeepBackup, type KeepBackupProps } from "./KeepBackup";
 import { KeepBulkActions, type KeepBulkActionsProps, type KeepBulkActionsState } from "./KeepBulkActions";
-import { KeepButton, type KeepButtonLabels, type KeepButtonProps } from "./KeepButton";
+import {
+  KeepButton,
+  type KeepButtonIcon,
+  type KeepButtonIconProps,
+  type KeepButtonIcons,
+  type KeepButtonLabels,
+  type KeepButtonProps,
+} from "./KeepButton";
 import {
   KeepCollection,
   type KeepCollectionFeature,
@@ -74,6 +81,15 @@ import {
   type KeepStatusValue,
 } from "./status";
 import {
+  type KeepThemeDensity,
+  type KeepThemeMode,
+  type KeepThemeName,
+  KeepThemeProvider,
+  type KeepThemeProviderProps,
+  type KeepThemeRadius,
+  type KeepThemeVariables,
+} from "./theme";
+import {
   getKeepLocaleLabels,
   type KeepUiLabelContext,
   type KeepUiLabelKey,
@@ -92,22 +108,48 @@ import {
 } from "./url-sync";
 
 export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children"> &
-  Omit<KeepUiProviderProps, "children"> & { children?: ReactNode };
+  Omit<KeepUiProviderProps, "children"> &
+  Omit<KeepThemeProviderProps, "children"> & { children?: ReactNode };
 
 /** Combines the core store, UI labels, and the global live announcer. */
 export function KeepKitProvider<TMeta = Record<string, unknown>>({
   labels,
   locale,
   labelResolver,
+  theme,
+  mode,
+  density,
+  radius,
+  accentColor,
+  highContrast,
+  reducedMotion,
+  variables,
+  className: themeClassName,
+  style: themeStyle,
+  asChild: themeAsChild,
   children,
   ...providerProps
 }: KeepKitProviderProps<TMeta>) {
   return (
     <KeepUiProvider labels={labels} locale={locale} labelResolver={labelResolver}>
-      <CoreKeepProvider<TMeta> {...providerProps}>
-        {children}
-        <KeepAnnouncements />
-      </CoreKeepProvider>
+      <KeepThemeProvider
+        theme={theme}
+        mode={mode}
+        density={density}
+        radius={radius}
+        accentColor={accentColor}
+        highContrast={highContrast}
+        reducedMotion={reducedMotion}
+        variables={variables}
+        className={themeClassName}
+        style={themeStyle}
+        asChild={themeAsChild}
+      >
+        <CoreKeepProvider<TMeta> {...providerProps}>
+          {children}
+          <KeepAnnouncements />
+        </CoreKeepProvider>
+      </KeepThemeProvider>
     </KeepUiProvider>
   );
 }
@@ -160,6 +202,9 @@ export type {
   KeepBackupProps,
   KeepBulkActionsProps,
   KeepBulkActionsState,
+  KeepButtonIcon,
+  KeepButtonIconProps,
+  KeepButtonIcons,
   KeepButtonLabels,
   KeepButtonProps,
   KeepCollectionFeature,
@@ -196,6 +241,12 @@ export type {
   KeepTagEditorState,
   KeepTagFilterProps,
   KeepTagFilterState,
+  KeepThemeDensity,
+  KeepThemeMode,
+  KeepThemeName,
+  KeepThemeProviderProps,
+  KeepThemeRadius,
+  KeepThemeVariables,
   KeepUiLabelContext,
   KeepUiLabelKey,
   KeepUiLabels,
@@ -233,6 +284,7 @@ export {
   KeepSyncStatusBanner,
   KeepTagEditor,
   KeepTagFilter,
+  KeepThemeProvider,
   KeepUiProvider,
   KeepUndo,
   useKeepUiLabels,
@@ -241,6 +293,16 @@ export {
 
 export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = CoreCreateKeepKitOptions<TMeta> &
   Omit<KeepUiProviderProps, "children"> & {
+    theme?: KeepThemeName;
+    mode?: KeepThemeMode;
+    density?: KeepThemeDensity;
+    radius?: KeepThemeRadius;
+    accentColor?: KeepThemeProviderProps["accentColor"];
+    highContrast?: boolean;
+    reducedMotion?: boolean;
+    variables?: KeepThemeVariables;
+    themeClassName?: string;
+    themeStyle?: KeepThemeProviderProps["style"];
     getTitle?: (item: KeepItem<TMeta>) => ReactNode;
     getImageProps?: (item: KeepItem<TMeta>, title: ReactNode) => KeepImageProps | undefined;
   };
@@ -260,7 +322,24 @@ export type KeepKit<TMeta = Record<string, unknown>> = {
 export function createKeepKit<TMeta = Record<string, unknown>>(
   options: CreateKeepKitOptions<TMeta> = {},
 ): KeepKit<TMeta> {
-  const { labels, locale, labelResolver, getTitle, getImageProps, ...coreOptions } = options;
+  const {
+    labels,
+    locale,
+    labelResolver,
+    theme,
+    mode,
+    density,
+    radius,
+    accentColor,
+    highContrast,
+    reducedMotion,
+    variables,
+    themeClassName,
+    themeStyle,
+    getTitle,
+    getImageProps,
+    ...coreOptions
+  } = options;
   const coreKit = createCoreKeepKit<TMeta>(coreOptions);
   return {
     Provider: (props) => (
@@ -269,6 +348,16 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
         labels={labels}
         locale={locale}
         labelResolver={labelResolver}
+        theme={theme}
+        mode={mode}
+        density={density}
+        radius={radius}
+        accentColor={accentColor}
+        highContrast={highContrast}
+        reducedMotion={reducedMotion}
+        variables={variables}
+        className={themeClassName}
+        style={themeStyle}
         {...props}
       />
     ),

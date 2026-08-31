@@ -1,5 +1,25 @@
 # Release notes
 
+## [0.13.0] - 2026-09-01
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepThemeProvider`、`default`／`compact`／`minimal`／`rounded`／`high-contrast`／`dark`プリセット、shadcn/ui互換の`--keep-*`トークン、Tailwind CSS v4の`@keepkit/ui/tailwind.css`を追加しました。
+- Viewer向けカード／一覧レイアウト、レスポンシブトークン、状態別スタイル、reduced-motion、高コントラスト、Lucide等の`KeepButton`アイコン差し替えを追加しました。
+- `@keepkit/ui/styles/base.css`、`button.css`、`collection.css`、`sync.css`の機能別importを追加しました。
+- `@keepkit/core`と`@keepkit/ui`を`0.13.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Added `KeepThemeProvider`, six theme presets, shadcn-compatible `--keep-*` tokens, and the Tailwind CSS v4 `@keepkit/ui/tailwind.css` entry point.
+- Added Viewer card/list layouts, responsive tokens, state styling, reduced-motion and high-contrast support, and replaceable `KeepButton` icons for Lucide-style components.
+- Added feature-level CSS imports: `@keepkit/ui/styles/base.css`, `button.css`, `collection.css`, and `sync.css`.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.13.0`.
+
 ## [0.12.0] - 2026-08-31
 
 ### 日本語

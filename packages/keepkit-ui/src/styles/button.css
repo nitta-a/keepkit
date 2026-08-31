@@ -1,0 +1,64 @@
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="button"] {
+  display: inline-flex;
+  min-width: var(--keep-button-size);
+  min-height: var(--keep-button-size);
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid var(--keep-primary);
+  border-radius: var(--keep-radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--keep-primary);
+  color: var(--keep-primary-foreground);
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+@keyframes keepkit-save-complete {
+  0% {
+    transform: scale(0.96);
+  }
+  65% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="button"][data-state="saved"] {
+  animation: keepkit-save-complete 220ms ease-out;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="button"][data-icon-only="true"] {
+  border-radius: 999px;
+  padding: 0.5rem;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="button"]:hover:not(:disabled):not([aria-disabled="true"]) {
+  filter: brightness(0.94);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="button"]:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(1px);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="button"][data-state="saved"] {
+  background: var(--keep-card);
+  color: var(--keep-primary);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="button"][data-state="error"] {
+  border-color: var(--keep-destructive);
+  background: var(--keep-destructive);
+  color: var(--keep-destructive-foreground);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="button"][data-loading="true"] {
+  pointer-events: none;
+}

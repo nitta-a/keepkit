@@ -2,6 +2,7 @@
 
 import type { KeepItem, KeepItemInput, KeepListQuery } from "@keepkit/core/core";
 import {
+  type ComponentType,
   cloneElement,
   type HTMLAttributes,
   type ImgHTMLAttributes,
@@ -19,6 +20,16 @@ export type KeepButtonLabels = {
   error?: ReactNode;
   savedAriaLabel?: string;
   unsavedAriaLabel?: string;
+};
+
+export type KeepButtonIconProps = { "aria-hidden"?: boolean; className?: string };
+export type KeepButtonIcon = ReactNode | ComponentType<KeepButtonIconProps>;
+export type KeepButtonIcons = {
+  save?: KeepButtonIcon;
+  saved?: KeepButtonIcon;
+  remove?: KeepButtonIcon;
+  loading?: KeepButtonIcon;
+  error?: KeepButtonIcon;
 };
 
 export type KeepImageProps = ImgHTMLAttributes<HTMLImageElement> & {

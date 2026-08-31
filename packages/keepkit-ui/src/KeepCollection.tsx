@@ -100,6 +100,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
     <section
       {...rootProps}
       className={className}
+      data-keepkit="collection"
       aria-busy={list.isLoading || list.isMutating || rootProps["aria-busy"]}
       data-state={getCollectionState(list)}
       data-loading={list.isLoading || list.isMutating ? "true" : undefined}

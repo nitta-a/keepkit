@@ -74,6 +74,7 @@ function KeepListContent<TMeta = Record<string, unknown>>({
     {
       ...rootProps,
       className,
+      "data-keepkit": "list",
       "aria-busy": state.isLoading || rootProps["aria-busy"],
       "data-state": getListState(state),
       "data-loading": state.isLoading ? "true" : undefined,

@@ -28,10 +28,12 @@ import {
   KeepSyncStatusBanner,
   KeepTagEditor,
   KeepTagFilter,
+  KeepThemeProvider,
   KeepUiProvider,
   KeepUndo,
   toggleSelectAll,
 } from "../dist/index.js";
+import { keepKitTheme } from "../dist/tailwind.js";
 
 test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepButton, "function");
@@ -61,6 +63,9 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepKitProvider, "function");
   assert.equal(typeof KeepCollection, "function");
   assert.equal(typeof createKeepKit, "function");
+  assert.equal(typeof KeepThemeProvider, "function");
+  assert.equal(keepKitTheme.colors.primary, "var(--keep-primary)");
+  assert.equal(keepKitTheme.colors["card-foreground"], "var(--keep-card-foreground)");
 });
 
 test("select-all helpers operate on visible items and preserve hidden selections", () => {

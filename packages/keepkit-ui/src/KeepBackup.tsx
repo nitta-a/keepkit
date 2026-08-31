@@ -65,7 +65,12 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
   }
 
   return (
-    <section {...props} data-state={error ? "error" : result ? "complete" : "idle"}>
+    <section
+      {...props}
+      data-keepkit="backup"
+      data-state={error ? "error" : result ? "complete" : "idle"}
+      data-loading={context.isMutating ? "true" : undefined}
+    >
       <button type="button" onClick={() => void handleExport()} disabled={context.isMutating}>
         {exportLabel}
       </button>

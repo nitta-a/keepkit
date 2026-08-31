@@ -117,7 +117,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   const commonProps = {
     ...buttonProps,
     "aria-pressed": isSaved,
-    "data-state": isSaved ? "saved" : "unsaved",
+    "data-state": state.error ? "error" : isSaved ? "saved" : "unsaved",
     "data-loading": state.isLoading || state.isMutating ? "true" : undefined,
     "data-disabled": isDisabled ? "true" : undefined,
     "aria-label":

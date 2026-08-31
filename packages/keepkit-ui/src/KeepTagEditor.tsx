@@ -36,6 +36,7 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
   const tagsLabel = useUiLabel("tagsToApply");
   const removeLabel = useUiLabel("remove");
   const applyTagsLabel = useUiLabel("applyTags");
+  const errorLabel = useUiLabel("error");
   const itemState = useKeepItem<TMeta>(item);
   const [tags, setTags] = useState(item.tags ?? []);
   const [input, setInput] = useState("");
@@ -107,11 +108,17 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
         void save().catch(() => undefined);
       }}
       aria-busy={itemState.isMutating || props["aria-busy"]}
-      data-state={itemState.isMutating ? "saving" : "idle"}
+      data-keepkit="tag-editor"
+      data-state={itemState.error ? "error" : itemState.isMutating ? "saving" : "idle"}
       data-loading={itemState.isMutating ? "true" : undefined}
       data-disabled={itemState.isMutating ? "true" : undefined}
     >
       {body}
+      {itemState.error ? <p role="alert">{getErrorMessage(itemState.error, errorLabel)}</p> : null}
     </form>
   );
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }

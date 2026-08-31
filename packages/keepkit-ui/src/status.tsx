@@ -33,7 +33,13 @@ export function KeepEmptyState({
       {action}
     </>
   );
-  return renderRoot(asChild, children, { ...rootProps, className, "data-state": "empty" }, body, "KeepEmptyState");
+  return renderRoot(
+    asChild,
+    children,
+    { ...rootProps, className, "data-keepkit": "empty-state", "data-state": "empty" },
+    body,
+    "KeepEmptyState",
+  );
 }
 
 export type KeepStatusValue = "idle" | "empty" | "loading" | "saving" | "syncing" | "error";
@@ -86,6 +92,7 @@ export function KeepStatus<TMeta = Record<string, unknown>>({
     {
       ...rootProps,
       className,
+      "data-keepkit": "status",
       role,
       "aria-live": rootProps["aria-live"] ?? "polite",
       "data-state": resolvedStatus,
@@ -125,6 +132,7 @@ export function KeepAnnouncements<TMeta = Record<string, unknown>>({ messages, .
       role={props.role ?? "status"}
       aria-live={props["aria-live"] ?? "polite"}
       aria-atomic="true"
+      data-keepkit="announcements"
       data-state="announcing"
     >
       {message}

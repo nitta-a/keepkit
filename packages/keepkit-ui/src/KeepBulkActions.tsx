@@ -192,6 +192,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   return (
     <section
       {...props}
+      data-keepkit="bulk-actions"
       aria-busy={list.isMutating || props["aria-busy"]}
       data-state={selectedIds.length > 0 ? "selected" : "idle"}
       data-loading={list.isLoading || list.isMutating ? "true" : undefined}

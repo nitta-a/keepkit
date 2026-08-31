@@ -91,6 +91,7 @@ export function KeepTagFilter<TMeta = Record<string, unknown>>({
     {
       ...rootProps,
       className,
+      "data-keepkit": "tag-filter",
       "data-state": resolvedValue === undefined ? "all" : "filtered",
       "data-loading": list.isLoading ? "true" : undefined,
     },

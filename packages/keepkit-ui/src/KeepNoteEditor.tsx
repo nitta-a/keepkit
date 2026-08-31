@@ -58,6 +58,7 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
 }: KeepNoteEditorProps<TMeta>) {
   const defaultLabel = useUiLabel("note");
   const defaultSaveLabel = useUiLabel("saveNote");
+  const errorLabel = useUiLabel("error");
   const itemState = useKeepItem<TMeta>(item);
   const { error, isMutating, item: savedItem, updateNote } = itemState;
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
@@ -126,13 +127,15 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
       <form
         {...formProps}
         className={className}
+        data-keepkit="note-editor"
         onSubmit={handleSubmit}
         aria-busy={isMutating || formProps["aria-busy"]}
-        data-state={isDirty ? "dirty" : "clean"}
+        data-state={error ? "error" : isDirty ? "dirty" : "clean"}
         data-loading={isMutating ? "true" : undefined}
         data-disabled={isMutating ? "true" : undefined}
       >
         {body}
+        {error ? <p role="alert">{getErrorMessage(error, errorLabel)}</p> : null}
       </form>
     );
   }
@@ -142,13 +145,18 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
     {
       ...formProps,
       className,
+      "data-keepkit": "note-editor",
       onSubmit: handleSubmit,
       "aria-busy": isMutating || formProps["aria-busy"],
-      "data-state": isDirty ? "dirty" : "clean",
+      "data-state": error ? "error" : isDirty ? "dirty" : "clean",
       "data-loading": isMutating ? "true" : undefined,
       "data-disabled": isMutating ? "true" : undefined,
     },
     body,
     "KeepNoteEditor",
   );
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }
