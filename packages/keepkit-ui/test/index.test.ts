@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   createKeepKit,
   KeepAnnouncements,
+  KeepAnnouncer,
   KeepBulkActions,
   KeepButton,
   KeepCollection,
@@ -24,6 +25,7 @@ import {
 test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepButton, "function");
   assert.equal(typeof KeepAnnouncements, "function");
+  assert.equal(typeof KeepAnnouncer, "function");
   assert.equal(typeof KeepBulkActions, "function");
   assert.equal(typeof KeepList, "function");
   assert.equal(typeof KeepItemCard, "function");

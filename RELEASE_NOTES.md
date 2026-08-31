@@ -1,5 +1,29 @@
 # Release notes
 
+## [0.7.0] - 2026-08-31
+
+### 日本語
+
+#### 追加・改善
+
+- `@keepkit/ui`の実装を`KeepButton`、`KeepList`、`KeepCollection`、編集・一括操作・状態表示などのコンポーネント単位へ分割し、公開importを維持しました。
+- `KeepNoteEditor`に既定300msのデバウンス保存、`debounceMs={0}`、Ctrl/Cmd+Enterによる保存を追加しました。
+- `KeepAnnouncer`を追加し、既存の`KeepAnnouncements`と同じ通知機構を単一コンポーネント名でも利用できるようにしました。
+- `@keepkit/ui`自身にTesting Library、jsdom、Vitestによるキーボード・ARIA属性・デバウンス保存テストを追加しました。
+- 公開後の隔離ディレクトリで`@keepkit/core@latest`と`@keepkit/ui@latest`をimport検証するリリースステップを追加しました。
+- `@keepkit/core`と`@keepkit/ui`を`0.7.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Split `@keepkit/ui` into component-level modules for buttons, lists, collections, editing, bulk actions, and status UI while preserving public imports.
+- Added 300ms debounced note saving to `KeepNoteEditor`, configurable with `debounceMs={0}`, plus Ctrl/Cmd+Enter confirmation.
+- Added `KeepAnnouncer` as a singular alias for the existing `KeepAnnouncements` live-region mechanism.
+- Added package-local Testing Library, jsdom, and Vitest coverage for keyboard interaction, ARIA attributes, and debounced note persistence.
+- Added a post-publish isolated-directory import verification for `@keepkit/core@latest` and `@keepkit/ui@latest`.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.7.0`.
+
 ## [0.6.0] - 2026-08-31
 
 ### 日本語

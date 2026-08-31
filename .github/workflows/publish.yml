@@ -110,6 +110,15 @@ jobs:
             fi
           done
 
+      - name: Verify published packages from an isolated directory
+        run: |
+          set -euo pipefail
+          verification_dir="$(mktemp -d)"
+          cd "$verification_dir"
+          npm init --yes >/dev/null
+          npm install --ignore-scripts --no-package-lock @keepkit/core@latest @keepkit/ui@latest
+          node --input-type=module -e "await import('@keepkit/core/core'); await import('@keepkit/core/react'); await import('@keepkit/ui');"
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

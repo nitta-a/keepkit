@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.6.0では、`@keepkit/ui`のUIプリミティブを機能別に整理し、検索・ページング・一括操作・アクセシビリティ通知を強化しました。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.7.0では、`@keepkit/ui`をコンポーネント単位へ分割し、UIパッケージ自身のインタラクションテスト、ノートのデバウンス保存、キーボード確定を追加しました。
 
 ### インストール
 
@@ -97,7 +97,7 @@ pnpm build
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.6.0, `@keepkit/ui` organizes its primitives by feature and strengthens search, pagination, bulk operations, and accessibility feedback.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.7.0, `@keepkit/ui` is split into component-level modules and adds package-local interaction tests, debounced note saving, and keyboard confirmation.
 
 ### Installation
 
