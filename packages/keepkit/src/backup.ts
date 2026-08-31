@@ -172,10 +172,27 @@ function isKeepItem(value: unknown): value is KeepItem {
     (value.revision === undefined || typeof value.revision === "string") &&
     (value.metaUpdatedAt === undefined ||
       (typeof value.metaUpdatedAt === "number" && Number.isFinite(value.metaUpdatedAt))) &&
+    (value.status === undefined ||
+      value.status === "available" ||
+      value.status === "expired" ||
+      value.status === "removed" ||
+      value.status === "deleted" ||
+      value.status === "private" ||
+      value.status === "unknown") &&
+    (value.statusReason === undefined || typeof value.statusReason === "string") &&
+    (value.scope === undefined || isSyncScope(value.scope)) &&
     (value.tags === undefined || (Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === "string")))
   );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isSyncScope(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    (value.userId === undefined || typeof value.userId === "string") &&
+    (value.tenantId === undefined || typeof value.tenantId === "string")
+  );
 }

@@ -3,10 +3,12 @@ import type {
   KeepItem,
   KeepSyncState,
   RemoteSyncDriver,
+  RemoteSyncResult,
   StorageAdapter,
   SyncCapableStorageAdapter,
   SyncOperation,
   SyncQueueAdapter,
+  SyncScope,
 } from "../types";
 
 export type LocalStorageSyncQueueOptions = {
@@ -36,6 +38,11 @@ export type SyncStorageAdapterOptions<TMeta = Record<string, unknown>> = {
   clientId?: string;
   now?: () => number;
   resolveConflict?: KeepConflictResolver<TMeta>;
+  userId?: string;
+  tenantId?: string;
+  maxRetries?: number;
+  retryDelayMs?: number;
+  retryBackoff?: number;
 };
 
 export const DEFAULT_SYNC_QUEUE_KEY = "keepkit:sync-queue";
@@ -216,6 +223,10 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   private readonly clientId: string;
   private readonly now: () => number;
   private readonly resolveConflict?: KeepConflictResolver<TMeta>;
+  private readonly scope?: SyncScope;
+  private readonly maxRetries: number;
+  private readonly retryDelayMs: number;
+  private readonly retryBackoff: number;
   private readonly listeners = new Set<() => void>();
   private readonly dataListeners = new Set<() => void>();
   private queueItems: SyncOperation<TMeta>[] = [];
@@ -232,6 +243,10 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     this.clientId = options.clientId ?? createId();
     this.now = options.now ?? Date.now;
     this.resolveConflict = options.resolveConflict;
+    this.scope = getSyncScope(options);
+    this.maxRetries = Math.max(0, options.maxRetries ?? 3);
+    this.retryDelayMs = Math.max(0, options.retryDelayMs ?? 0);
+    this.retryBackoff = Math.max(1, options.retryBackoff ?? 2);
     this.storageKey = this.local.storageKey;
     if (typeof window !== "undefined") {
       this.onlineHandler = () => void this.flushSync();
@@ -256,15 +271,19 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     };
   };
 
-  getAll(): Promise<KeepItem<TMeta>[]> {
-    return this.local.getAll();
+  async getAll(): Promise<KeepItem<TMeta>[]> {
+    const items = await this.local.getAll();
+    const scope = this.scope;
+    if (!scope) return items;
+    return items.filter((item) => sameScope(item.scope, scope));
   }
 
   async set(item: KeepItem<TMeta>): Promise<void> {
-    const operation = this.createOperation("upsert", item.id, item);
+    const scopedItem = this.applyScope(item);
+    const operation = this.createOperation("upsert", scopedItem.id, scopedItem);
     await this.enqueueBeforeLocalWrite(operation);
     try {
-      await this.local.set(item);
+      await this.local.set(scopedItem);
     } catch (cause) {
       await this.removeQueued(operation.operationId);
       throw cause;
@@ -274,11 +293,12 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   }
 
   async setMany(items: KeepItem<TMeta>[]): Promise<void> {
-    const operations = items.map((item) => this.createOperation("upsert", item.id, item));
+    const scopedItems = items.map((item) => this.applyScope(item));
+    const operations = scopedItems.map((item) => this.createOperation("upsert", item.id, item));
     await this.enqueueManyBeforeLocalWrite(operations);
     try {
-      if (this.local.setMany) await this.local.setMany(items);
-      else for (const item of items) await this.local.set(item);
+      if (this.local.setMany) await this.local.setMany(scopedItems);
+      else for (const item of scopedItems) await this.local.set(item);
     } catch (cause) {
       await this.removeQueued(operations.map((operation) => operation.operationId));
       throw cause;
@@ -315,7 +335,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   }
 
   async clear(): Promise<void> {
-    const items = await this.local.getAll();
+    const items = await this.getAll();
     await this.removeMany(items.map((item) => item.id));
     await this.local.clear();
   }
@@ -336,6 +356,10 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     return this.flushPromise;
   }
 
+  retrySync(): Promise<void> {
+    return this.flushSync();
+  }
+
   dispose(): void {
     if (this.onlineHandler) window.removeEventListener("online", this.onlineHandler);
     this.listeners.clear();
@@ -352,7 +376,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     this.updateState({ status: "syncing", error: undefined });
     for (const operation of [...this.queueItems]) {
       try {
-        const result = await this.remote.push(operation);
+        const result = await this.pushWithRetry(operation);
         if (result.type === "conflict") {
           const local = operation.item;
           const resolved = this.resolveConflict
@@ -372,15 +396,17 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
             ...resolved,
             revision: result.revision ?? resolved.revision,
           });
-          await this.local.set(retry.item as KeepItem<TMeta>);
+          await this.local.set(this.applyScope(retry.item as KeepItem<TMeta>));
           await this.replaceQueued(operation, retry);
           continue;
         }
         if (result.item) {
-          await this.local.set({
-            ...result.item,
-            ...(result.revision ? { revision: result.revision } : {}),
-          });
+          await this.local.set(
+            this.applyScope({
+              ...result.item,
+              ...(result.revision ? { revision: result.revision } : {}),
+            }),
+          );
           this.notifyDataListeners();
         }
         await this.removeQueued(operation.operationId);
@@ -409,7 +435,26 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
       ...(item ? { item } : {}),
       createdAt: this.now(),
       ...(item?.revision ? { baseRevision: item.revision } : {}),
+      ...(this.scope ? { scope: this.scope } : {}),
     };
+  }
+
+  private applyScope(item: KeepItem<TMeta>): KeepItem<TMeta> {
+    return this.scope ? { ...item, scope: this.scope } : item;
+  }
+
+  private async pushWithRetry(operation: SyncOperation<TMeta>): Promise<RemoteSyncResult<TMeta>> {
+    let attempt = 0;
+    while (true) {
+      try {
+        return await this.remote.push({ ...operation, attempts: attempt });
+      } catch (error) {
+        if (attempt >= this.maxRetries) throw error;
+        attempt += 1;
+        const delay = this.retryDelayMs * this.retryBackoff ** (attempt - 1);
+        if (delay > 0) await wait(delay);
+      }
+    }
   }
 
   private async enqueueBeforeLocalWrite(operation: SyncOperation<TMeta>): Promise<void> {
@@ -494,12 +539,14 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     try {
       const remoteItems = await this.remote.pull();
       const pendingIds = new Set(this.queueItems.map((operation) => operation.id));
-      const localItems = await this.local.getAll();
+      const localItems = await this.getAll();
       const localById = new Map(localItems.map((item) => [item.id, item]));
-      const incoming = remoteItems.filter((item) => {
-        const current = localById.get(item.id);
-        return !pendingIds.has(item.id) && (!current || item.updatedAt >= current.updatedAt);
-      });
+      const incoming = remoteItems
+        .filter((item) => {
+          const current = localById.get(item.id);
+          return !pendingIds.has(item.id) && (!current || item.updatedAt >= current.updatedAt);
+        })
+        .map((item) => this.applyScope(item));
       if (incoming.length === 0) return true;
       if (this.local.setMany) await this.local.setMany(incoming);
       else for (const item of incoming) await this.local.set(item);
@@ -579,17 +626,40 @@ function isBrowserOnline(): boolean {
 }
 
 function createDefaultQueue<TMeta>(options: SyncStorageAdapterOptions<TMeta>): SyncQueueAdapter<TMeta> {
-  const queueKey = options.queueKey ?? `${DEFAULT_SYNC_QUEUE_KEY}:${options.local.storageKey ?? "default"}`;
+  const scopeKey = getScopeKey(options);
+  const queueKey = `${options.queueKey ?? `${DEFAULT_SYNC_QUEUE_KEY}:${options.local.storageKey ?? "default"}`}${scopeKey}`;
   const fallback = new LocalStorageSyncQueueAdapter<TMeta>({ key: queueKey });
   const indexedDB = getBrowserIndexedDB();
   if (!indexedDB) return fallback;
   return new FallbackSyncQueueAdapter<TMeta>({
     primary: new IndexedDBSyncQueueAdapter<TMeta>({
-      databaseName: options.queueDatabaseName,
+      databaseName: `${options.queueDatabaseName ?? DEFAULT_SYNC_QUEUE_DATABASE}${scopeKey}`,
       indexedDB,
     }),
     fallback,
   });
+}
+
+function getSyncScope<TMeta>(options: SyncStorageAdapterOptions<TMeta>): SyncScope | undefined {
+  if (!options.userId && !options.tenantId) return undefined;
+  return {
+    ...(options.userId ? { userId: options.userId } : {}),
+    ...(options.tenantId ? { tenantId: options.tenantId } : {}),
+  };
+}
+
+function getScopeKey<TMeta>(options: SyncStorageAdapterOptions<TMeta>): string {
+  const scope = getSyncScope(options);
+  if (!scope) return "";
+  return `:${encodeURIComponent(scope.tenantId ?? "_")}:${encodeURIComponent(scope.userId ?? "_")}`;
+}
+
+function sameScope(left: SyncScope | undefined, right: SyncScope): boolean {
+  return left?.userId === right.userId && left?.tenantId === right.tenantId;
+}
+
+function wait(delay: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {

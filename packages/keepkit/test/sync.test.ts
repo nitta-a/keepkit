@@ -370,6 +370,39 @@ test("pulls non-stale remote items, applies server revisions, and reports push f
   adapter.dispose();
 });
 
+test("retries transient pushes and carries user and tenant scope", async () => {
+  const { local } = createLocal();
+  const queued: SyncOperation[] = [];
+  const queue: SyncQueueAdapter = {
+    getAll: async () => [...queued],
+    setMany: async (operations) => queued.push(...operations),
+    remove: async (ids) =>
+      queued.splice(0, queued.length, ...queued.filter((entry) => !ids.includes(entry.operationId))),
+    clear: async () => void queued.splice(0),
+  };
+  let attempts = 0;
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue,
+    userId: "user-1",
+    tenantId: "tenant-1",
+    maxRetries: 2,
+    remote: {
+      push: async () => {
+        attempts += 1;
+        if (attempts < 3) throw new Error("temporary outage");
+        return { type: "synced" };
+      },
+    },
+  });
+  await adapter.set(itemA);
+  assert.deepEqual(queued[0]?.scope, { userId: "user-1", tenantId: "tenant-1" });
+  await adapter.flushSync();
+  assert.equal(attempts, 3);
+  assert.equal(adapter.getSyncState().status, "synced");
+  adapter.dispose();
+});
+
 test("keeps unresolved conflicts pending and carries remote revisions into resolved retries", async () => {
   const { local, values } = createLocal([itemA]);
   const firstQueue = createMemoryQueue();

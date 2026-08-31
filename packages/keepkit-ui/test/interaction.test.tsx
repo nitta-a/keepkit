@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import {
   KeepAnnouncements,
+  KeepBackup,
   KeepBulkActions,
   KeepButton,
   KeepCollection,
@@ -174,6 +175,42 @@ test("exposes stable data attributes for CSS styling", async () => {
   expect(screen.getByTestId("status").getAttribute("data-state")).toBe("idle");
   expect(screen.getByTestId("empty").getAttribute("data-state")).toBe("empty");
   expect(screen.getByTestId("announcements").getAttribute("data-state")).toBe("announcing");
+});
+
+test("links available card titles and blocks unavailable card links", async () => {
+  const onOpen = vi.fn();
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, { ...secondItem, status: "expired" }])}>
+      <KeepItemCard item={item} href={(entry) => `/items/${entry.id}`} onOpen={onOpen} linkTargetAttribute="_blank" />
+      <KeepItemCard item={{ ...secondItem, status: "expired" }} href="/items/expired" />
+    </KeepProvider>,
+  );
+
+  const link = await screen.findByRole("link", { name: "Interaction item" });
+  expect(link.getAttribute("href")).toBe("/items/ui-interaction-item");
+  expect(link.getAttribute("target")).toBe("_blank");
+  fireEvent.click(link);
+  expect(onOpen).toHaveBeenCalled();
+  expect(screen.queryByRole("link", { name: "Second interaction item" })).toBeNull();
+  expect(screen.getByText("Expired")).not.toBeNull();
+});
+
+test("exports and imports JSON backups through the standard UI", async () => {
+  const onExport = vi.fn();
+  const importedItem = { ...item, id: "imported", meta: { title: "Imported" } };
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepBackup onExport={onExport} />
+    </KeepProvider>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Export JSON" }));
+  await waitFor(() => expect(onExport).toHaveBeenCalledWith(expect.stringContaining("ui-interaction-item")));
+  const input = document.querySelector('input[type="file"]');
+  if (!(input instanceof HTMLInputElement)) throw new Error("Backup file input was not rendered.");
+  const data = JSON.stringify({ format: "keepkit", version: 1, exportedAt: 1, items: [importedItem] });
+  fireEvent.change(input, { target: { files: [new File([data], "backup.json", { type: "application/json" })] } });
+  expect((await screen.findByRole("status")).textContent).toContain("1 items imported");
 });
 
 test("isolates unexpected provider and collection render errors", async () => {

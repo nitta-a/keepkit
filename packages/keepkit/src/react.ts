@@ -18,6 +18,7 @@ export { KeepProvider, useKeepContext, useKeepStore } from "./KeepProvider";
 export type { KeepListQuery } from "./query";
 export type {
   KeepItemMetadataRefresher,
+  KeepItemResolver,
   KeepItemRevalidationResult,
   KeepItemRevalidationSummary,
   KeepItemRevalidator,

@@ -1,6 +1,6 @@
-import type { KeepItem, StorageAdapter } from "./types";
+import type { KeepItem, KeepItemStatus, StorageAdapter } from "./types";
 
-export type KeepItemStatus = "available" | "deleted" | "private" | "expired" | "unknown";
+export type { KeepItemStatus } from "./types";
 
 export type KeepItemRevalidationResult<TMeta = Record<string, unknown>> =
   | { status: "available"; meta?: TMeta }
@@ -12,6 +12,11 @@ export type KeepItemRevalidator<TMeta = Record<string, unknown>> = (
   | KeepItemRevalidationResult<TMeta>
   | KeepItemRevalidationResult<TMeta>["status"]
   | Promise<KeepItemRevalidationResult<TMeta> | KeepItemRevalidationResult<TMeta>["status"]>;
+
+export type KeepItemResolver<TMeta = Record<string, unknown>> = (
+  item: KeepItem<TMeta>,
+  result: KeepItemRevalidationResult<TMeta>,
+) => KeepItem<TMeta> | undefined | Promise<KeepItem<TMeta> | undefined>;
 
 export type KeepItemMetadataRefresher<TMeta = Record<string, unknown>> = (
   item: KeepItem<TMeta>,
@@ -33,10 +38,11 @@ export type KeepItemRevalidationRecord<TMeta = Record<string, unknown>> = {
   updated: boolean;
 };
 
-export type RevalidateKeepItemsOptions = {
+export type RevalidateKeepItemsOptions<TMeta = Record<string, unknown>> = {
   /** Statuses that should be removed after they are detected. Detection is the default. */
   removeStatuses?: Array<Exclude<KeepItemStatus, "available">>;
   now?: () => number;
+  resolveItem?: KeepItemResolver<TMeta>;
 };
 
 export type KeepItemRevalidationSummary<TMeta = Record<string, unknown>> = {
@@ -53,7 +59,7 @@ export type KeepItemRevalidationSummary<TMeta = Record<string, unknown>> = {
 export async function revalidateKeepItems<TMeta = Record<string, unknown>>(
   source: KeepItem<TMeta>[],
   revalidator: KeepItemRevalidator<TMeta>,
-  options: RevalidateKeepItemsOptions = {},
+  options: RevalidateKeepItemsOptions<TMeta> = {},
 ): Promise<KeepItemRevalidationSummary<TMeta>> {
   const removeStatuses = new Set(options.removeStatuses ?? []);
   const now = options.now ?? Date.now;
@@ -65,12 +71,27 @@ export async function revalidateKeepItems<TMeta = Record<string, unknown>>(
   for (const item of source) {
     const rawResult = await revalidator(item);
     const result: KeepItemRevalidationResult<TMeta> = typeof rawResult === "string" ? { status: rawResult } : rawResult;
+    const reason = result.status === "available" ? undefined : result.reason;
+    const defaultResolved = {
+      ...item,
+      status: result.status,
+      ...(result.status === "available" ? { statusReason: undefined } : { statusReason: reason }),
+    };
+    const resolved = options.resolveItem
+      ? await (options.resolveItem as KeepItemResolver<TMeta>)(item, result)
+      : defaultResolved;
+    if (resolved === undefined) {
+      removedIds.push(item.id);
+      results.push({ item, status: result.status, reason, updated: false });
+      continue;
+    }
     if (result.status === "available") {
       const timestamp = now();
+      const availableItem = clearItemStatus(resolved);
       const updated =
         result.meta === undefined
-          ? item
-          : { ...item, meta: result.meta, metaUpdatedAt: timestamp, updatedAt: timestamp };
+          ? availableItem
+          : { ...availableItem, meta: result.meta, metaUpdatedAt: timestamp, updatedAt: timestamp };
       const didUpdate = updated !== item;
       items.push(updated);
       if (didUpdate) updatedItems.push(updated);
@@ -78,10 +99,12 @@ export async function revalidateKeepItems<TMeta = Record<string, unknown>>(
       continue;
     }
 
+    const withStatus = { ...resolved, status: result.status, ...(reason ? { statusReason: reason } : {}) };
     const shouldRemove = removeStatuses.has(result.status);
     if (shouldRemove) removedIds.push(item.id);
-    else items.push(item);
-    results.push({ item, status: result.status, reason: result.reason, updated: false });
+    else items.push(withStatus);
+    if (!shouldRemove && withStatus !== item) updatedItems.push(withStatus);
+    results.push({ item: withStatus, status: result.status, reason, updated: !shouldRemove && withStatus !== item });
   }
 
   return {
@@ -99,7 +122,7 @@ export async function revalidateKeepItems<TMeta = Record<string, unknown>>(
 export async function reconcileKeepItems<TMeta = Record<string, unknown>>(
   storage: StorageAdapter<TMeta>,
   revalidator: KeepItemRevalidator<TMeta>,
-  options: RevalidateKeepItemsOptions = {},
+  options: RevalidateKeepItemsOptions<TMeta> = {},
 ): Promise<KeepItemRevalidationSummary<TMeta>> {
   const source = await storage.getAll();
   const summary = await revalidateKeepItems(source, revalidator, options);
@@ -122,4 +145,11 @@ async function removeItems<TMeta>(storage: StorageAdapter<TMeta>, ids: string[])
     return;
   }
   for (const id of ids) await storage.remove(id);
+}
+
+function clearItemStatus<TMeta>(item: KeepItem<TMeta>): KeepItem<TMeta> {
+  const next = { ...item };
+  delete next.status;
+  delete next.statusReason;
+  return next;
 }

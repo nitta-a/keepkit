@@ -36,7 +36,20 @@ export type KeepUiLabelKey =
   | "applyTags"
   | "savedMessage"
   | "removedMessage"
-  | "noteSavedMessage";
+  | "noteSavedMessage"
+  | "exportData"
+  | "importData"
+  | "importMode"
+  | "merge"
+  | "replace"
+  | "importedCount"
+  | "failedCount"
+  | "storageQuotaError"
+  | "statusExpired"
+  | "statusRemoved"
+  | "statusDeleted"
+  | "statusPrivate"
+  | "statusUnknown";
 
 export type KeepUiLabels = Partial<Record<KeepUiLabelKey, string>>;
 
@@ -81,6 +94,19 @@ export const DEFAULT_LABELS: Record<KeepUiLabelKey, string> = {
   savedMessage: "Item saved.",
   removedMessage: "Item removed.",
   noteSavedMessage: "Note saved.",
+  exportData: "Export JSON",
+  importData: "Import JSON",
+  importMode: "Import mode",
+  merge: "Merge",
+  replace: "Replace",
+  importedCount: "items imported",
+  failedCount: "items failed",
+  storageQuotaError: "Storage is full. Free space and try again.",
+  statusExpired: "Expired",
+  statusRemoved: "Removed",
+  statusDeleted: "Deleted",
+  statusPrivate: "Private",
+  statusUnknown: "Unavailable",
 };
 
 const KeepUiLabelsContext = createContext<KeepUiLabelContext>({ labels: DEFAULT_LABELS });

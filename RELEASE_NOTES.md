@@ -1,5 +1,27 @@
 # Release notes
 
+## [0.10.0] - 2026-08-31
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepItemCard`に詳細ページ用の`href`、`onOpen`、差し替え可能な`linkComponent`、新しいタブ指定を追加しました。利用できない保存対象のリンクは無効化されます。
+- `KeepItem`に`status`と`statusReason`を追加し、`KeepProvider`の`validateItem` / `resolveItem`で期限切れ・削除済み・非公開状態を再検証できるようにしました。
+- `SyncStorageAdapter`にユーザー／テナント単位のキュー分離、再試行、バックオフ、`retrySync()`を追加しました。
+- `@keepkit/ui`にJSONのエクスポート／インポート、merge / replace選択、結果件数、容量エラー表示を行う`KeepBackup`を追加しました。
+- `@keepkit/core`と`@keepkit/ui`を`0.10.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Added `href`, `onOpen`, replaceable `linkComponent`, and new-tab options to `KeepItemCard`; unavailable saved items now disable detail links.
+- Added `status` and `statusReason` to `KeepItem`, with `KeepProvider` `validateItem` / `resolveItem` hooks for expired, removed, and private content.
+- Added user/tenant queue isolation, retries, backoff, and `retrySync()` to `SyncStorageAdapter`.
+- Added `KeepBackup` to `@keepkit/ui` for JSON export/import, merge/replace selection, result counts, and quota-error messaging.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.10.0`.
+
 ## [0.9.0] - 2026-08-31
 
 ### 日本語

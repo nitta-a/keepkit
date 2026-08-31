@@ -564,6 +564,15 @@ function isKeepItemArray(value: unknown): value is KeepItem[] {
         (item.revision === undefined || typeof item.revision === "string") &&
         (item.metaUpdatedAt === undefined ||
           (typeof item.metaUpdatedAt === "number" && Number.isFinite(item.metaUpdatedAt))) &&
+        (item.status === undefined ||
+          item.status === "available" ||
+          item.status === "expired" ||
+          item.status === "removed" ||
+          item.status === "deleted" ||
+          item.status === "private" ||
+          item.status === "unknown") &&
+        (item.statusReason === undefined || typeof item.statusReason === "string") &&
+        (item.scope === undefined || isSyncScope(item.scope)) &&
         (item.tags === undefined || (Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string"))),
     )
   );
@@ -571,6 +580,14 @@ function isKeepItemArray(value: unknown): value is KeepItem[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isSyncScope(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    (value.userId === undefined || typeof value.userId === "string") &&
+    (value.tenantId === undefined || typeof value.tenantId === "string")
+  );
 }
 
 function getBrowserStorage(): Storage | undefined {

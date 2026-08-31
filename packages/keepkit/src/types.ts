@@ -1,3 +1,10 @@
+export type KeepItemStatus = "available" | "expired" | "removed" | "deleted" | "private" | "unknown";
+
+export type SyncScope = {
+  userId?: string;
+  tenantId?: string;
+};
+
 export type KeepItem<TMeta = Record<string, unknown>> = {
   id: string;
   savedAt: number;
@@ -11,6 +18,12 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
   revision?: string;
   /** Timestamp for the last successful refresh of source metadata. */
   metaUpdatedAt?: number;
+  /** Source availability as last determined by a revalidator. Omitted means available. */
+  status?: KeepItemStatus;
+  /** Optional human-readable or machine-provided reason for a non-available status. */
+  statusReason?: string;
+  /** Optional user/tenant scope used by a synchronizing adapter. */
+  scope?: SyncScope;
 };
 
 /** The minimal item description accepted by save controls and hooks. */
@@ -36,6 +49,8 @@ export interface StorageAdapter<TMeta = Record<string, unknown>> {
 
 export type KeepAction =
   | "refresh"
+  | "import"
+  | "export"
   | "save"
   | "updateNote"
   | "updateTags"
@@ -101,6 +116,8 @@ export type SyncOperation<TMeta = Record<string, unknown>> = {
   item?: KeepItem<TMeta>;
   createdAt: number;
   baseRevision?: string;
+  attempts?: number;
+  scope?: SyncScope;
 };
 
 export type RemoteSyncResult<TMeta = Record<string, unknown>> =
@@ -134,6 +151,7 @@ export interface SyncCapableStorageAdapter<TMeta = Record<string, unknown>> exte
   getSyncState(): KeepSyncState;
   subscribeSync(listener: () => void): () => void;
   flushSync(): Promise<void>;
+  retrySync?(): Promise<void>;
   dispose?(): void;
 }
 

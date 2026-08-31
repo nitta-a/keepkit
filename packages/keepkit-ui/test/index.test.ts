@@ -5,6 +5,7 @@ import {
   isAllSelected,
   KeepAnnouncements,
   KeepAnnouncer,
+  KeepBackup,
   KeepBulkActions,
   KeepButton,
   KeepCollection,
@@ -27,6 +28,7 @@ import {
 test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepButton, "function");
   assert.equal(typeof KeepAnnouncements, "function");
+  assert.equal(typeof KeepBackup, "function");
   assert.equal(typeof KeepAnnouncer, "function");
   assert.equal(typeof KeepBulkActions, "function");
   assert.equal(typeof KeepList, "function");

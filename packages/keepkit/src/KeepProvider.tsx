@@ -8,7 +8,9 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { exportItems, type ImportItemsOptions, type ImportItemsResult, importItems } from "./backup";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "./KeepErrorBoundary";
+import type { KeepItemResolver } from "./revalidation";
 import {
   type KeepItemMetadataRefresher,
   type KeepItemRevalidationSummary,
@@ -56,9 +58,14 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   flushSync: () => Promise<void>;
   refreshItemMetadata: (id: string, refresh: KeepItemMetadataRefresher<TMeta>) => Promise<void>;
   revalidateItems: (
-    revalidator: KeepItemRevalidator<TMeta>,
-    options?: RevalidateKeepItemsOptions,
+    revalidator?: KeepItemRevalidator<TMeta>,
+    options?: RevalidateKeepItemsOptions<TMeta>,
   ) => Promise<KeepItemRevalidationSummary<TMeta>>;
+  exportBackup: () => Promise<string>;
+  importBackup: (
+    data: string,
+    options?: Pick<ImportItemsOptions<TMeta>, "mode" | "invalidItemPolicy" | "onInvalidItem">,
+  ) => Promise<ImportItemsResult<TMeta>>;
 };
 
 export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildren<
@@ -85,6 +92,8 @@ export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildr
     fallback?: KeepErrorBoundaryProps["fallback"];
     onBoundaryError?: KeepErrorBoundaryProps["onError"];
     boundaryResetKey?: unknown;
+    validateItem?: KeepItemRevalidator<TMeta>;
+    resolveItem?: KeepItemResolver<TMeta>;
   }
 >;
 
@@ -127,6 +136,8 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   fallback,
   onBoundaryError,
   boundaryResetKey,
+  validateItem,
+  resolveItem,
   children,
 }: KeepProviderProps<TMeta>) {
   const content = (
@@ -145,6 +156,8 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       invalidItemPolicy={invalidItemPolicy}
       onInvalidItem={onInvalidItem}
       migrateMeta={migrateMeta}
+      validateItem={validateItem}
+      resolveItem={resolveItem}
     >
       {children}
     </KeepProviderContent>
@@ -172,6 +185,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   invalidItemPolicy = "error",
   onInvalidItem,
   migrateMeta,
+  validateItem,
+  resolveItem,
   children,
 }: KeepProviderProps<TMeta>) {
   const storeRef = useRef<KeepStore<TMeta> | null>(null);
@@ -565,8 +580,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
 
   const revalidateItems = useCallback(
     async (
-      revalidator: KeepItemRevalidator<TMeta>,
-      options: RevalidateKeepItemsOptions = {},
+      revalidator: KeepItemRevalidator<TMeta> | undefined,
+      options: RevalidateKeepItemsOptions<TMeta> = {},
     ): Promise<KeepItemRevalidationSummary<TMeta>> => {
       pendingMutationsRef.current += 1;
       store.setState({ isMutating: true });
@@ -574,7 +589,13 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         const previous = itemsRef.current;
         let persistenceStarted = false;
         try {
-          const summary = await revalidateKeepItems(previous, revalidator, options);
+          const activeRevalidator = revalidator ?? validateItem;
+          if (!activeRevalidator)
+            throw new Error("KeepProvider.revalidateItems requires a revalidator or validateItem.");
+          const summary = await revalidateKeepItems(previous, activeRevalidator, {
+            ...options,
+            resolveItem: options.resolveItem ?? resolveItem,
+          });
           const pluginContext = { action: "revalidate" as const, items: summary.updatedItems };
           await runBeforePlugins(pluginContext);
           if (summary.updatedItems.length > 0) {
@@ -610,7 +631,17 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         if (pendingMutationsRef.current === 0) store.setState({ isMutating: false });
       });
     },
-    [enqueueOperation, reportError, runAfterPlugins, runBeforePlugins, setItems, storage, store],
+    [
+      enqueueOperation,
+      reportError,
+      resolveItem,
+      runAfterPlugins,
+      runBeforePlugins,
+      setItems,
+      storage,
+      store,
+      validateItem,
+    ],
   );
 
   const refreshItemMetadata = useCallback(
@@ -626,6 +657,37 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     [revalidateItems],
   );
   const flushSync = useCallback(() => (syncStorage ? syncStorage.flushSync() : Promise.resolve()), [syncStorage]);
+  const exportBackup = useCallback(() => exportItems(storage), [storage]);
+  const importBackup = useCallback(
+    async (
+      data: string,
+      options: Pick<ImportItemsOptions<TMeta>, "mode" | "invalidItemPolicy" | "onInvalidItem"> = {},
+    ): Promise<ImportItemsResult<TMeta>> => {
+      pendingMutationsRef.current += 1;
+      store.setState({ isMutating: true });
+      const run = enqueueOperation(async () => {
+        try {
+          const result = await importItems(storage, data, {
+            ...options,
+            schema: migrationRef.current.schema,
+            invalidItemPolicy: options.invalidItemPolicy ?? migrationRef.current.invalidItemPolicy,
+            onInvalidItem: options.onInvalidItem ?? migrationRef.current.onInvalidItem,
+          });
+          setItems(result.items);
+          store.setState({ error: null });
+          return result;
+        } catch (cause) {
+          reportError(cause, { action: "import" });
+          throw cause;
+        }
+      });
+      return run.finally(() => {
+        pendingMutationsRef.current -= 1;
+        if (pendingMutationsRef.current === 0) store.setState({ isMutating: false });
+      });
+    },
+    [enqueueOperation, reportError, setItems, storage, store],
+  );
 
   const value = useMemo<KeepContextValue<TMeta>>(
     () => ({
@@ -649,6 +711,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       flushSync,
       refreshItemMetadata,
       revalidateItems,
+      exportBackup,
+      importBackup,
     }),
     [
       clear,
@@ -671,6 +735,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       removeItems,
       refreshItemMetadata,
       revalidateItems,
+      exportBackup,
+      importBackup,
     ],
   );
 

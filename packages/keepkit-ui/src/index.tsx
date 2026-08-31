@@ -12,10 +12,17 @@ import {
   type useKeepList,
 } from "@keepkit/core/react";
 import type { ComponentType, ReactNode } from "react";
+import { KeepBackup, type KeepBackupProps } from "./KeepBackup";
 import { KeepBulkActions, type KeepBulkActionsProps, type KeepBulkActionsState } from "./KeepBulkActions";
 import { KeepButton, type KeepButtonLabels, type KeepButtonProps } from "./KeepButton";
 import { KeepCollection, type KeepCollectionFeature, type KeepCollectionProps } from "./KeepCollection";
-import { type KeepImageProps, KeepItemCard, type KeepItemCardProps, type KeepItemCardState } from "./KeepItemCard";
+import {
+  type KeepImageProps,
+  KeepItemCard,
+  type KeepItemCardLinkProps,
+  type KeepItemCardProps,
+  type KeepItemCardState,
+} from "./KeepItemCard";
 import { KeepItemCheckbox, type KeepItemCheckboxProps } from "./KeepItemCheckbox";
 import { KeepList, type KeepListProps, type KeepListState } from "./KeepList";
 import { KeepNoteEditor, type KeepNoteEditorProps, type KeepNoteEditorState } from "./KeepNoteEditor";
@@ -103,6 +110,7 @@ export { isAllSelected, toggleSelectAll } from "./KeepBulkActions";
 export type { RenderProp } from "./shared";
 export type {
   KeepAnnouncementsProps,
+  KeepBackupProps,
   KeepBulkActionsProps,
   KeepBulkActionsState,
   KeepButtonLabels,
@@ -111,6 +119,7 @@ export type {
   KeepCollectionProps,
   KeepEmptyStateProps,
   KeepImageProps,
+  KeepItemCardLinkProps,
   KeepItemCardProps,
   KeepItemCardState,
   KeepItemCheckboxProps,
@@ -139,6 +148,7 @@ export type {
 export {
   KeepAnnouncements,
   KeepAnnouncer,
+  KeepBackup,
   KeepBulkActions,
   KeepButton,
   KeepCollection,
@@ -166,6 +176,7 @@ export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = CoreCreateKe
 export type KeepKit<TMeta = Record<string, unknown>> = {
   Provider: ComponentType<KeepKitProviderProps<TMeta>>;
   Button: ComponentType<KeepButtonProps<TMeta>>;
+  Backup: ComponentType<KeepBackupProps<TMeta>>;
   Collection: ComponentType<KeepCollectionProps<TMeta>>;
   useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useItem: (item?: KeepItemInput<TMeta>) => ReturnType<typeof useKeepItem<TMeta>>;
@@ -190,6 +201,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
       />
     ),
     Button: (props) => <KeepButton<TMeta> {...props} />,
+    Backup: (props) => <KeepBackup<TMeta> {...props} />,
     Collection: (props) => (
       <KeepCollection<TMeta>
         {...props}

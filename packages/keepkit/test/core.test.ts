@@ -70,18 +70,18 @@ test("refreshes metadata and detects or removes unavailable items", async () => 
   );
 
   assert.equal(summary.checked, 3);
-  assert.equal(summary.updated, 1);
+  assert.equal(summary.updated, 2);
   assert.equal(summary.removed, 1);
   assert.deepEqual(summary.items, [
     { ...itemA, meta: { title: "A refreshed" }, metaUpdatedAt: 100, updatedAt: 100 },
-    { ...itemB, metaUpdatedAt: 10 },
+    { ...itemB, metaUpdatedAt: 10, status: "private", statusReason: "account-only" },
   ]);
   assert.deepEqual(summary.removedIds, ["c"]);
   assert.deepEqual(
     summary.results.map(({ item, status, updated }) => ({ id: item.id, status, updated })),
     [
       { id: "a", status: "available", updated: true },
-      { id: "b", status: "private", updated: false },
+      { id: "b", status: "private", updated: true },
       { id: "c", status: "expired", updated: false },
     ],
   );

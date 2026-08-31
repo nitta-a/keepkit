@@ -29,7 +29,7 @@ export type KeepStoreActions<TMeta = Record<string, unknown>> = {
   refreshItemMetadata: (id: string, refresh: KeepItemMetadataRefresher<TMeta>) => Promise<void>;
   revalidateItems: (
     revalidator: KeepItemRevalidator<TMeta>,
-    options?: RevalidateKeepItemsOptions,
+    options?: RevalidateKeepItemsOptions<TMeta>,
   ) => Promise<KeepItemRevalidationSummary<TMeta>>;
 };
 

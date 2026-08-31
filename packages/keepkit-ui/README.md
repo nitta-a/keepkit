@@ -55,6 +55,7 @@ function SavedArticles() {
 ```
 
 `keep.Collection`は検索、ソート、ページング、loading / empty / error、ARIA live通知を標準で提供します。検索は既定で300msデバウンスされます。`features={{ tagFilter: true, bulkActions: true }}`でタグフィルターと一括操作も有効にできます。個別の`KeepList`、`KeepSearchInput`、`KeepSortSelect`、`KeepPagination`、`KeepItemCheckbox`、`KeepTagEditor`などは高度なレイアウト用に利用できます。`KeepBulkActions`はrender propsで操作UIを差し替えられ、`isAllSelected` / `toggleSelectAll`で表示中アイテムを一括操作できます。`KeepNoteEditor`は既定300msのデバウンス保存に対応し、`debounceMs={0}`でフォーム送信のみへ戻せます。通知領域だけを明示的に置く場合は`KeepAnnouncer`（`KeepAnnouncements`のalias）を使えます。
+`KeepItemCard`は`href`、`onOpen`、`linkTarget`、`linkComponent`に対応し、保存アイテムから詳細ページへ遷移できます。非公開・期限切れ等の`status`を持つアイテムは自動的にリンクを無効化します。`KeepBackup`はJSONのエクスポート、merge / replaceインポート、結果件数、容量エラー表示を提供します。
 
 一覧のqueryは次の形式に統一されています。
 
@@ -104,6 +105,7 @@ function SavedArticles() {
 ```
 
 `keep.Collection` includes search, sorting, pagination, loading/empty/error states, and polite live announcements. Search is debounced by 300ms by default. Enable `features={{ tagFilter: true, bulkActions: true }}` for tag filtering and bulk operations. Use the individual `KeepList`, `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, and `KeepTagEditor` primitives when you need a custom layout. `KeepBulkActions` supports render props and exposes `isAllSelected` / `toggleSelectAll` for visible-item selection. `KeepNoteEditor` auto-saves dirty notes after 300ms by default; set `debounceMs={0}` to use form submission only. Mount `KeepAnnouncer` (`KeepAnnouncements` alias) when you need the live region explicitly.
+`KeepItemCard` accepts `href`, `onOpen`, `linkTarget`, and `linkComponent` for detail-page navigation. Links are disabled for unavailable `status` values such as private or expired. `KeepBackup` provides JSON export, merge/replace import, result counts, and quota-error messaging.
 
 Collection queries use one canonical shape: `targetType`, `tags`, `search`, `sort`, `pagination`, `filter`, and `savedBetween`. Saved item inputs contain only `id`, `meta`, `targetType`, `note`, and `tags`; KeepKit owns persistence timestamps.
 
