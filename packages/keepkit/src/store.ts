@@ -4,7 +4,7 @@ import type {
   KeepItemRevalidator,
   RevalidateKeepItemsOptions,
 } from "./revalidation";
-import type { KeepChangeContext, KeepItem } from "./types";
+import type { KeepChangeContext, KeepItem, KeepUndoState } from "./types";
 
 export type KeepStoreState<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
@@ -13,6 +13,7 @@ export type KeepStoreState<TMeta = Record<string, unknown>> = {
   isMutating: boolean;
   error: unknown | null;
   lastChange?: KeepChangeContext<TMeta>;
+  undo?: KeepUndoState;
 };
 
 export type KeepStoreActions<TMeta = Record<string, unknown>> = {
@@ -24,6 +25,9 @@ export type KeepStoreActions<TMeta = Record<string, unknown>> = {
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
   removeItems: (ids: string[]) => Promise<void>;
+  removeItemWithUndo: (id: string) => Promise<void>;
+  removeItemsWithUndo: (ids: string[]) => Promise<void>;
+  undoLastRemoval: () => Promise<void>;
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
   refreshItemMetadata: (id: string, refresh: KeepItemMetadataRefresher<TMeta>) => Promise<void>;

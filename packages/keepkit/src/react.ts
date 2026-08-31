@@ -17,6 +17,7 @@ export type { KeepContextValue, KeepProviderProps } from "./KeepProvider";
 export { KeepProvider, useKeepContext, useKeepStore } from "./KeepProvider";
 export type { KeepListQuery } from "./query";
 export type {
+  KeepAutoRevalidationOptions,
   KeepItemMetadataRefresher,
   KeepItemResolver,
   KeepItemRevalidationResult,
@@ -26,3 +27,6 @@ export type {
   RevalidateKeepItemsOptions,
 } from "./revalidation";
 export { isKeepItemMetadataStale } from "./revalidation";
+export type { KeepScope, ScopedStorageAdapter } from "./scope";
+export type { KeepUndoState } from "./types";
+export type { KeepUrlParamNames, KeepUrlState, KeepUrlSyncOptions } from "./url";

@@ -13,6 +13,7 @@ import {
   KeepItemCard,
   KeepItemCheckbox,
   KeepKitProvider,
+  KeepLayout,
   KeepList,
   KeepNoteEditor,
   KeepPagination,
@@ -22,6 +23,7 @@ import {
   KeepTagEditor,
   KeepTagFilter,
   KeepUiProvider,
+  KeepUndo,
   toggleSelectAll,
 } from "../dist/index.js";
 
@@ -35,6 +37,8 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepItemCard, "function");
   assert.equal(typeof KeepItemCheckbox, "function");
   assert.equal(typeof KeepTagFilter, "function");
+  assert.equal(typeof KeepLayout, "function");
+  assert.equal(typeof KeepUndo, "function");
   assert.equal(typeof KeepNoteEditor, "function");
   assert.equal(typeof KeepPagination, "function");
   assert.equal(typeof KeepSearchInput, "function");

@@ -10,7 +10,7 @@ import {
 } from "react";
 import { exportItems, type ImportItemsOptions, type ImportItemsResult, importItems } from "./backup";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "./KeepErrorBoundary";
-import type { KeepItemResolver } from "./revalidation";
+import type { KeepAutoRevalidationOptions, KeepItemResolver } from "./revalidation";
 import {
   type KeepItemMetadataRefresher,
   type KeepItemRevalidationSummary,
@@ -32,6 +32,7 @@ import type {
   KeepPlugin,
   KeepSchema,
   KeepSyncState,
+  KeepUndoState,
   StorageAdapter,
   SyncCapableStorageAdapter,
 } from "./types";
@@ -45,6 +46,7 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   error: unknown | null;
   lastChange?: KeepChangeContext<TMeta>;
   syncState: KeepSyncState;
+  undo: KeepUndoState;
   saveItem: (item: KeepItem<TMeta>) => Promise<void>;
   updateNote: (id: string, note?: string) => Promise<void>;
   updateTags: (id: string, tags?: string[]) => Promise<void>;
@@ -53,6 +55,9 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
   removeItems: (ids: string[]) => Promise<void>;
+  removeItemWithUndo: (id: string) => Promise<void>;
+  removeItemsWithUndo: (ids: string[]) => Promise<void>;
+  undoLastRemoval: () => Promise<void>;
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
   flushSync: () => Promise<void>;
@@ -94,6 +99,8 @@ export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildr
     boundaryResetKey?: unknown;
     validateItem?: KeepItemRevalidator<TMeta>;
     resolveItem?: KeepItemResolver<TMeta>;
+    autoRevalidation?: KeepAutoRevalidationOptions<TMeta>;
+    undoTimeoutMs?: number;
   }
 >;
 
@@ -126,6 +133,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   onNoteUpdate,
   onTagsUpdate,
   onChange,
+  onUndo,
   onError,
   plugins = [],
   schemaVersion,
@@ -138,6 +146,8 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
   boundaryResetKey,
   validateItem,
   resolveItem,
+  autoRevalidation,
+  undoTimeoutMs,
   children,
 }: KeepProviderProps<TMeta>) {
   const content = (
@@ -149,6 +159,7 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       onNoteUpdate={onNoteUpdate}
       onTagsUpdate={onTagsUpdate}
       onChange={onChange}
+      onUndo={onUndo}
       onError={onError}
       plugins={plugins}
       schemaVersion={schemaVersion}
@@ -158,6 +169,8 @@ export function KeepProvider<TMeta = Record<string, unknown>>({
       migrateMeta={migrateMeta}
       validateItem={validateItem}
       resolveItem={resolveItem}
+      autoRevalidation={autoRevalidation}
+      undoTimeoutMs={undoTimeoutMs}
     >
       {children}
     </KeepProviderContent>
@@ -178,6 +191,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   onNoteUpdate,
   onTagsUpdate,
   onChange,
+  onUndo,
   onError,
   plugins = [],
   schemaVersion,
@@ -187,6 +201,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   migrateMeta,
   validateItem,
   resolveItem,
+  autoRevalidation,
+  undoTimeoutMs = 5000,
   children,
 }: KeepProviderProps<TMeta>) {
   const storeRef = useRef<KeepStore<TMeta> | null>(null);
@@ -198,16 +214,18 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       isMutating: false,
       error: null,
       lastChange: undefined,
+      undo: { canUndo: false, ids: [] },
     });
   }
   const store = storeRef.current;
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  const { items, isLoading, isHydrated, isMutating, error, lastChange } = state;
+  const { items, isLoading, isHydrated, isMutating, error, lastChange, undo: storedUndo } = state;
+  const undo = storedUndo ?? EMPTY_UNDO_STATE;
   const itemsRef = useRef(items);
   const pluginsRef = useRef(plugins);
   pluginsRef.current = plugins;
-  const handlersRef = useRef({ onSave, onRemove, onNoteUpdate, onTagsUpdate, onChange, onError });
-  handlersRef.current = { onSave, onRemove, onNoteUpdate, onTagsUpdate, onChange, onError };
+  const handlersRef = useRef({ onSave, onRemove, onNoteUpdate, onTagsUpdate, onChange, onUndo, onError });
+  handlersRef.current = { onSave, onRemove, onNoteUpdate, onTagsUpdate, onChange, onUndo, onError };
   const migrationRef = useRef({
     schemaVersion,
     migrateMeta,
@@ -219,6 +237,12 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   const operationTailRef = useRef<Promise<unknown>>(Promise.resolve());
   const pendingRefreshesRef = useRef(0);
   const pendingMutationsRef = useRef(0);
+  const undoRef = useRef<
+    { items: KeepItem<TMeta>[]; expiresAt: number; timer?: ReturnType<typeof setTimeout> } | undefined
+  >(undefined);
+  const autoRevalidationRef = useRef<KeepAutoRevalidationOptions<TMeta> | undefined>(autoRevalidation);
+  autoRevalidationRef.current = autoRevalidation;
+  const didMountRevalidateRef = useRef(false);
   const syncStorage = isSyncCapableStorage(storage) ? storage : undefined;
   const getSyncState = useCallback(() => syncStorage?.getSyncState() ?? IDLE_SYNC_STATE, [syncStorage]);
   const subscribeSync = useCallback(
@@ -568,6 +592,74 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     [runMutation, storage],
   );
 
+  const rememberUndo = useCallback(
+    (removedItems: KeepItem<TMeta>[]) => {
+      undoRef.current?.timer && clearTimeout(undoRef.current.timer);
+      const expiresAt = Date.now() + Math.max(0, undoTimeoutMs);
+      const timer = setTimeout(
+        () => {
+          undoRef.current = undefined;
+          store.setState({ undo: { canUndo: false, ids: [] } });
+        },
+        Math.max(0, undoTimeoutMs),
+      );
+      undoRef.current = { items: removedItems, expiresAt, timer };
+      store.setState({ undo: { canUndo: true, ids: removedItems.map((item) => item.id), expiresAt } });
+    },
+    [store, undoTimeoutMs],
+  );
+
+  const removeItemWithUndo = useCallback(
+    async (id: string) => {
+      const item = itemsRef.current.find((current) => current.id === id);
+      await removeItem(id);
+      if (item) rememberUndo([item]);
+    },
+    [rememberUndo, removeItem],
+  );
+
+  const removeItemsWithUndo = useCallback(
+    async (ids: string[]) => {
+      const idSet = new Set(ids);
+      const removedItems = itemsRef.current.filter((item) => idSet.has(item.id));
+      await removeItems(ids);
+      if (removedItems.length > 0) rememberUndo(removedItems);
+    },
+    [rememberUndo, removeItems],
+  );
+
+  const undoLastRemoval = useCallback(async () => {
+    const pending = undoRef.current;
+    if (!pending || pending.expiresAt < Date.now()) {
+      undoRef.current = undefined;
+      store.setState({ undo: { canUndo: false, ids: [] } });
+      return;
+    }
+    if (pending.timer) clearTimeout(pending.timer);
+    undoRef.current = undefined;
+    store.setState({ undo: { canUndo: false, ids: [] } });
+    await runMutation("undo", undefined, (previous) => {
+      const restored = new Map(pending.items.map((item) => [item.id, item]));
+      const next = [...previous.filter((item) => !restored.has(item.id)), ...pending.items].sort(
+        (a, b) => b.updatedAt - a.updatedAt,
+      );
+      return {
+        next,
+        persist: async () => {
+          if (storage.setMany) await storage.setMany(pending.items);
+          else for (const item of pending.items) await storage.set(item);
+        },
+        onSuccess: () => handlersRef.current.onUndo?.(pending.items),
+        pluginContext: { action: "undo", items: pending.items },
+      };
+    });
+  }, [runMutation, storage, store]);
+
+  useEffect(() => {
+    if (syncState.status !== "error" || !undoRef.current) return;
+    void undoLastRemoval();
+  }, [syncState.status, undoLastRemoval]);
+
   const clear = useCallback(
     () =>
       runMutation("clear", undefined, (_previous) => ({
@@ -644,6 +736,29 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     ],
   );
 
+  useEffect(() => {
+    const settings = autoRevalidationRef.current;
+    const activeRevalidator = settings?.revalidator ?? validateItem;
+    if (!settings || !activeRevalidator) return;
+    const run = () =>
+      void revalidateItems(activeRevalidator, { removeStatuses: settings.removeStatuses }).catch(() => undefined);
+    if (isHydrated && settings.onMount !== false && !didMountRevalidateRef.current) {
+      didMountRevalidateRef.current = true;
+      run();
+    }
+    const interval = settings.intervalMs && settings.intervalMs > 0 ? setInterval(run, settings.intervalMs) : undefined;
+    const onOnline = () => {
+      if (settings.onReconnect !== false) run();
+    };
+    if (typeof window !== "undefined" && settings.onReconnect !== false) {
+      window.addEventListener("online", onOnline);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+      if (typeof window !== "undefined") window.removeEventListener("online", onOnline);
+    };
+  }, [isHydrated, revalidateItems, validateItem]);
+
   const refreshItemMetadata = useCallback(
     async (id: string, refresh: KeepItemMetadataRefresher<TMeta>): Promise<void> => {
       if (!itemsRef.current.some((item) => item.id === id)) {
@@ -698,6 +813,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       error,
       lastChange,
       syncState,
+      undo,
       saveItem,
       updateNote,
       updateTags,
@@ -706,6 +822,9 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       removeTagsBatch,
       removeItem,
       removeItems,
+      removeItemWithUndo,
+      removeItemsWithUndo,
+      undoLastRemoval,
       clear,
       refresh,
       flushSync,
@@ -724,9 +843,13 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       isMutating,
       items,
       syncState,
+      undo,
       refresh,
       removeItem,
       saveItem,
+      removeItemWithUndo,
+      removeItemsWithUndo,
+      undoLastRemoval,
       updateNote,
       updateTags,
       updateTagsBatch,
@@ -750,6 +873,9 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       removeTagsBatch,
       removeItem,
       removeItems,
+      removeItemWithUndo,
+      removeItemsWithUndo,
+      undoLastRemoval,
       clear,
       refresh,
       refreshItemMetadata,
@@ -768,6 +894,9 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       updateTagsBatch,
       refreshItemMetadata,
       revalidateItems,
+      removeItemWithUndo,
+      removeItemsWithUndo,
+      undoLastRemoval,
     ],
   );
   const storeAccess = useMemo<KeepStoreAccess<TMeta>>(() => ({ store, actions }), [actions, store]);
@@ -784,6 +913,8 @@ const IDLE_SYNC_STATE: KeepSyncState = Object.freeze({
   pendingCount: 0,
   conflictIds: [],
 });
+
+const EMPTY_UNDO_STATE: KeepUndoState = Object.freeze({ canUndo: false, ids: [] });
 
 function isSyncCapableStorage<TMeta>(storage: StorageAdapter<TMeta>): storage is SyncCapableStorageAdapter<TMeta> {
   return (

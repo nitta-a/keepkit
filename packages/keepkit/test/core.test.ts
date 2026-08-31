@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createKeepInvalidationPlugin,
+  createScopedStorageAdapter,
   createStorageAdapter,
+  decodeKeepListQuery,
+  encodeKeepListQuery,
   exportItems,
   KeepStore as FrameworkNeutralKeepStore,
   getTagCounts,
@@ -26,6 +29,61 @@ import {
   revalidateKeepItems,
   SyncStorageAdapter,
 } from "../dist/core.js";
+
+test("encodes and decodes shareable list URL state", () => {
+  const query = {
+    search: { query: "react hooks" },
+    tags: ["frontend", "read"],
+    sort: { by: "updatedAt" as const, direction: "asc" as const },
+    pagination: { page: 3, pageSize: 20 },
+  };
+  const params = encodeKeepListQuery(query);
+  assert.deepEqual(decodeKeepListQuery(params), {
+    search: { query: "react hooks" },
+    tags: ["frontend", "read"],
+    sort: { by: "updatedAt", direction: "asc" },
+    pagination: { page: 3 },
+  });
+});
+
+test("scoped storage isolates reads, writes, and clears", async () => {
+  let items = [
+    { ...itemA, scope: { userId: "one" } },
+    { ...itemB, scope: { userId: "two" } },
+  ];
+  const base = createStorageAdapter({
+    storageKey: "scoped-test",
+    getAll: () => items,
+    set: (item) => {
+      items = [...items.filter((current) => current.id !== item.id), item];
+    },
+    setMany: (next) => {
+      items = next;
+    },
+    remove: (id) => {
+      items = items.filter((item) => item.id !== id);
+    },
+    clear: () => {
+      items = [];
+    },
+  });
+  const scoped = createScopedStorageAdapter(base, { userId: "one" });
+  assert.deepEqual(
+    (await scoped.getAll()).map((item) => item.id),
+    ["a"],
+  );
+  await scoped.remove("a");
+  assert.deepEqual(
+    items.map((item) => item.id),
+    ["b"],
+  );
+  await scoped.set({ ...itemA, scope: { userId: "one" } });
+  await scoped.clear();
+  assert.deepEqual(
+    items.map((item) => item.id),
+    ["b"],
+  );
+});
 
 const itemA = {
   id: "a",

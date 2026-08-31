@@ -1,6 +1,13 @@
 "use client";
 
-import type { KeepItem, KeepItemInput, KeepListQuery } from "@keepkit/core/core";
+import type {
+  KeepItem,
+  KeepItemInput,
+  KeepListQuery,
+  KeepScope,
+  KeepUndoState,
+  KeepUrlSyncOptions,
+} from "@keepkit/core/core";
 import {
   type CreateKeepKitOptions as CoreCreateKeepKitOptions,
   KeepProvider as CoreKeepProvider,
@@ -15,7 +22,12 @@ import type { ComponentType, ReactNode } from "react";
 import { KeepBackup, type KeepBackupProps } from "./KeepBackup";
 import { KeepBulkActions, type KeepBulkActionsProps, type KeepBulkActionsState } from "./KeepBulkActions";
 import { KeepButton, type KeepButtonLabels, type KeepButtonProps } from "./KeepButton";
-import { KeepCollection, type KeepCollectionFeature, type KeepCollectionProps } from "./KeepCollection";
+import {
+  KeepCollection,
+  type KeepCollectionFeature,
+  type KeepCollectionProps,
+  type KeepLayoutPreset,
+} from "./KeepCollection";
 import {
   type KeepImageProps,
   KeepItemCard,
@@ -24,10 +36,12 @@ import {
   type KeepItemCardState,
 } from "./KeepItemCard";
 import { KeepItemCheckbox, type KeepItemCheckboxProps } from "./KeepItemCheckbox";
+import { KeepLayout, type KeepLayoutProps } from "./KeepLayout";
 import { KeepList, type KeepListProps, type KeepListState } from "./KeepList";
 import { KeepNoteEditor, type KeepNoteEditorProps, type KeepNoteEditorState } from "./KeepNoteEditor";
 import { KeepTagEditor, type KeepTagEditorProps, type KeepTagEditorState } from "./KeepTagEditor";
 import { KeepTagFilter, type KeepTagFilterProps, type KeepTagFilterState } from "./KeepTagFilter";
+import { KeepUndo, type KeepUndoProps } from "./KeepUndo";
 import {
   KeepPagination,
   type KeepPaginationProps,
@@ -51,6 +65,7 @@ import {
   type KeepStatusValue,
 } from "./status";
 import {
+  getKeepLocaleLabels,
   type KeepUiLabelContext,
   type KeepUiLabelKey,
   type KeepUiLabels,
@@ -58,6 +73,12 @@ import {
   type KeepUiProviderProps,
   useKeepUiLabels,
 } from "./ui-context";
+import {
+  createNextPagesRouterAdapter,
+  type KeepPagesRouterLike,
+  type KeepUrlAdapter,
+  useKeepUrlSync,
+} from "./url-sync";
 
 export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children"> &
   Omit<KeepUiProviderProps, "children"> & { children?: ReactNode };
@@ -106,6 +127,7 @@ export {
   LocalStorageSyncQueueAdapter,
   SyncStorageAdapter,
 } from "@keepkit/core/storage";
+export type { KeepSelectionScope } from "./KeepBulkActions";
 export { isAllSelected, toggleSelectAll } from "./KeepBulkActions";
 export type { RenderProp } from "./shared";
 export type {
@@ -123,12 +145,16 @@ export type {
   KeepItemCardProps,
   KeepItemCardState,
   KeepItemCheckboxProps,
+  KeepLayoutPreset,
+  KeepLayoutProps,
   KeepListProps,
   KeepListState,
   KeepNoteEditorProps,
   KeepNoteEditorState,
+  KeepPagesRouterLike,
   KeepPaginationProps,
   KeepPaginationState,
+  KeepScope,
   KeepSearchInputProps,
   KeepSortSelectProps,
   KeepSortValue,
@@ -144,8 +170,14 @@ export type {
   KeepUiLabelKey,
   KeepUiLabels,
   KeepUiProviderProps,
+  KeepUndoProps,
+  KeepUndoState,
+  KeepUrlAdapter,
+  KeepUrlSyncOptions,
 };
 export {
+  createNextPagesRouterAdapter,
+  getKeepLocaleLabels,
   KeepAnnouncements,
   KeepAnnouncer,
   KeepBackup,
@@ -155,6 +187,7 @@ export {
   KeepEmptyState,
   KeepItemCard,
   KeepItemCheckbox,
+  KeepLayout,
   KeepList,
   KeepNoteEditor,
   KeepPagination,
@@ -164,7 +197,9 @@ export {
   KeepTagEditor,
   KeepTagFilter,
   KeepUiProvider,
+  KeepUndo,
   useKeepUiLabels,
+  useKeepUrlSync,
 };
 
 export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = CoreCreateKeepKitOptions<TMeta> &

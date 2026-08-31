@@ -8,6 +8,7 @@ import {
   useKeepList,
 } from "@keepkit/core/react";
 import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
+import type { KeepLayoutPreset } from "./KeepCollection";
 import { KeepItemCard, type KeepItemCardProps } from "./KeepItemCard";
 import { type RenderProp, renderRoot, resolveContent } from "./shared";
 import { useUiLabel } from "./ui-context";
@@ -22,6 +23,7 @@ export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes
   empty?: ReactNode | RenderProp<KeepListState<TMeta>>;
   error?: ReactNode | RenderProp<KeepListState<TMeta>>;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
+  layout?: KeepLayoutPreset;
   asChild?: boolean;
   fallback?: KeepErrorBoundaryProps["fallback"];
   onBoundaryError?: KeepErrorBoundaryProps["onError"];
@@ -48,6 +50,7 @@ function KeepListContent<TMeta = Record<string, unknown>>({
   empty,
   error: errorContent,
   itemCardProps,
+  layout = "list",
   asChild = false,
   className,
   ...rootProps
@@ -63,6 +66,7 @@ function KeepListContent<TMeta = Record<string, unknown>>({
     empty: empty ?? defaultEmpty,
     error: errorContent ?? defaultError,
     itemCardProps,
+    layout,
   });
   return renderRoot(
     asChild,
@@ -95,6 +99,7 @@ function getListBody<TMeta>(
     empty: ReactNode | RenderProp<KeepListState<TMeta>>;
     error: ReactNode | RenderProp<KeepListState<TMeta>>;
     itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
+    layout: KeepLayoutPreset;
   },
 ): ReactNode {
   if (state.error && state.items.length === 0) return resolveContent(options.error, state);
@@ -103,7 +108,16 @@ function getListBody<TMeta>(
   if (typeof options.children === "function") return options.children(state);
   if (options.children !== undefined && !isValidElement(options.children)) return options.children;
   return (
-    <ul>
+    <ul
+      data-layout={options.layout}
+      style={
+        options.layout === "grid"
+          ? { display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fit, minmax(16rem, 1fr))" }
+          : options.layout === "compact"
+            ? { display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))" }
+            : { display: "flex", flexDirection: "column", gap: "1rem" }
+      }
+    >
       {state.items.map((item) =>
         options.renderItem ? (
           options.renderItem(item, state)

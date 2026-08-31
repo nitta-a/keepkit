@@ -47,6 +47,8 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   getImageProps?: (item: KeepItem<TMeta>, title: ReactNode) => KeepImageProps | undefined;
   imageComponent?: ComponentType<KeepImageProps>;
   renderImage?: (props: KeepImageProps, item: KeepItem<TMeta>) => ReactNode;
+  renderTags?: (tags: string[], item: KeepItem<TMeta>) => ReactNode;
+  showTags?: boolean;
   imageAlt?: string;
   render?: RenderProp<KeepItemCardState<TMeta>>;
   children?: ReactNode | RenderProp<KeepItemCardState<TMeta>>;
@@ -72,6 +74,8 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
   getImageProps,
   imageComponent: ImageComponent,
   renderImage,
+  renderTags,
+  showTags = true,
   imageAlt,
   render,
   children,
@@ -109,6 +113,7 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
   const isAvailable = item.status === undefined || item.status === "available";
   const statusLabelKey = item.status && item.status !== "available" ? getStatusLabelKey(item.status) : "statusUnknown";
   const unavailableLabel = useUiLabel(statusLabelKey);
+  const tagsLabel = useUiLabel("tags");
   const statusLabel = item.status && item.status !== "available" ? unavailableLabel : undefined;
 
   function renderLink(content: ReactNode): ReactNode {
@@ -147,6 +152,17 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
                 )))
               : null}
             <h3>{linkTarget === "title" ? renderLink(resolvedTitle) : resolvedTitle}</h3>
+            {showTags && (item.tags?.length ?? 0) > 0 ? (
+              renderTags ? (
+                renderTags(item.tags ?? [], item)
+              ) : (
+                <ul aria-label={tagsLabel}>
+                  {item.tags?.map((tag) => (
+                    <li key={tag}>{tag}</li>
+                  ))}
+                </ul>
+              )
+            ) : null}
             {statusLabel ? <p data-status={item.status}>{statusLabel}</p> : null}
             {showSaveButton ? (
               <KeepButton

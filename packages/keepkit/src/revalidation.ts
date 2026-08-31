@@ -45,6 +45,17 @@ export type RevalidateKeepItemsOptions<TMeta = Record<string, unknown>> = {
   resolveItem?: KeepItemResolver<TMeta>;
 };
 
+export type KeepAutoRevalidationOptions<TMeta = Record<string, unknown>> = {
+  /** Revalidate after the provider hydrates. Defaults to true when validateItem is supplied. */
+  onMount?: boolean;
+  /** Revalidate when the browser returns online. Defaults to true. */
+  onReconnect?: boolean;
+  /** Revalidate repeatedly while mounted. Disabled by default. */
+  intervalMs?: number;
+  removeStatuses?: Array<Exclude<KeepItemStatus, "available">>;
+  revalidator?: KeepItemRevalidator<TMeta>;
+};
+
 export type KeepItemRevalidationSummary<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
   checked: number;

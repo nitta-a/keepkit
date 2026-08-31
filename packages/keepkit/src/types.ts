@@ -58,6 +58,7 @@ export type KeepAction =
   | "revalidate"
   | "remove"
   | "removeBatch"
+  | "undo"
   | "clear";
 
 export type KeepChangePhase = "local" | "synced";
@@ -212,7 +213,14 @@ export type KeepEventHandlers<TMeta = Record<string, unknown>> = {
   onNoteUpdate?: (id: string, note?: string) => void;
   onTagsUpdate?: (id: string, tags?: string[]) => void;
   onChange?: (context: KeepChangeContext<TMeta>) => void | Promise<void>;
+  onUndo?: (items: KeepItem<TMeta>[]) => void;
   onError?: KeepErrorHandler;
+};
+
+export type KeepUndoState = {
+  canUndo: boolean;
+  ids: string[];
+  expiresAt?: number;
 };
 
 export function normalizeKeepTags(tags?: string[]): string[] | undefined {

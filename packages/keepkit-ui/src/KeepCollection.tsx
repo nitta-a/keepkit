@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
+import type { KeepItem, KeepListQuery, KeepUrlSyncOptions } from "@keepkit/core/core";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps, useKeepList } from "@keepkit/core/react";
 import { type HTMLAttributes, type ReactNode, useMemo, useState } from "react";
 import { KeepBulkActions } from "./KeepBulkActions";
@@ -9,12 +9,17 @@ import { KeepList, type KeepListState } from "./KeepList";
 import { KeepTagFilter } from "./KeepTagFilter";
 import { KeepPagination, KeepSearchInput, KeepSortSelect } from "./query-controls";
 import { type RenderProp, sortToValue } from "./shared";
+import { type KeepUrlAdapter, useKeepUrlSync } from "./url-sync";
 
 export type KeepCollectionFeature = "search" | "sort" | "pagination" | "tagFilter" | "bulkActions";
+export type KeepLayoutPreset = "list" | "grid" | "compact";
 
 export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   query?: KeepListQuery<TMeta>;
   pageSize?: number;
+  layout?: KeepLayoutPreset;
+  urlSync?: boolean | KeepUrlSyncOptions;
+  urlAdapter?: KeepUrlAdapter;
   features?: Partial<Record<KeepCollectionFeature, boolean>>;
   renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
@@ -41,6 +46,9 @@ export function KeepCollection<TMeta = Record<string, unknown>>(props: KeepColle
 function KeepCollectionContent<TMeta = Record<string, unknown>>({
   query = {},
   pageSize = 20,
+  layout = "list",
+  urlSync = false,
+  urlAdapter,
   features,
   renderItem,
   itemCardProps,
@@ -73,6 +81,19 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
     }),
     [enabled.pagination, enabled.search, enabled.sort, page, query, resolvedPageSize, searchValue, sort, tag],
   );
+  useKeepUrlSync({
+    enabled: Boolean(urlSync),
+    query: resolvedQuery,
+    onQueryChange: (nextOrUpdater) => {
+      const next = typeof nextOrUpdater === "function" ? nextOrUpdater(resolvedQuery) : nextOrUpdater;
+      setSearchValue(next.search?.query ?? "");
+      setSort(next.sort ?? { by: "updatedAt", direction: "desc" });
+      setTag(next.tags?.[0]);
+      setPage(next.pagination?.page ?? 1);
+    },
+    options: typeof urlSync === "object" ? urlSync : {},
+    adapter: urlAdapter,
+  });
   const list = useKeepList<TMeta>(resolvedQuery);
 
   return (
@@ -117,6 +138,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         query={resolvedQuery}
         renderItem={renderItem}
         itemCardProps={itemCardProps}
+        layout={layout}
         loading={loading}
         empty={empty}
         error={error}

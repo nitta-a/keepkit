@@ -110,15 +110,15 @@ test("supports shared labels, search, sort, pagination, tag editing, bulk action
   expect(await screen.findByRole("searchbox", { name: "検索" })).toBeVisible();
   fireEvent.change(screen.getByRole("searchbox", { name: "検索" }), { target: { value: "Second" } });
   expect((await screen.findAllByText("Second"))[0]).toBeVisible();
-  const note = screen.getByRole("textbox", { name: "Note" });
+  const note = screen.getByRole("textbox", { name: "メモ" });
   fireEvent.change(note, { target: { value: "updated" } });
-  fireEvent.click(screen.getByRole("button", { name: "Save note" }));
+  fireEvent.click(screen.getByRole("button", { name: "メモを保存" }));
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("ノートを保存しました"));
   fireEvent.change(screen.getByRole("searchbox", { name: "検索" }), { target: { value: "" } });
-  fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+  fireEvent.click(screen.getByRole("button", { name: "次のページ" }));
   await waitFor(() => expect(screen.getAllByText("Second")[0]).toBeVisible());
   fireEvent.click(screen.getByRole("checkbox", { name: "UI item" }));
-  fireEvent.change(screen.getAllByRole("textbox", { name: "Tags to apply" })[1], { target: { value: "bulk" } });
+  fireEvent.change(screen.getAllByRole("textbox", { name: "適用するタグ" })[1], { target: { value: "bulk" } });
   fireEvent.click(screen.getAllByRole("button", { name: "タグ適用" })[1]);
   await waitFor(async () =>
     expect((await storage.getAll()).find((entry) => entry.id === "ui-item")?.tags).toEqual(["bulk"]),

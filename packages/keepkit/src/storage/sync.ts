@@ -43,6 +43,7 @@ export type SyncStorageAdapterOptions<TMeta = Record<string, unknown>> = {
   maxRetries?: number;
   retryDelayMs?: number;
   retryBackoff?: number;
+  scope?: SyncScope;
 };
 
 export const DEFAULT_SYNC_QUEUE_KEY = "keepkit:sync-queue";
@@ -543,6 +544,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
       const localById = new Map(localItems.map((item) => [item.id, item]));
       const incoming = remoteItems
         .filter((item) => {
+          if (this.scope && item.scope && !sameScope(item.scope, this.scope)) return false;
           const current = localById.get(item.id);
           return !pendingIds.has(item.id) && (!current || item.updatedAt >= current.updatedAt);
         })
@@ -641,6 +643,7 @@ function createDefaultQueue<TMeta>(options: SyncStorageAdapterOptions<TMeta>): S
 }
 
 function getSyncScope<TMeta>(options: SyncStorageAdapterOptions<TMeta>): SyncScope | undefined {
+  if (options.scope) return options.scope;
   if (!options.userId && !options.tenantId) return undefined;
   return {
     ...(options.userId ? { userId: options.userId } : {}),

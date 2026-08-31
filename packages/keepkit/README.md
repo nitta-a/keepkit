@@ -36,6 +36,8 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
+v0.11.0では、`encodeKeepListQuery` / `decodeKeepListQuery`によるURL状態codec、`createScopedStorageAdapter`によるユーザー／テナント分離、`createKeepKitPreset({ mode: "local" | "sync" | "backup" })`による標準構成も利用できます。Reactでは`KeepProvider`の`autoRevalidation`、`removeItemWithUndo` / `undoLastRemoval`を利用できます。
+
 ### 0.4.xからの変更
 
 - `createKeepKit`は`Provider`、`Button`、`useContext`、`useItem`、`useList`、`useShortcut`を返します。
@@ -74,5 +76,7 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 `KeepProvider` accepts `fallback`, `onBoundaryError`, and `boundaryResetKey` to isolate unexpected render errors. Use the standalone `KeepErrorBoundary` from `@keepkit/core/react` when a smaller boundary is appropriate.
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
+
+In v0.11.0, use `encodeKeepListQuery` / `decodeKeepListQuery` for URL state, `createScopedStorageAdapter` for user/tenant isolation, and `createKeepKitPreset({ mode: "local" | "sync" | "backup" })` for the standard setup. React bindings include provider `autoRevalidation` and `removeItemWithUndo` / `undoLastRemoval`.
 
 The v0.5 factory returns `Provider`, `Button`, `useContext`, `useItem`, `useList`, and `useShortcut`. Existing v0.4 applications should follow the migration guide in the repository root.

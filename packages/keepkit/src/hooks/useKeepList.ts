@@ -22,6 +22,8 @@ export type UseKeepListResult<TMeta = Record<string, unknown>> = {
   error: unknown | null;
   remove: (id: string) => Promise<void>;
   removeBatch: (ids: string[]) => Promise<void>;
+  removeWithUndo: (id: string) => Promise<void>;
+  removeBatchWithUndo: (ids: string[]) => Promise<void>;
   updateTagsBatch: (ids: string[], tags?: string[]) => Promise<void>;
   addTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
@@ -80,6 +82,8 @@ export function useKeepList<TMeta = Record<string, unknown>>(
   const allTags = useKeepStoreSelector(store, tagsSelector);
   const remove = useCallback((id: string) => actions.removeItem(id), [actions]);
   const removeBatch = useCallback((ids: string[]) => actions.removeItems(ids), [actions]);
+  const removeWithUndo = useCallback((id: string) => actions.removeItemWithUndo(id), [actions]);
+  const removeBatchWithUndo = useCallback((ids: string[]) => actions.removeItemsWithUndo(ids), [actions]);
   const updateTagsBatch = useCallback(
     (ids: string[], nextTags?: string[]) => actions.updateTagsBatch(ids, nextTags),
     [actions],
@@ -108,6 +112,8 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     error,
     remove,
     removeBatch,
+    removeWithUndo,
+    removeBatchWithUndo,
     updateTagsBatch,
     addTagsBatch,
     removeTagsBatch,

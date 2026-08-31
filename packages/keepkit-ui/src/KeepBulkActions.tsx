@@ -21,7 +21,11 @@ export type KeepBulkActionsState<TMeta = Record<string, unknown>> = {
   remove: () => Promise<void>;
   updateTags: () => Promise<void>;
   isMutating: boolean;
+  selectionScope: KeepSelectionScope;
+  setSelectionScope: (scope: KeepSelectionScope) => void;
 };
+
+export type KeepSelectionScope = "page" | "query" | "all";
 
 /** Returns whether every visible item is selected. Empty lists are never all selected. */
 export function isAllSelected<TMeta>(
@@ -54,6 +58,8 @@ export type KeepBulkActionsProps<TMeta = Record<string, unknown>> = Omit<HTMLAtt
   onSelectedIdsChange?: (ids: string[]) => void;
   renderItem?: (item: KeepItem<TMeta>, selected: boolean) => ReactNode;
   onCompleted?: (action: "remove" | "tags", ids: string[]) => void;
+  selectionScope?: KeepSelectionScope;
+  onSelectionScopeChange?: (scope: KeepSelectionScope) => void;
   render?: RenderProp<KeepBulkActionsState<TMeta>>;
   children?: ReactNode | RenderProp<KeepBulkActionsState<TMeta>>;
 };
@@ -66,6 +72,8 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   onSelectedIdsChange,
   renderItem,
   onCompleted,
+  selectionScope: controlledScope,
+  onSelectionScopeChange,
   render,
   children,
   ...props
@@ -75,7 +83,21 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   const deleteSelectedLabel = useUiLabel("deleteSelected");
   const tagsLabel = useUiLabel("tagsToApply");
   const applyTagsLabel = useUiLabel("applyTags");
+  const selectionScopeLabel = useUiLabel("selectionScope");
+  const currentPageLabel = useUiLabel("currentPage");
+  const searchResultsLabel = useUiLabel("searchResults");
+  const allItemsLabel = useUiLabel("allItems");
   const list = useKeepList<TMeta>(query);
+  const queryList = useKeepList<TMeta>(query ? { ...query, pagination: undefined } : { pagination: undefined });
+  const allList = useKeepList<TMeta>({ pagination: undefined });
+  const [uncontrolledScope, setUncontrolledScope] = useState<KeepSelectionScope>(controlledScope ?? "page");
+  const selectionScope = controlledScope ?? uncontrolledScope;
+  const setSelectionScope = (scope: KeepSelectionScope) => {
+    if (controlledScope === undefined) setUncontrolledScope(scope);
+    onSelectionScopeChange?.(scope);
+  };
+  const targetItems =
+    selectionScope === "page" ? list.items : selectionScope === "query" ? queryList.items : allList.items;
   const [uncontrolledSelectedIds, setUncontrolledSelectedIds] = useState(defaultSelectedIds);
   const selectedIds = controlledSelectedIds ?? uncontrolledSelectedIds;
   const selected = new Set(selectedIds);
@@ -86,11 +108,11 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   };
   const toggle = (id: string) =>
     setSelectedIds(selected.has(id) ? selectedIds.filter((current) => current !== id) : [...selectedIds, id]);
-  const allSelected = isAllSelected(list.items, selectedIds);
-  const toggleAll = () => setSelectedIds(toggleSelectAll(list.items, selectedIds));
+  const allSelected = isAllSelected(targetItems, selectedIds);
+  const toggleAll = () => setSelectedIds(toggleSelectAll(targetItems, selectedIds));
   const remove = async () => {
     const ids = [...selectedIds];
-    await list.removeBatch(ids);
+    await list.removeBatchWithUndo(ids);
     onCompleted?.("remove", ids);
     setSelectedIds([]);
   };
@@ -101,7 +123,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
     setSelectedIds([]);
   };
   const state: KeepBulkActionsState<TMeta> = {
-    items: list.items,
+    items: targetItems,
     selectedIds,
     selectedCount: selectedIds.length,
     isAllSelected: allSelected,
@@ -114,6 +136,8 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
     remove,
     updateTags,
     isMutating: list.isMutating,
+    selectionScope,
+    setSelectionScope,
   };
   const body = render
     ? render(state)
@@ -124,10 +148,21 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
             <fieldset>
               <legend>{selectItemsLabel}</legend>
               <label>
+                {selectionScopeLabel}
+                <select
+                  value={selectionScope}
+                  onChange={(event) => setSelectionScope(event.currentTarget.value as KeepSelectionScope)}
+                >
+                  <option value="page">{currentPageLabel}</option>
+                  <option value="query">{searchResultsLabel}</option>
+                  <option value="all">{allItemsLabel}</option>
+                </select>
+              </label>
+              <label>
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label={selectItemsLabel} />
                 {selectedIds.length} {selectedCountLabel}
               </label>
-              {list.items.map((item) => (
+              {targetItems.map((item) => (
                 <span key={item.id}>
                   <KeepItemCheckbox
                     item={item}

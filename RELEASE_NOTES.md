@@ -1,5 +1,33 @@
 # Release notes
 
+## [0.11.0] - 2026-08-31
+
+### 日本語
+
+#### 追加・改善
+
+- `encodeKeepListQuery` / `decodeKeepListQuery`と`KeepCollection urlSync`を追加し、検索・タグ・ソート・ページをURL、戻る／進む、共有URLと同期できるようにしました。`createNextPagesRouterAdapter`でNext.js Pages Routerにも接続できます。
+- `KeepCollection` / `KeepList`に`list`、`grid`、`compact`のレスポンシブレイアウトプリセットを追加し、`KeepItemCard`にサムネイル、タグ、詳細リンク、保存解除の差し替えAPIを追加しました。
+- `KeepBulkActions`に`page`、`query`、`all`の選択範囲を追加し、検索結果全体と全保存アイテムを一括操作できるようにしました。
+- `removeItemWithUndo` / `removeItemsWithUndo`、`undoLastRemoval`、`KeepUndo`を追加しました。期限内の復元、同期エラー時の自動復元に対応します。
+- `ja`、`en`、`ko`、`zh-CN`、`zh-TW`の標準ラベル辞書を追加し、既存の`labels`で個別ラベルを上書きできるようにしました。
+- `ScopedStorageAdapter`、`ScopedSyncQueueAdapter`、`createKeepKitPreset`を追加し、ユーザー／テナント単位の保存・キュー・バックアップ導入を簡略化しました。
+- `autoRevalidation`で一覧表示後、一定間隔、オンライン復帰時の再検証を自動化できるようにしました。
+- `@keepkit/core`と`@keepkit/ui`を`0.11.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Added `encodeKeepListQuery` / `decodeKeepListQuery` and `KeepCollection urlSync` for URL-shared search, tag, sort, and page state, including browser back/forward. `createNextPagesRouterAdapter` connects to the Next.js Pages Router without a Next dependency.
+- Added responsive `list`, `grid`, and `compact` layout presets to `KeepCollection` / `KeepList`, plus thumbnail, tag, detail-link, and remove customization to `KeepItemCard`.
+- Added `page`, `query`, and `all` selection scopes to `KeepBulkActions` for bulk actions across the current page, the full search result, or every saved item.
+- Added `removeItemWithUndo` / `removeItemsWithUndo`, `undoLastRemoval`, and `KeepUndo`, including timed restoration and automatic restoration after a sync failure.
+- Added built-in `ja`, `en`, `ko`, `zh-CN`, and `zh-TW` label dictionaries; individual labels still override the dictionary.
+- Added `ScopedStorageAdapter`, `ScopedSyncQueueAdapter`, and `createKeepKitPreset` to simplify user/tenant-isolated storage, queues, and backups.
+- Added `autoRevalidation` for validation after hydration, on an interval, and when the browser reconnects.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.11.0`.
+
 ## [0.10.0] - 2026-08-31
 
 ### 日本語

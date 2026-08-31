@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.10.0では、詳細リンク、保存対象の状態管理、標準同期リトライ、バックアップUIを追加しました。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.11.0では、URL同期、レイアウトプリセット、一括選択範囲、Undo、多言語、スコープ分離、自動再検証を追加しました。
 
 ### インストール
 
@@ -123,9 +123,17 @@ pnpm build
 
 JSONバックアップUIは`<KeepBackup />`として利用できます。エクスポート、merge / replaceインポート、件数表示、容量エラー表示を提供します。
 
+### v0.11.0の一覧連携と導入プリセット
+
+`<keep.Collection urlSync layout="grid" />`で検索・タグ・ソート・ページをURL、戻る／進む、共有URLと同期できます。Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`に渡してください。`layout`は`list`、`grid`、`compact`に対応し、`itemCardProps`の`getImageProps`、`renderTags`、`href`、`onOpen`でカード表示と遷移を差し替えられます。
+
+`KeepBulkActions`の`selectionScope="page" | "query" | "all"`で一括操作の範囲を変更できます。削除を`useKeepList().removeWithUndo`または`removeBatchWithUndo`で実行し、`<KeepUndo />`を配置すると期限内の復元操作を表示できます。`KeepProvider autoRevalidation={{ intervalMs: 60000 }}`は一覧表示後、間隔経過後、オンライン復帰時に再検証します。
+
+ユーザー／テナント分離が必要な場合は、`createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })`を使うとstorage、同期キュー、バックアップの構成をまとめられます。ラベルは`locale="ja" | "en" | "ko" | "zh-CN" | "zh-TW"`で切り替え、`labels`で上書きできます。
+
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.9.0, it adds CSS data attributes, render-error boundaries, strict consumer type checks, and a minimal starter recipe.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.11.0, it adds URL synchronization, responsive layout presets, bulk-selection scopes, undo, localization, scope isolation, and automatic revalidation.
 
 ### Installation
 
@@ -183,6 +191,14 @@ Saved inputs contain only `id`, `meta`, `targetType`, `note`, and `tags`; persis
 The typed factory returns `Provider`, `Button`, `Collection`, `useItem`, `useList`, and `useShortcut`. `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, `KeepTagEditor`, and `KeepBulkActions` are also available as standalone primitives. `KeepBulkActions` exposes `isAllSelected` / `toggleSelectAll` in its render-prop state and as standalone helpers. Use `@keepkit/core/core` for framework-neutral primitives, `@keepkit/core/react` for low-level React bindings, and `@keepkit/core/storage` for adapters.
 
 See `examples/next-app-router` for the Server Component/client boundary pattern and `examples/next-pages-router` for the Pages Router integration.
+
+### v0.11.0 URL, layouts, and setup presets
+
+Use `<keep.Collection urlSync layout="grid" />` to synchronize search, tags, sorting, and pagination with shareable URLs and browser history. For Next.js Pages Router, pass `createNextPagesRouterAdapter(router)` as `urlAdapter`. Layouts are `list`, `grid`, and `compact`; customize thumbnails, tags, and detail navigation through `itemCardProps`.
+
+Set `selectionScope="page" | "query" | "all"` on `KeepBulkActions` to choose the bulk-action range. Use `useKeepList().removeWithUndo` or `removeBatchWithUndo`, and mount `<KeepUndo />` for timed restoration. `KeepProvider autoRevalidation={{ intervalMs: 60000 }}` revalidates after hydration, on an interval, and after reconnecting.
+
+Use `createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })` to compose isolated storage, sync queues, and backups for a user/tenant. Set `locale` to `ja`, `en`, `ko`, `zh-CN`, or `zh-TW`; individual `labels` override the dictionary.
 
 See [MIGRATION.md](./MIGRATION.md) for the v0.4 migration and [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the complete changelog.
 

@@ -1,3 +1,4 @@
+import { createScopedStorageAdapter, getKeepScopeKey, type KeepScope } from "../scope";
 import {
   type KeepItem,
   KeepStorageAccessError,
@@ -206,6 +207,7 @@ export type BrowserStorageAdapterOptions = {
   version?: number;
   indexedDB?: IDBFactory;
   storage?: Storage;
+  scope?: KeepScope;
 };
 
 /** IndexedDB-first browser storage with localStorage fallback. */
@@ -213,11 +215,17 @@ export function createBrowserStorageAdapter<TMeta = Record<string, unknown>>(
   options: BrowserStorageAdapterOptions = {},
 ): StorageAdapter<TMeta> {
   const browserIndexedDB = options.indexedDB ?? getBrowserIndexedDB();
-  const fallback = new LocalStorageAdapter<TMeta>({ key: options.key, storage: options.storage });
-  if (!browserIndexedDB) return fallback;
-  return new FallbackStorageAdapter<TMeta>({
+  const scopeKey = getKeepScopeKey(options.scope);
+  const storageKey = options.key
+    ? `${options.key}${scopeKey}`
+    : scopeKey
+      ? `${DEFAULT_STORAGE_KEY}${scopeKey}`
+      : undefined;
+  const fallback = new LocalStorageAdapter<TMeta>({ key: storageKey, storage: options.storage });
+  if (!browserIndexedDB) return options.scope ? createScopedStorageAdapter(fallback, options.scope) : fallback;
+  const adapter = new FallbackStorageAdapter<TMeta>({
     primary: new IndexedDBAdapter<TMeta>({
-      databaseName: options.databaseName,
+      databaseName: options.databaseName ? `${options.databaseName}${scopeKey}` : undefined,
       storeName: options.storeName,
       version: options.version,
       indexedDB: browserIndexedDB,
@@ -226,6 +234,7 @@ export function createBrowserStorageAdapter<TMeta = Record<string, unknown>>(
     migrateFallbackOnEmpty: true,
     mirrorWrites: true,
   });
+  return options.scope ? createScopedStorageAdapter(adapter, options.scope) : adapter;
 }
 
 /** Adapt sync or async persistence functions to the StorageAdapter contract. */
@@ -252,6 +261,9 @@ export function createStorageAdapter<TMeta = Record<string, unknown>>(
     ...(options.storageKey ? { storageKey: options.storageKey } : {}),
   };
 }
+
+export type { KeepScope } from "../scope";
+export { createScopedStorageAdapter, ScopedStorageAdapter } from "../scope";
 
 async function mergeItems<TMeta>(
   adapter: StorageAdapter<TMeta>,
@@ -633,6 +645,7 @@ function isQuotaExceededError(cause: unknown): boolean {
   );
 }
 
+export { ScopedSyncQueueAdapter } from "../scope";
 export {
   DEFAULT_SYNC_QUEUE_DATABASE,
   DEFAULT_SYNC_QUEUE_KEY,
