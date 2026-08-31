@@ -118,7 +118,13 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
   return renderRoot(
     asChild,
     isValidElement(children) ? children : undefined,
-    { ...rootProps, className, "aria-busy": itemState.isMutating || rootProps["aria-busy"] },
+    {
+      ...rootProps,
+      className,
+      "aria-busy": itemState.isMutating || rootProps["aria-busy"],
+      "data-state": itemState.isSaved ? "saved" : "unsaved",
+      "data-loading": itemState.isMutating ? "true" : undefined,
+    },
     body,
     "KeepItemCard",
   );

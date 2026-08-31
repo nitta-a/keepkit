@@ -81,7 +81,7 @@ test("supports shared labels, search, sort, pagination, tag editing, bulk action
         <KeepSearchInput value={query} debounceMs={0} onValueChange={setQuery} />
         <KeepSortSelect onValueChange={(_value, nextSort) => setSort(nextSort)} />
         <KeepList<Meta>
-          query={{ search: { query }, sort, pagination: { page, pageSize: 1 } }}
+          query={{ search: { query }, ...(sort === undefined ? {} : { sort }), pagination: { page, pageSize: 1 } }}
           renderItem={(entry) => <p key={entry.id}>{entry.meta.title}</p>}
         />
         <KeepPagination totalCount={2} pageSize={1} page={page} onPageChange={setPage} />
@@ -177,7 +177,13 @@ test("removes the last tag with Backspace when the editor input is empty", async
 test("KeepKitProvider mounts the global polite announcer", async () => {
   render(
     <KeepKitProvider<Meta> storage={createStorage()}>
-      <KeepButton item={{ id: item.id, meta: item.meta, targetType: item.targetType }} />
+      <KeepButton
+        item={{
+          id: item.id,
+          meta: item.meta,
+          ...(item.targetType === undefined ? {} : { targetType: item.targetType }),
+        }}
+      />
     </KeepKitProvider>,
   );
 

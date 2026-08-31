@@ -44,6 +44,8 @@ export function KeepSearchInput({
       {...props}
       type="search"
       value={value}
+      data-state={value ? "active" : "idle"}
+      data-disabled={props.disabled ? "true" : undefined}
       aria-label={ariaLabel ?? label}
       placeholder={placeholder ?? label}
       onChange={(event) => {
@@ -93,6 +95,8 @@ export function KeepSortSelect({
     <select
       {...props}
       value={value}
+      data-state="selected"
+      data-disabled={props.disabled ? "true" : undefined}
       aria-label={ariaLabel ?? label}
       onChange={(event) => {
         const nextValue = event.currentTarget.value as KeepSortValue;
@@ -137,7 +141,11 @@ export function KeepPagination({
     const next = Math.min(Math.max(1, nextPage), pageCount);
     onPageChange?.(next, (next - 1) * pageSize);
   };
-  const navProps = { ...props, "aria-label": props["aria-label"] ?? paginationLabel };
+  const navProps = {
+    ...props,
+    "aria-label": props["aria-label"] ?? paginationLabel,
+    "data-state": pageCount > 1 ? "active" : "idle",
+  };
   if (render) return <nav {...navProps}>{render({ page: currentPage, pageCount, goToPage })}</nav>;
   const visiblePages = getVisiblePages(currentPage, pageCount, Math.max(1, maxPageButtons));
   return (

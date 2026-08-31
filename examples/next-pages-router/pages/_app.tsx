@@ -17,9 +17,10 @@ export default function App({ Component, pageProps }: AppProps<PageProps>) {
   useEffect(() => {
     void storage.flushSync();
   }, [storage]);
+  const initialItems = pageProps.keepItems === undefined ? {} : { initialItems: pageProps.keepItems };
 
   return (
-    <KeepKitProvider<ArticleMeta> storage={storage} initialItems={pageProps.keepItems} locale="en-US">
+    <KeepKitProvider<ArticleMeta> storage={storage} locale="en-US" {...initialItems}>
       <Component {...pageProps} />
     </KeepKitProvider>
   );

@@ -33,7 +33,7 @@ export function KeepEmptyState({
       {action}
     </>
   );
-  return renderRoot(asChild, children, { ...rootProps, className }, body, "KeepEmptyState");
+  return renderRoot(asChild, children, { ...rootProps, className, "data-state": "empty" }, body, "KeepEmptyState");
 }
 
 export type KeepStatusValue = "idle" | "empty" | "loading" | "saving" | "syncing" | "error";
@@ -83,7 +83,17 @@ export function KeepStatus<TMeta = Record<string, unknown>>({
   return renderRoot(
     asChild,
     isValidElement(children) ? children : undefined,
-    { ...rootProps, className, role, "aria-live": rootProps["aria-live"] ?? "polite" },
+    {
+      ...rootProps,
+      className,
+      role,
+      "aria-live": rootProps["aria-live"] ?? "polite",
+      "data-state": resolvedStatus,
+      "data-loading":
+        resolvedStatus === "loading" || resolvedStatus === "saving" || resolvedStatus === "syncing"
+          ? "true"
+          : undefined,
+    },
     body,
     "KeepStatus",
   );
@@ -110,7 +120,13 @@ export function KeepAnnouncements<TMeta = Record<string, unknown>>({ messages, .
     else if (change.action === "updateNote") setMessage(noteSavedMessage);
   }, [context.lastChange, noteSavedMessage, removedMessage, savedMessage]);
   return (
-    <div {...props} role={props.role ?? "status"} aria-live={props["aria-live"] ?? "polite"} aria-atomic="true">
+    <div
+      {...props}
+      role={props.role ?? "status"}
+      aria-live={props["aria-live"] ?? "polite"}
+      aria-atomic="true"
+      data-state="announcing"
+    >
       {message}
     </div>
   );

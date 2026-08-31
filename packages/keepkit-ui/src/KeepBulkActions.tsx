@@ -155,7 +155,12 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
           </>
         ));
   return (
-    <section {...props} aria-busy={list.isMutating || props["aria-busy"]}>
+    <section
+      {...props}
+      aria-busy={list.isMutating || props["aria-busy"]}
+      data-state={selectedIds.length > 0 ? "selected" : "idle"}
+      data-loading={list.isLoading || list.isMutating ? "true" : undefined}
+    >
       {body}
     </section>
   );

@@ -32,6 +32,8 @@ const list = useKeepList({
 
 `@keepkit/core/core`はフレームワーク中立、`@keepkit/core/react`はReact、`@keepkit/core/storage`はlocalStorage、IndexedDB、fallback、同期adapter、`@keepkit/core/schema`はschema処理を公開します。パッケージルートにはexportがありません。
 
+`KeepProvider`には描画エラーを局所化する`fallback`、`onBoundaryError`、`boundaryResetKey`を指定できます。より細かい境界が必要な場合は`KeepErrorBoundary`を`@keepkit/core/react`から利用できます。
+
 ### 0.4.xからの変更
 
 - `createKeepKit`は`Provider`、`Button`、`useContext`、`useItem`、`useList`、`useShortcut`を返します。
@@ -66,5 +68,7 @@ const list = useKeepList({
 `KeepItemInput` is a minimal input containing `id`, `meta`, `targetType`, `note`, and `tags`. KeepKit owns persistence timestamps and tag normalization. `KeepListQuery` uses the canonical `targetType`, `tags`, `search`, `sort`, `pagination`, `filter`, and `savedBetween` fields.
 
 Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for React bindings, `@keepkit/core/storage` for browser/fallback/sync adapters, and `@keepkit/core/schema` for schema validation. The package root has no export.
+
+`KeepProvider` accepts `fallback`, `onBoundaryError`, and `boundaryResetKey` to isolate unexpected render errors. Use the standalone `KeepErrorBoundary` from `@keepkit/core/react` when a smaller boundary is appropriate.
 
 The v0.5 factory returns `Provider`, `Button`, `useContext`, `useItem`, `useList`, and `useShortcut`. Existing v0.4 applications should follow the migration guide in the repository root.

@@ -8,6 +8,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "./KeepErrorBoundary";
 import {
   type KeepItemMetadataRefresher,
   type KeepItemRevalidationSummary,
@@ -80,6 +81,10 @@ export type KeepProviderProps<TMeta = Record<string, unknown>> = PropsWithChildr
       toVersion: number,
       item: KeepItem<TMeta>,
     ) => TMeta | Promise<TMeta>;
+    /** Render this content when a descendant or provider render unexpectedly throws. */
+    fallback?: KeepErrorBoundaryProps["fallback"];
+    onBoundaryError?: KeepErrorBoundaryProps["onError"];
+    boundaryResetKey?: unknown;
   }
 >;
 
@@ -105,6 +110,54 @@ type MutationPlan<TMeta> = {
 };
 
 export function KeepProvider<TMeta = Record<string, unknown>>({
+  storage = defaultStorage as StorageAdapter<TMeta>,
+  initialItems,
+  onSave,
+  onRemove,
+  onNoteUpdate,
+  onTagsUpdate,
+  onChange,
+  onError,
+  plugins = [],
+  schemaVersion,
+  schema,
+  invalidItemPolicy = "error",
+  onInvalidItem,
+  migrateMeta,
+  fallback,
+  onBoundaryError,
+  boundaryResetKey,
+  children,
+}: KeepProviderProps<TMeta>) {
+  const content = (
+    <KeepProviderContent<TMeta>
+      storage={storage}
+      initialItems={initialItems}
+      onSave={onSave}
+      onRemove={onRemove}
+      onNoteUpdate={onNoteUpdate}
+      onTagsUpdate={onTagsUpdate}
+      onChange={onChange}
+      onError={onError}
+      plugins={plugins}
+      schemaVersion={schemaVersion}
+      schema={schema}
+      invalidItemPolicy={invalidItemPolicy}
+      onInvalidItem={onInvalidItem}
+      migrateMeta={migrateMeta}
+    >
+      {children}
+    </KeepProviderContent>
+  );
+  if (fallback === undefined && onBoundaryError === undefined) return content;
+  return (
+    <KeepErrorBoundary fallback={fallback} onError={onBoundaryError} resetKey={boundaryResetKey}>
+      {content}
+    </KeepErrorBoundary>
+  );
+}
+
+function KeepProviderContent<TMeta = Record<string, unknown>>({
   storage = defaultStorage as StorageAdapter<TMeta>,
   initialItems,
   onSave,

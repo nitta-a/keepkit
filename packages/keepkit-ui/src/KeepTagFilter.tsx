@@ -88,7 +88,12 @@ export function KeepTagFilter<TMeta = Record<string, unknown>>({
   return renderRoot(
     asChild,
     isValidElement(children) ? children : undefined,
-    { ...rootProps, className },
+    {
+      ...rootProps,
+      className,
+      "data-state": resolvedValue === undefined ? "all" : "filtered",
+      "data-loading": list.isLoading ? "true" : undefined,
+    },
     body,
     "KeepTagFilter",
   );

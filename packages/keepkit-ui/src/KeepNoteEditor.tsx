@@ -128,6 +128,9 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
         className={className}
         onSubmit={handleSubmit}
         aria-busy={isMutating || formProps["aria-busy"]}
+        data-state={isDirty ? "dirty" : "clean"}
+        data-loading={isMutating ? "true" : undefined}
+        data-disabled={isMutating ? "true" : undefined}
       >
         {body}
       </form>
@@ -136,7 +139,15 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
   return renderRoot(
     true,
     isValidElement(children) ? children : undefined,
-    { ...formProps, className, onSubmit: handleSubmit, "aria-busy": isMutating || formProps["aria-busy"] },
+    {
+      ...formProps,
+      className,
+      onSubmit: handleSubmit,
+      "aria-busy": isMutating || formProps["aria-busy"],
+      "data-state": isDirty ? "dirty" : "clean",
+      "data-loading": isMutating ? "true" : undefined,
+      "data-disabled": isMutating ? "true" : undefined,
+    },
     body,
     "KeepNoteEditor",
   );

@@ -10,6 +10,28 @@ Reactアプリケーション向けの標準利用パッケージです。`@keep
 pnpm add @keepkit/ui
 ```
 
+## Minimal Starter Recipe
+
+```tsx
+import { createBrowserStorageAdapter, createKeepKit } from "@keepkit/ui";
+
+type Meta = { title: string; url: string };
+const keep = createKeepKit<Meta>({
+  storage: createBrowserStorageAdapter({ key: "demo:keeps" }),
+});
+
+export function SavedArticle({ article }: { article: Meta & { id: string } }) {
+  return (
+    <keep.Provider fallback={<p>Saved items are temporarily unavailable.</p>}>
+      <keep.Button item={{ id: article.id, targetType: "article", meta: article }} />
+      <keep.Collection query={{ targetType: "article" }} />
+    </keep.Provider>
+  );
+}
+```
+
+Every primitive exposes `data-state`; pending operations expose `data-loading="true"`, and disabled controls expose `data-disabled="true"`. Use these attributes from host CSS or Tailwind data variants. `KeepCollection` and `KeepList` accept `fallback`, `onBoundaryError`, and `boundaryResetKey` for local render-error isolation.
+
 ```tsx
 import { createBrowserStorageAdapter, createKeepKit } from "@keepkit/ui";
 

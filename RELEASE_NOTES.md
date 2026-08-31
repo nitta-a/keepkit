@@ -1,5 +1,27 @@
 # Release notes
 
+## [0.9.0] - 2026-08-31
+
+### 日本語
+
+#### 追加・改善
+
+- `@keepkit/ui`の各UIプリミティブに`data-state`、処理中の`data-loading="true"`、無効状態の`data-disabled="true"`を追加し、ホストアプリのCSS/Tailwindから状態を直接装飾できるようにしました。
+- `@keepkit/core/react`に`KeepErrorBoundary`を追加し、`KeepProvider`、`KeepCollection`、`KeepList`で`fallback`、`onBoundaryError`、`boundaryResetKey`を利用できるようにしました。
+- demoとNext.js Examplesで`exactOptionalPropertyTypes`を有効化し、strictなconsumer設定での型互換性を検証しました。
+- READMEにMinimal Starter Recipeとdata属性・エラー境界の利用方法を追加しました。
+- `@keepkit/core`と`@keepkit/ui`を`0.9.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Added `data-state`, `data-loading="true"` while work is pending, and `data-disabled="true"` to UI primitives so host CSS and Tailwind data variants can style state directly.
+- Added `KeepErrorBoundary` to `@keepkit/core/react`; `KeepProvider`, `KeepCollection`, and `KeepList` now accept `fallback`, `onBoundaryError`, and `boundaryResetKey`.
+- Enabled `exactOptionalPropertyTypes` in the demo and Next.js examples to verify compatibility with strict consumer configurations.
+- Added a Minimal Starter Recipe and documented data attributes and render-error boundaries in the READMEs.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.9.0`.
+
 ## [0.8.0] - 2026-08-31
 
 ### 日本語

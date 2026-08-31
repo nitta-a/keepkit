@@ -74,8 +74,21 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
 }
 
 export type { KeepItem, KeepItemInput, KeepListQuery, KeepSyncStatus } from "@keepkit/core/core";
-export type { KeepButtonState, KeepContextValue, KeepProviderProps, KeepShortcutOptions } from "@keepkit/core/react";
-export { KeepProvider, useKeepContext, useKeepItem, useKeepList, useKeepShortcut } from "@keepkit/core/react";
+export type {
+  KeepButtonState,
+  KeepContextValue,
+  KeepErrorBoundaryProps,
+  KeepProviderProps,
+  KeepShortcutOptions,
+} from "@keepkit/core/react";
+export {
+  KeepErrorBoundary,
+  KeepProvider,
+  useKeepContext,
+  useKeepItem,
+  useKeepList,
+  useKeepShortcut,
+} from "@keepkit/core/react";
 export {
   createBrowserStorageAdapter,
   createStorageAdapter,

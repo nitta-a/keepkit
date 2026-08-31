@@ -11,6 +11,8 @@ export type { KeepShortcutModifier, KeepShortcutOptions } from "./hooks/useKeepS
 export { useKeepShortcut } from "./hooks/useKeepShortcut";
 export type { KeepButtonItem, KeepButtonProps, KeepButtonState } from "./KeepButton";
 export { KeepButton } from "./KeepButton";
+export type { KeepErrorBoundaryProps } from "./KeepErrorBoundary";
+export { KeepErrorBoundary } from "./KeepErrorBoundary";
 export type { KeepContextValue, KeepProviderProps } from "./KeepProvider";
 export { KeepProvider, useKeepContext, useKeepStore } from "./KeepProvider";
 export type { KeepListQuery } from "./query";

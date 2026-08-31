@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
-import { useKeepList } from "@keepkit/core/react";
+import { KeepErrorBoundary, type KeepErrorBoundaryProps, useKeepList } from "@keepkit/core/react";
 import { type HTMLAttributes, type ReactNode, useMemo, useState } from "react";
 import { KeepBulkActions } from "./KeepBulkActions";
 import type { KeepItemCardProps } from "./KeepItemCard";
@@ -21,10 +21,24 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
   empty?: ReactNode | RenderProp<KeepListState<TMeta>>;
   error?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  fallback?: KeepErrorBoundaryProps["fallback"];
+  onBoundaryError?: KeepErrorBoundaryProps["onError"];
+  boundaryResetKey?: unknown;
 };
 
 /** A batteries-included collection with query controls and accessible status feedback. */
-export function KeepCollection<TMeta = Record<string, unknown>>({
+export function KeepCollection<TMeta = Record<string, unknown>>(props: KeepCollectionProps<TMeta>) {
+  const { fallback, onBoundaryError, boundaryResetKey, ...collectionProps } = props;
+  const content = <KeepCollectionContent<TMeta> {...collectionProps} />;
+  if (fallback === undefined && onBoundaryError === undefined) return content;
+  return (
+    <KeepErrorBoundary fallback={fallback} onError={onBoundaryError} resetKey={boundaryResetKey}>
+      {content}
+    </KeepErrorBoundary>
+  );
+}
+
+function KeepCollectionContent<TMeta = Record<string, unknown>>({
   query = {},
   pageSize = 20,
   features,
@@ -35,7 +49,7 @@ export function KeepCollection<TMeta = Record<string, unknown>>({
   error,
   className,
   ...rootProps
-}: KeepCollectionProps<TMeta>) {
+}: Omit<KeepCollectionProps<TMeta>, "fallback" | "onBoundaryError" | "boundaryResetKey">) {
   const enabled = {
     search: true,
     sort: true,
@@ -66,6 +80,8 @@ export function KeepCollection<TMeta = Record<string, unknown>>({
       {...rootProps}
       className={className}
       aria-busy={list.isLoading || list.isMutating || rootProps["aria-busy"]}
+      data-state={getCollectionState(list)}
+      data-loading={list.isLoading || list.isMutating ? "true" : undefined}
     >
       <div>
         {enabled.search ? (
@@ -116,4 +132,11 @@ export function KeepCollection<TMeta = Record<string, unknown>>({
       {enabled.bulkActions ? <KeepBulkActions<TMeta> query={resolvedQuery} /> : null}
     </section>
   );
+}
+
+function getCollectionState<TMeta>(list: KeepListState<TMeta>): "loading" | "error" | "empty" | "ready" {
+  if (list.error && list.items.length === 0) return "error";
+  if (list.isLoading && !list.isHydrated) return "loading";
+  if (list.isHydrated && list.items.length === 0) return "empty";
+  return "ready";
 }

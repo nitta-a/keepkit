@@ -1,8 +1,12 @@
 "use client";
 
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
-import type { UseKeepListResult } from "@keepkit/core/react";
-import { useKeepList } from "@keepkit/core/react";
+import {
+  KeepErrorBoundary,
+  type KeepErrorBoundaryProps,
+  type UseKeepListResult,
+  useKeepList,
+} from "@keepkit/core/react";
 import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
 import { KeepItemCard, type KeepItemCardProps } from "./KeepItemCard";
 import { type RenderProp, renderRoot, resolveContent } from "./shared";
@@ -19,10 +23,24 @@ export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes
   error?: ReactNode | RenderProp<KeepListState<TMeta>>;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
   asChild?: boolean;
+  fallback?: KeepErrorBoundaryProps["fallback"];
+  onBoundaryError?: KeepErrorBoundaryProps["onError"];
+  boundaryResetKey?: unknown;
 };
 
 /** A list primitive with built-in loading, empty, error, and removal states. */
-export function KeepList<TMeta = Record<string, unknown>>({
+export function KeepList<TMeta = Record<string, unknown>>(props: KeepListProps<TMeta>) {
+  const { fallback, onBoundaryError, boundaryResetKey, ...listProps } = props;
+  const content = <KeepListContent<TMeta> {...listProps} />;
+  if (fallback === undefined && onBoundaryError === undefined) return content;
+  return (
+    <KeepErrorBoundary fallback={fallback} onError={onBoundaryError} resetKey={boundaryResetKey}>
+      {content}
+    </KeepErrorBoundary>
+  );
+}
+
+function KeepListContent<TMeta = Record<string, unknown>>({
   query,
   children,
   renderItem,
@@ -49,10 +67,23 @@ export function KeepList<TMeta = Record<string, unknown>>({
   return renderRoot(
     asChild,
     asChild && isValidElement(children) ? children : undefined,
-    { ...rootProps, className, "aria-busy": state.isLoading || rootProps["aria-busy"] },
+    {
+      ...rootProps,
+      className,
+      "aria-busy": state.isLoading || rootProps["aria-busy"],
+      "data-state": getListState(state),
+      "data-loading": state.isLoading ? "true" : undefined,
+    },
     body,
     "KeepList",
   );
+}
+
+function getListState<TMeta>(state: KeepListState<TMeta>): "loading" | "error" | "empty" | "ready" {
+  if (state.error && state.items.length === 0) return "error";
+  if (state.isLoading && !state.isHydrated) return "loading";
+  if (state.isHydrated && state.items.length === 0) return "empty";
+  return "ready";
 }
 
 function getListBody<TMeta>(

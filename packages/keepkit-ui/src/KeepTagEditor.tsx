@@ -107,6 +107,9 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
         void save().catch(() => undefined);
       }}
       aria-busy={itemState.isMutating || props["aria-busy"]}
+      data-state={itemState.isMutating ? "saving" : "idle"}
+      data-loading={itemState.isMutating ? "true" : undefined}
+      data-disabled={itemState.isMutating ? "true" : undefined}
     >
       {body}
     </form>

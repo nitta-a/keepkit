@@ -71,7 +71,7 @@ const content: Content[] = [
 export function App() {
   const [targetType, setTargetType] = useState<string | undefined>();
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
-  const { items, isLoading, error, clear } = useKeepList<DemoMeta>({ targetType });
+  const { items, isLoading, error, clear } = useKeepList<DemoMeta>(targetType === undefined ? {} : { targetType });
   const { syncState } = useKeepContext<DemoMeta>();
 
   useEffect(() => {
@@ -89,9 +89,9 @@ export function App() {
     modifier: "meta",
     item: {
       id: content[0].id,
-      targetType: content[0].targetType,
       meta: content[0].meta,
       tags: ["shortcut"],
+      ...(content[0].targetType === undefined ? {} : { targetType: content[0].targetType }),
     },
   });
 
@@ -150,9 +150,9 @@ export function App() {
                   className="favorite-button"
                   item={{
                     id: entry.id,
-                    targetType: entry.targetType,
                     meta: entry.meta,
                     tags: [entry.targetType ?? "resource"],
+                    ...(entry.targetType === undefined ? {} : { targetType: entry.targetType }),
                   }}
                   savedLabel="Saved ✓"
                   unsavedLabel="Save for later"

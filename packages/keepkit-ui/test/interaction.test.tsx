@@ -1,7 +1,25 @@
 import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { KeepBulkActions, KeepButton, KeepNoteEditor, KeepProvider, KeepTagEditor } from "../src/index";
+import {
+  KeepAnnouncements,
+  KeepBulkActions,
+  KeepButton,
+  KeepCollection,
+  KeepEmptyState,
+  KeepErrorBoundary,
+  KeepItemCard,
+  KeepItemCheckbox,
+  KeepList,
+  KeepNoteEditor,
+  KeepPagination,
+  KeepProvider,
+  KeepSearchInput,
+  KeepSortSelect,
+  KeepStatus,
+  KeepTagEditor,
+  KeepTagFilter,
+} from "../src/index";
 
 type Meta = { title: string };
 
@@ -115,4 +133,92 @@ test("exposes visible-item select-all state and toggles all visible items", asyn
 
   fireEvent.click(screen.getByRole("button", { name: "Toggle visible items" }));
   expect(await screen.findByText("false:")).not.toBeNull();
+});
+
+test("exposes stable data attributes for CSS styling", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepButton item={item} data-testid="button" />
+      <KeepButton item={item} disabled data-testid="disabled-button" />
+      <KeepItemCard item={item} data-testid="card" />
+      <KeepCollection features={{ search: false, sort: false, pagination: false }} data-testid="collection" />
+      <KeepTagFilter data-testid="tag-filter" />
+      <KeepList data-testid="list" />
+      <KeepBulkActions data-testid="bulk" />
+      <KeepItemCheckbox item={item} data-testid="checkbox" />
+      <KeepNoteEditor item={item} data-testid="note" />
+      <KeepTagEditor item={item} data-testid="tag-editor" />
+      <KeepSearchInput data-testid="search" />
+      <KeepSortSelect data-testid="sort" />
+      <KeepPagination totalCount={2} pageSize={1} data-testid="pagination" />
+      <KeepStatus data-testid="status" />
+      <KeepEmptyState data-testid="empty" />
+      <KeepAnnouncements data-testid="announcements" />
+    </KeepProvider>,
+  );
+
+  await screen.findByRole("heading", { name: "Interaction item" });
+  expect(screen.getByTestId("button").getAttribute("data-state")).toBe("saved");
+  expect(screen.getByTestId("disabled-button").getAttribute("data-disabled")).toBe("true");
+  expect(screen.getByTestId("card").getAttribute("data-state")).toBe("saved");
+  expect(screen.getByTestId("collection").getAttribute("data-state")).toBe("ready");
+  expect(screen.getByTestId("tag-filter").getAttribute("data-state")).toBe("all");
+  expect(screen.getByTestId("list").getAttribute("data-state")).toBe("ready");
+  expect(screen.getByTestId("bulk").getAttribute("data-state")).toBe("idle");
+  expect(screen.getByTestId("checkbox").getAttribute("data-state")).toBe("unchecked");
+  expect(screen.getByTestId("note").getAttribute("data-state")).toBe("clean");
+  expect(screen.getByTestId("tag-editor").getAttribute("data-state")).toBe("idle");
+  expect(screen.getByTestId("search").getAttribute("data-state")).toBe("idle");
+  expect(screen.getByTestId("sort").getAttribute("data-state")).toBe("selected");
+  expect(screen.getByTestId("pagination").getAttribute("data-state")).toBe("active");
+  expect(screen.getByTestId("status").getAttribute("data-state")).toBe("idle");
+  expect(screen.getByTestId("empty").getAttribute("data-state")).toBe("empty");
+  expect(screen.getByTestId("announcements").getAttribute("data-state")).toBe("announcing");
+});
+
+test("isolates unexpected provider and collection render errors", async () => {
+  const providerError = vi.fn();
+  function Broken() {
+    throw new Error("provider render failure");
+  }
+
+  render(
+    <KeepProvider<Meta>
+      storage={createStorage()}
+      fallback={<output data-testid="provider-fallback">Provider fallback</output>}
+      onBoundaryError={providerError}
+    >
+      <Broken />
+    </KeepProvider>,
+  );
+
+  expect((await screen.findByTestId("provider-fallback")).textContent).toBe("Provider fallback");
+  expect(providerError).toHaveBeenCalled();
+
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepCollection
+        fallback={<output data-testid="collection-fallback">Collection fallback</output>}
+        renderItem={() => {
+          throw new Error("collection render failure");
+        }}
+      />
+    </KeepProvider>,
+  );
+
+  expect((await screen.findByTestId("collection-fallback")).textContent).toBe("Collection fallback");
+});
+
+test("publishes the error boundary as a standalone primitive", () => {
+  function Broken() {
+    throw new Error("standalone render failure");
+  }
+
+  render(
+    <KeepErrorBoundary fallback={<output data-testid="standalone-fallback">Recovered</output>}>
+      <Broken />
+    </KeepErrorBoundary>,
+  );
+
+  expect(screen.getByTestId("standalone-fallback").textContent).toBe("Recovered");
 });

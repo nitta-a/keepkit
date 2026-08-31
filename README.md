@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.8.0では、IME確定時のタグ誤追加を防止し、表示中アイテムの全選択・全解除とExamplesのCI検証を追加しました。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.9.0では、CSS向けdata属性、描画エラー境界、厳格な型チェック、最小スターターレシピを追加しました。
 
 ### インストール
 
@@ -41,6 +41,28 @@ export function App() {
   );
 }
 ```
+
+### Minimal Starter Recipe
+
+```tsx
+import { createBrowserStorageAdapter, createKeepKit } from "@keepkit/ui";
+
+type Meta = { title: string; url: string };
+const keep = createKeepKit<Meta>({
+  storage: createBrowserStorageAdapter({ key: "demo:keeps" }),
+});
+
+export function SavedArticle({ article }: { article: Meta & { id: string } }) {
+  return (
+    <keep.Provider fallback={<p>Saved items are temporarily unavailable.</p>}>
+      <keep.Button item={{ id: article.id, targetType: "article", meta: article }} />
+      <keep.Collection query={{ targetType: "article" }} />
+    </keep.Provider>
+  );
+}
+```
+
+すべてのUIプリミティブは状態を`data-state`に、処理中を`data-loading="true"`に、無効状態を`data-disabled="true"`に公開します。ホストアプリはクラス名の条件分岐なしにCSSやTailwindのdata variantで装飾できます。`KeepCollection` / `KeepList`にも`fallback`、`onBoundaryError`、`boundaryResetKey`を指定でき、Provider全体または一覧単位で予期せぬ描画エラーを隔離できます。
 
 `keep.Collection`は検索、ソート、ページング、タグフィルター、一括操作、loading / empty / error状態、ARIA通知を組み合わせて提供します。検索は既定で300msデバウンスされ、追加機能は`features`で有効化できます。
 
@@ -97,7 +119,7 @@ pnpm build
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.8.0, it guards tag entry during IME composition, adds visible-item select-all/toggle helpers, and validates both Next.js examples in CI.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.9.0, it adds CSS data attributes, render-error boundaries, strict consumer type checks, and a minimal starter recipe.
 
 ### Installation
 
@@ -125,6 +147,28 @@ export function App() {
   );
 }
 ```
+
+### Minimal Starter Recipe
+
+```tsx
+import { createBrowserStorageAdapter, createKeepKit } from "@keepkit/ui";
+
+type Meta = { title: string; url: string };
+const keep = createKeepKit<Meta>({
+  storage: createBrowserStorageAdapter({ key: "demo:keeps" }),
+});
+
+export function SavedArticle({ article }: { article: Meta & { id: string } }) {
+  return (
+    <keep.Provider fallback={<p>Saved items are temporarily unavailable.</p>}>
+      <keep.Button item={{ id: article.id, targetType: "article", meta: article }} />
+      <keep.Collection query={{ targetType: "article" }} />
+    </keep.Provider>
+  );
+}
+```
+
+Every UI primitive exposes its semantic state through `data-state`, `data-loading="true"` while work is pending, and `data-disabled="true"` when disabled. `KeepCollection` and `KeepList` also accept `fallback`, `onBoundaryError`, and `boundaryResetKey` so unexpected render errors can be isolated at the provider or list level.
 
 `keep.Collection` combines search, sorting, pagination, optional tag filtering and bulk actions, loading/empty/error states, and accessible live announcements. Search is debounced by 300ms by default; enable optional behavior with `features`.
 
