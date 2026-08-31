@@ -6,7 +6,7 @@
       "outputs": ["dist/**", ".next/**"]
     },
     "typecheck": {
-      "dependsOn": ["^build", "^typecheck"]
+      "dependsOn": ["build", "^build", "^typecheck"]
     },
     "lint": {
       "dependsOn": ["^build", "^lint"]
