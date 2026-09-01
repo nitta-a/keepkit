@@ -13,7 +13,7 @@
   --keep-destructive-foreground: var(--destructive-foreground, #ffffff);
   --keep-ring: var(--ring, var(--keep-primary));
   --keep-accent: var(--primary, #2563eb);
-  --keep-radius: 0.5rem;
+  --keep-radius: var(--radius, 0.5rem);
   --keep-card-padding: 1rem;
   --keep-card-gap: 0.75rem;
   --keep-thumbnail-size: 5rem;
@@ -42,6 +42,10 @@
 :where(.keep-theme, [data-keep-theme]) :is(button, a, input, select, textarea):focus-visible {
   outline: 2px solid var(--keep-ring);
   outline-offset: 2px;
+}
+
+:where(.keep-theme, [data-keep-theme]) :is(button, a) {
+  min-height: var(--keep-button-size);
 }
 
 :where(.keep-theme, [data-keep-theme]) :is(input, select, textarea) {
@@ -77,6 +81,7 @@
 
 :where(.keep-theme, [data-keep-theme])[data-mode="dark"],
 :where(.keep-theme, [data-keep-theme]).keep-theme--dark,
+:where(.keep-theme, [data-keep-theme]).dark,
 .dark :where(.keep-theme, [data-keep-theme]) {
   --keep-background: var(--background, #0f172a);
   --keep-foreground: var(--foreground, #e2e8f0);
@@ -183,6 +188,10 @@
 :where(.keep-theme, [data-keep-theme]) [data-state="saved"]::after {
   content: "✓";
 }
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="button"][data-state="saved"],
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-state="saved"] {
+  animation: keepkit-save-pop 180ms ease-out;
+}
 :where(.keep-theme, [data-keep-theme]) [data-state="unsaved"] {
   border-color: var(--keep-border);
 }
@@ -203,6 +212,13 @@
 :where(.keep-theme, [data-keep-theme]) [data-status="deleted"] {
   color: var(--keep-destructive);
 }
+:where(.keep-theme, [data-keep-theme]) [data-item-status="expired"] {
+  border-style: dashed;
+}
+:where(.keep-theme, [data-keep-theme]) [data-item-status="removed"],
+:where(.keep-theme, [data-keep-theme]) [data-item-status="restricted"] {
+  filter: grayscale(1);
+}
 :where(.keep-theme, [data-keep-theme]) [data-state="empty"] {
   border-style: dashed;
 }
@@ -215,4 +231,10 @@
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="bulk-actions"][data-state="selected"] {
   border: 1px solid var(--keep-ring);
   background: var(--keep-muted);
+}
+
+@keyframes keepkit-save-pop {
+  50% {
+    transform: scale(1.025);
+  }
 }

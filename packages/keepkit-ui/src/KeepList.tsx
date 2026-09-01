@@ -75,6 +75,7 @@ function KeepListContent<TMeta = Record<string, unknown>>({
       ...rootProps,
       className,
       "data-keepkit": "list",
+      "data-layout": layout,
       "aria-busy": state.isLoading || rootProps["aria-busy"],
       "data-state": getListState(state),
       "data-loading": state.isLoading ? "true" : undefined,
@@ -109,16 +110,7 @@ function getListBody<TMeta>(
   if (typeof options.children === "function") return options.children(state);
   if (options.children !== undefined && !isValidElement(options.children)) return options.children;
   return (
-    <ul
-      data-layout={options.layout}
-      style={
-        options.layout === "grid"
-          ? { display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fit, minmax(16rem, 1fr))" }
-          : options.layout === "compact"
-            ? { display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))" }
-            : { display: "flex", flexDirection: "column", gap: "1rem" }
-      }
-    >
+    <ul data-layout={options.layout}>
       {state.items.map((item) =>
         options.renderItem ? (
           options.renderItem(item, state)

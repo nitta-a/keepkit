@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.13.0では、公開整合性検証、16言語辞書、認証付き同期、テーマ、状態復旧UIを追加しました。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.14.0では、テーマのレスポンシブ適用、状態表示、外部リンク安全性、同期競合の比較表示を強化しました。
 
 ### インストール
 
@@ -118,6 +118,7 @@ pnpm build
 ```
 
 保存一覧のカードは`href`と`onOpen`に対応します。`linkTarget="card"`、`linkComponent`、`linkTargetAttribute="_blank"`でカード全体、Next.js等のLink、外部タブにも対応できます。`status`が`expired`、`removed`、`private`などのアイテムは自動的にリンク対象外になります。
+外部URLには`target="_blank"`と`rel="noreferrer"`が自動補完され、利用できないカードは`aria-disabled="true"`と`data-item-status="expired" | "removed" | "restricted"`で状態を伝えます。同期競合の復旧ダイアログではローカル／リモートの更新日時とメモを並べて比較できます。
 
 `KeepProvider`の`validateItem` / `resolveItem`、または`revalidateItems`で保存対象を再検証できます。結果はアイテムの`status`と`statusReason`に保存され、`removeStatuses`で一覧から削除できます。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`を受け取り、キューをスコープ分離して再接続時に自動同期します。失敗後は`retrySync()`で再実行できます。
 
@@ -125,7 +126,7 @@ JSONバックアップUIは`<KeepBackup />`として利用できます。エク�
 
 Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepPruneStaleButton />`、`<KeepSyncStatusBanner />`、`<KeepSyncRecoveryDialog />`として利用できます。テーマを使う場合は`import "@keepkit/ui/theme.css"`を追加してください。
 
-### v0.13.0の一覧連携と導入プリセット
+### v0.14.0の一覧連携と導入プリセット
 
 `<keep.Collection urlSync layout="grid" />`で検索・タグ・ソート・ページをURL、戻る／進む、共有URLと同期できます。Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`に渡してください。`layout`は`list`、`grid`、`compact`に対応し、`itemCardProps`の`getImageProps`、`renderTags`、`href`、`onOpen`でカード表示と遷移を差し替えられます。
 
@@ -133,7 +134,7 @@ Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepP
 
 ユーザー／テナント分離が必要な場合は、`createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })`を使うとstorage、同期キュー、バックアップの構成をまとめられます。ラベルは16個の組み込みlocale（`en`、`ja`、`ko`、`zh-Hans`、`zh-Hant`、`th`、`fr`、`es`、`pt-BR`、`it`、`de`、`ru`、`fil`、`vi`、`id`、`ms`）で切り替えられ、`labels`で上書きできます。`zh-CN`と`zh-TW`も互換aliasとして利用できます。
 
-### v0.13.0 Tailwind／shadcnテーマ
+### v0.14.0 Tailwind／shadcnテーマ
 
 Tailwind CSS v4ではCSSを2行読み込み、必要ならテーマ用Providerを配置します。既存のshadcn/ui変数（`--background`、`--primary`など）があれば`--keep-*`トークンが継承します。
 
@@ -152,7 +153,7 @@ shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keep
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.13.0, it adds release consistency checks, complete 16-locale dictionaries, authenticated sync, theming, and recovery UI.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.14.0, it strengthens responsive theming, status presentation, external-link safety, and sync-conflict previews.
 
 ### Installation
 
@@ -211,7 +212,7 @@ The typed factory returns `Provider`, `Button`, `Collection`, `useItem`, `useLis
 
 See `examples/next-app-router` for the Server Component/client boundary pattern and `examples/next-pages-router` for the Pages Router integration.
 
-### v0.13.0 URL, layouts, and setup presets
+### v0.14.0 URL, layouts, and setup presets
 
 Use `<keep.Collection urlSync layout="grid" />` to synchronize search, tags, sorting, and pagination with shareable URLs and browser history. For Next.js Pages Router, pass `createNextPagesRouterAdapter(router)` as `urlAdapter`. Layouts are `list`, `grid`, and `compact`; customize thumbnails, tags, and detail navigation through `itemCardProps`.
 
@@ -222,8 +223,9 @@ Use `createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })` 
 Use `createAuthenticatedSyncKit` when the host supplies authentication. It refreshes the token for each request, reports 401/403 failures through callbacks, isolates storage and queues by scope, and resumes durable offline work after reconnecting. See `examples/authenticated-sync` for a transport recipe.
 
 Use `KeepItemStatusBadge`, `KeepStaleNotice`, and `KeepPruneStaleButton` for unavailable-item recovery. `KeepSyncStatusBanner` and `KeepSyncRecoveryDialog` expose retry, local/server/manual conflict resolution, and backup restoration guidance. Optionally import `@keepkit/ui/theme.css` for CSS-variable theming, dark mode, and mobile typography.
+External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, while the recovery dialog compares local and remote updated dates and notes side by side.
 
-### v0.13.0 Tailwind and shadcn theme
+### v0.14.0 Tailwind and shadcn theme
 
 Tailwind CSS v4 needs only a CSS import. The theme is scoped by `KeepThemeProvider`, and its `--keep-*` tokens inherit shadcn/ui variables such as `--background`, `--primary`, and `--ring` when present.
 

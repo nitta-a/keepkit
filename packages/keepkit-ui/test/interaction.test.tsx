@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import type {
   KeepItem,
   KeepSyncConflict,
@@ -18,6 +19,7 @@ import {
   KeepItemCard,
   KeepItemCheckbox,
   KeepItemStatusBadge,
+  KeepLayout,
   KeepList,
   KeepNoteEditor,
   KeepPagination,
@@ -93,7 +95,15 @@ test("scopes theme options and supports icon-only save buttons", async () => {
   }
 
   render(
-    <KeepThemeProvider theme="compact" mode="dark" density="compact" highContrast reducedMotion data-testid="theme">
+    <KeepThemeProvider
+      theme="compact"
+      mode="dark"
+      density="compact"
+      highContrast
+      reducedMotion
+      variables={{ "--keep-card-gap": "2rem" }}
+      data-testid="theme"
+    >
       <KeepProvider<Meta> storage={createStorage()}>
         <KeepButton item={item} iconOnly icons={{ save: SaveIcon }} data-testid="icon-button" />
       </KeepProvider>
@@ -106,11 +116,41 @@ test("scopes theme options and supports icon-only save buttons", async () => {
   expect(theme.getAttribute("data-density")).toBe("compact");
   expect(theme.getAttribute("data-high-contrast")).toBe("true");
   expect(theme.getAttribute("data-reduced-motion")).toBe("true");
+  expect(theme.style.getPropertyValue("--keep-card-gap")).toBe("2rem");
   const button = await screen.findByTestId("icon-button");
   expect(button.getAttribute("data-keepkit")).toBe("button");
   expect(button.getAttribute("aria-label")).toBe("Save item");
   expect(screen.getByTestId("save-icon")).not.toBeNull();
   expect(button.textContent).toBe("");
+});
+
+test("publishes all layout presets through stable data attributes", async () => {
+  render(
+    <>
+      <KeepLayout layout="list" data-testid="layout-list" />
+      <KeepLayout layout="grid" data-testid="layout-grid" />
+      <KeepLayout layout="compact" data-testid="layout-compact" />
+    </>,
+  );
+
+  expect(screen.getByTestId("layout-list").getAttribute("data-layout")).toBe("list");
+  expect(screen.getByTestId("layout-grid").getAttribute("data-layout")).toBe("grid");
+  expect(screen.getByTestId("layout-compact").getAttribute("data-layout")).toBe("compact");
+});
+
+test("ships dark-mode and reduced-motion CSS contracts", async () => {
+  const cssText = (
+    await Promise.all(
+      ["../src/styles/base.css", "../src/styles/collection.css", "../src/styles/sync.css"].map((path) =>
+        readFile(new URL(path, import.meta.url), "utf8"),
+      ),
+    )
+  ).join("\n");
+
+  expect(cssText).toContain("prefers-color-scheme: dark");
+  expect(cssText).toContain("prefers-reduced-motion: reduce");
+  expect(cssText).toContain("--keep-primary");
+  expect(cssText).toContain(".dark");
 });
 
 test("debounces note persistence and saves with Ctrl+Enter", async () => {
@@ -232,6 +272,25 @@ test("links available card titles and blocks unavailable card links", async () =
   expect(onOpen).toHaveBeenCalled();
   expect(screen.queryByRole("link", { name: "Second interaction item" })).toBeNull();
   expect(screen.getByText("Expired")).not.toBeNull();
+  expect(screen.getByText("Second interaction item").getAttribute("aria-disabled")).toBe("true");
+});
+
+test("adds safe defaults for external detail links and exposes removed status", async () => {
+  const removedItem = { ...item, id: "removed-item", status: "removed" as const };
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, removedItem])}>
+      <KeepItemCard item={item} href="https://example.com/items/ui-interaction-item" />
+      <KeepItemCard item={removedItem} href="/items/removed" />
+    </KeepProvider>,
+  );
+
+  const externalLink = await screen.findByRole("link", { name: "Interaction item" });
+  expect(externalLink.getAttribute("target")).toBe("_blank");
+  expect(externalLink.getAttribute("rel")).toBe("noreferrer");
+  const removedCard = screen.getByText("Removed").closest('[data-keepkit="card"]');
+  expect(removedCard?.getAttribute("data-item-status")).toBe("removed");
+  expect(removedCard?.getAttribute("aria-disabled")).toBe("true");
+  expect(removedCard?.querySelector('[data-link-disabled="true"]')?.textContent).toBe("Interaction item");
 });
 
 test("offers localized stale-item recovery actions and bulk cleanup", async () => {
@@ -294,6 +353,11 @@ test("surfaces sync conflicts and delegates server resolution from the recovery 
   );
 
   expect((await screen.findAllByText("Some changes need conflict resolution.")).length).toBe(2);
+  expect(screen.getByLabelText("Local")).not.toBeNull();
+  expect(screen.getByLabelText("Remote")).not.toBeNull();
+  expect(screen.getByText("old note")).not.toBeNull();
+  expect(screen.getByText("server note")).not.toBeNull();
+  expect(screen.getAllByText("1970-01-01")).toHaveLength(2);
   fireEvent.click(screen.getByRole("button", { name: "Use server" }));
   await waitFor(() => expect(screen.queryByText("Some changes need conflict resolution.")).toBeNull());
 });

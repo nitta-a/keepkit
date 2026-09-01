@@ -56,8 +56,9 @@ function SavedArticles() {
 
 `keep.Collection`は検索、ソート、ページング、loading / empty / error、ARIA live通知を標準で提供します。検索は既定で300msデバウンスされます。`features={{ tagFilter: true, bulkActions: true }}`でタグフィルターと一括操作も有効にできます。個別の`KeepList`、`KeepSearchInput`、`KeepSortSelect`、`KeepPagination`、`KeepItemCheckbox`、`KeepTagEditor`などは高度なレイアウト用に利用できます。`KeepBulkActions`はrender propsで操作UIを差し替えられ、`isAllSelected` / `toggleSelectAll`で表示中アイテムを一括操作できます。`KeepNoteEditor`は既定300msのデバウンス保存に対応し、`debounceMs={0}`でフォーム送信のみへ戻せます。通知領域だけを明示的に置く場合は`KeepAnnouncer`（`KeepAnnouncements`のalias）を使えます。
 `KeepItemCard`は`href`、`onOpen`、`linkTarget`、`linkComponent`に対応し、保存アイテムから詳細ページへ遷移できます。非公開・期限切れ等の`status`を持つアイテムは自動的にリンクを無効化します。`KeepBackup`はJSONのエクスポート、merge / replaceインポート、結果件数、容量エラー表示を提供します。
+外部URLの詳細リンクには`target="_blank"`と`rel="noreferrer"`が既定で補完され、利用できないカードには`aria-disabled="true"`と`data-item-status`が付与されます。同期競合ダイアログではローカルとリモートの更新日時・メモを並べて確認できます。
 
-v0.13.0では`KeepCollection urlSync layout="list" | "grid" | "compact"`、`KeepBulkActions selectionScope="page" | "query" | "all"`、`KeepUndo`を利用できます。`createNextPagesRouterAdapter`はNext.js Pages Router用の注入adapterです。`locale`は英語、日本語、韓国語、中国語簡体字・繁体字、タイ語、フランス語、スペイン語、ポルトガル語、イタリア語、ドイツ語、ロシア語、フィリピン語、ベトナム語、インドネシア語、マレー語の16言語に対応し、`labels`で上書きできます。認証付き同期は`createAuthenticatedSyncKit`から利用できます。
+v0.14.0では`KeepCollection urlSync layout="list" | "grid" | "compact"`、`KeepBulkActions selectionScope="page" | "query" | "all"`、`KeepUndo`を利用できます。`createNextPagesRouterAdapter`はNext.js Pages Router用の注入adapterです。`locale`は英語、日本語、韓国語、中国語簡体字・繁体字、タイ語、フランス語、スペイン語、ポルトガル語、イタリア語、ドイツ語、ロシア語、フィリピン語、ベトナム語、インドネシア語、マレー語の16言語に対応し、`labels`で上書きできます。認証付き同期は`createAuthenticatedSyncKit`から利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -142,8 +143,9 @@ function SavedArticles() {
 
 `keep.Collection` includes search, sorting, pagination, loading/empty/error states, and polite live announcements. Search is debounced by 300ms by default. Enable `features={{ tagFilter: true, bulkActions: true }}` for tag filtering and bulk operations. Use the individual `KeepList`, `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, and `KeepTagEditor` primitives when you need a custom layout. `KeepBulkActions` supports render props and exposes `isAllSelected` / `toggleSelectAll` for visible-item selection. `KeepNoteEditor` auto-saves dirty notes after 300ms by default; set `debounceMs={0}` to use form submission only. Mount `KeepAnnouncer` (`KeepAnnouncements` alias) when you need the live region explicitly.
 `KeepItemCard` accepts `href`, `onOpen`, `linkTarget`, and `linkComponent` for detail-page navigation. Links are disabled for unavailable `status` values such as private or expired. `KeepBackup` provides JSON export, merge/replace import, result counts, and quota-error messaging.
+External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, and the sync recovery dialog compares local and remote updated dates and notes side by side.
 
-In v0.13.0, use `KeepCollection urlSync` with `layout="list" | "grid" | "compact"`, `KeepBulkActions selectionScope="page" | "query" | "all"`, and `KeepUndo`. `createNextPagesRouterAdapter` is the injected adapter for Next.js Pages Router. `locale` includes complete dictionaries for 16 built-in locales; `labels` overrides individual entries. Authenticated sync is available through `createAuthenticatedSyncKit`.
+In v0.14.0, use `KeepCollection urlSync` with `layout="list" | "grid" | "compact"`, `KeepBulkActions selectionScope="page" | "query" | "all"`, and `KeepUndo`. `createNextPagesRouterAdapter` is the injected adapter for Next.js Pages Router. `locale` includes complete dictionaries for 16 built-in locales; `labels` overrides individual entries. Authenticated sync is available through `createAuthenticatedSyncKit`.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme

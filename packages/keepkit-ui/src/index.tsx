@@ -43,7 +43,7 @@ import {
   type KeepItemCardState,
 } from "./KeepItemCard";
 import { KeepItemCheckbox, type KeepItemCheckboxProps } from "./KeepItemCheckbox";
-import { KeepItemStatusBadge, type KeepItemStatusBadgeProps } from "./KeepItemStatusBadge";
+import { type KeepDisplayStatus, KeepItemStatusBadge, type KeepItemStatusBadgeProps } from "./KeepItemStatusBadge";
 import { KeepLayout, type KeepLayoutProps } from "./KeepLayout";
 import { KeepList, type KeepListProps, type KeepListState } from "./KeepList";
 import { KeepNoteEditor, type KeepNoteEditorProps, type KeepNoteEditorState } from "./KeepNoteEditor";
@@ -209,6 +209,7 @@ export type {
   KeepButtonProps,
   KeepCollectionFeature,
   KeepCollectionProps,
+  KeepDisplayStatus,
   KeepEmptyStateProps,
   KeepImageProps,
   KeepItemCardLinkProps,

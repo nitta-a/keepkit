@@ -42,6 +42,10 @@ export function KeepSyncRecoveryDialog<TMeta = Record<string, unknown>>({
   const keepLocalLabel = useUiLabel("keepLocal");
   const useServerLabel = useUiLabel("useServer");
   const manualMergeLabel = useUiLabel("manualMerge");
+  const localVersionLabel = useUiLabel("localVersion");
+  const remoteVersionLabel = useUiLabel("remoteVersion");
+  const updatedAtLabel = useUiLabel("updatedAt");
+  const noteLabel = useUiLabel("note");
   const backupRecoveryLabel = useUiLabel("backupRecovery");
   const backupRecoveryDescription = useUiLabel("backupRecoveryDescription");
   const errorLabel = useUiLabel("error");
@@ -82,6 +86,8 @@ export function KeepSyncRecoveryDialog<TMeta = Record<string, unknown>>({
       role="dialog"
       aria-modal="true"
       aria-labelledby="keepkit-sync-recovery-title"
+      aria-describedby={error ? "keepkit-sync-recovery-error" : undefined}
+      aria-busy={busyId !== undefined}
       data-keepkit="sync-recovery"
       data-state={conflictList.length > 0 ? "conflict" : "error"}
       data-loading={busyId !== undefined ? "true" : undefined}
@@ -99,6 +105,22 @@ export function KeepSyncRecoveryDialog<TMeta = Record<string, unknown>>({
           {conflictList.map((conflict) => (
             <article key={conflict.id} data-conflict-id={conflict.id}>
               <h3>{getMetaTitle(conflict.operation.item?.meta) ?? conflict.id}</h3>
+              <div data-conflict-preview>
+                <ConflictPreview
+                  item={conflict.operation.item}
+                  heading={localVersionLabel}
+                  updatedAtLabel={updatedAtLabel}
+                  noteLabel={noteLabel}
+                  side="local"
+                />
+                <ConflictPreview
+                  item={conflict.remote}
+                  heading={remoteVersionLabel}
+                  updatedAtLabel={updatedAtLabel}
+                  noteLabel={noteLabel}
+                  side="remote"
+                />
+              </div>
               <div>
                 <button type="button" onClick={() => void resolve(conflict, "local")} disabled={busyId !== undefined}>
                   {keepLocalLabel}
@@ -125,7 +147,51 @@ export function KeepSyncRecoveryDialog<TMeta = Record<string, unknown>>({
           {backup ?? (showBackupControls ? <KeepBackup /> : null)}
         </section>
       ) : null}
-      {error ? <p role="alert">{error instanceof Error ? error.message : errorLabel}</p> : null}
+      {error ? (
+        <p id="keepkit-sync-recovery-error" role="alert" aria-live="assertive">
+          {error instanceof Error ? error.message : errorLabel}
+        </p>
+      ) : null}
     </section>
   );
+}
+
+function ConflictPreview<TMeta>({
+  item,
+  heading,
+  updatedAtLabel,
+  noteLabel,
+  side,
+}: {
+  item?: KeepItem<TMeta>;
+  heading: string;
+  updatedAtLabel: string;
+  noteLabel: string;
+  side: "local" | "remote";
+}) {
+  return (
+    <article data-conflict-version={side} aria-label={heading}>
+      <h4>{heading}</h4>
+      <dl>
+        <div>
+          <dt>{updatedAtLabel}</dt>
+          <dd>
+            {item ? (
+              <time dateTime={new Date(item.updatedAt).toISOString()}>{formatConflictDate(item.updatedAt)}</time>
+            ) : (
+              "—"
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>{noteLabel}</dt>
+          <dd>{item?.note || "—"}</dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
+function formatConflictDate(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10);
 }

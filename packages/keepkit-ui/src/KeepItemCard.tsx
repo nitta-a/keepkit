@@ -118,6 +118,10 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
   const imageProps = getImageProps?.(item, resolvedTitle);
   const href = typeof hrefOption === "function" ? hrefOption(item) : hrefOption;
   const isAvailable = item.status === undefined || item.status === "available";
+  const displayStatus = getDisplayStatus(item.status);
+  const isExternalLink = href ? isExternalHref(href) : false;
+  const resolvedLinkTarget = linkTargetAttribute ?? (isExternalLink ? "_blank" : undefined);
+  const resolvedLinkRel = linkRel ?? (isExternalLink ? "noreferrer" : undefined);
   const statusLabelKey = item.status && item.status !== "available" ? getStatusLabelKey(item.status) : "statusUnknown";
   const unavailableLabel = useUiLabel(statusLabelKey);
   const tagsLabel = useUiLabel("tags");
@@ -127,8 +131,8 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
     if (!href || !isAvailable) return content;
     const linkProps: KeepItemCardLinkProps = {
       href,
-      target: linkTargetAttribute,
-      rel: linkRel,
+      target: resolvedLinkTarget,
+      rel: resolvedLinkRel,
       onClick: (event) => onOpen?.(item, event),
       children: content,
     };
@@ -158,7 +162,21 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
                   <img {...imageProps} alt={imageAlt ?? imageProps.alt} />
                 )))
               : null}
-            <h3>{linkTarget === "title" ? renderLink(resolvedTitle) : resolvedTitle}</h3>
+            <h3>
+              {linkTarget === "title" ? (
+                isAvailable ? (
+                  renderLink(resolvedTitle)
+                ) : href ? (
+                  <span aria-disabled="true" data-link-disabled="true">
+                    {resolvedTitle}
+                  </span>
+                ) : (
+                  resolvedTitle
+                )
+              ) : (
+                resolvedTitle
+              )}
+            </h3>
             {showSavedAt ? (
               <div data-card-meta>
                 <span>{savedAtLabel}:</span>{" "}
@@ -195,7 +213,7 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
           </>
         ));
 
-  const linkedBody = linkTarget === "card" ? renderLink(body) : body;
+  const linkedBody = linkTarget === "card" && isAvailable ? renderLink(body) : body;
   return renderRoot(
     asChild,
     isValidElement(children) ? children : undefined,
@@ -204,8 +222,10 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
       className,
       "data-keepkit": "card",
       "aria-busy": itemState.isMutating || rootProps["aria-busy"],
+      "aria-disabled": rootProps["aria-disabled"] ?? (!isAvailable ? "true" : undefined),
       "data-state": itemState.error ? "error" : itemState.isSaved ? "saved" : "unsaved",
       "data-status": item.status ?? "available",
+      "data-item-status": displayStatus,
       "data-loading": itemState.isMutating ? "true" : undefined,
     },
     linkedBody,
@@ -228,6 +248,17 @@ function getStatusLabelKey(
     default:
       return "statusUnknown";
   }
+}
+
+function getDisplayStatus(status: KeepItem["status"]): "available" | "expired" | "removed" | "restricted" {
+  if (status === undefined || status === "available") return "available";
+  if (status === "expired") return "expired";
+  if (status === "removed") return "removed";
+  return "restricted";
+}
+
+function isExternalHref(href: string): boolean {
+  return /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href);
 }
 
 function formatSavedAt(timestamp: number): string {

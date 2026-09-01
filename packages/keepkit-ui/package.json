@@ -1,6 +1,6 @@
 {
   "name": "@keepkit/ui",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "Headless, accessible React UI components for KeepKit.",
   "type": "module",
   "license": "MIT",

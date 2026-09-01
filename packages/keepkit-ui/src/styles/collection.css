@@ -11,34 +11,34 @@
   align-items: center;
 }
 
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > ul,
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > [data-layout] {
-  /* biome-ignore lint/complexity/noImportantStyles: Theme layout must override the primitive's inline layout. */
-  display: grid !important;
+:where(.keep-theme, [data-keep-theme])
+  :is([data-keepkit="layout"], [data-keepkit="list"] > ul, [data-keepkit="list"] > [data-layout]) {
+  display: grid;
   grid-template-columns: repeat(var(--keep-list-columns), minmax(0, 1fr));
-  /* biome-ignore lint/complexity/noImportantStyles: Theme layout must override the primitive's inline layout. */
-  gap: var(--keep-list-gap) !important;
+  gap: var(--keep-list-gap);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"][data-layout="grid"] > ul,
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"][data-layout="grid"] > [data-layout] {
+:where(.keep-theme, [data-keep-theme])
+  :is(
+    [data-keepkit="layout"][data-layout="grid"],
+    [data-keepkit="list"] > ul[data-layout="grid"],
+    [data-keepkit="list"] > [data-layout="grid"]
+  ) {
   --keep-list-columns: var(--keep-grid-columns);
 }
 
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > ul[data-layout="grid"] {
-  --keep-list-columns: var(--keep-grid-columns);
-}
-
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"][data-layout="compact"] > ul,
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"][data-layout="compact"] > [data-layout] {
-  --keep-list-columns: var(--keep-compact-columns);
-  --keep-list-gap: 0.5rem;
-}
-
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > ul[data-layout="compact"] {
+:where(.keep-theme, [data-keep-theme])
+  :is(
+    [data-keepkit="layout"][data-layout="compact"],
+    [data-keepkit="list"] > ul[data-layout="compact"],
+    [data-keepkit="list"] > [data-layout="compact"]
+  ) {
   --keep-list-columns: var(--keep-compact-columns);
   --keep-list-gap: 0.5rem;
 }
@@ -86,13 +86,14 @@
   font-size: 0.8125rem;
 }
 
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-status="expired"],
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-status="removed"] {
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-item-status="expired"],
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-item-status="removed"],
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-item-status="restricted"] {
   opacity: 0.72;
 }
 
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-status="removed"],
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-status="deleted"] {
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-item-status="removed"],
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-item-status="restricted"] {
   animation: keepkit-card-fade-out 180ms ease-out;
 }
 
@@ -127,9 +128,15 @@
 }
 
 @media (max-width: 48rem) {
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="list"][data-layout="grid"] > ul,
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="list"][data-layout="grid"] > [data-layout],
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > ul[data-layout="grid"] {
+  :where(.keep-theme, [data-keep-theme])
+    :is(
+      [data-keepkit="layout"][data-layout="grid"],
+      [data-keepkit="layout"][data-layout="compact"],
+      [data-keepkit="list"] > ul[data-layout="grid"],
+      [data-keepkit="list"] > ul[data-layout="compact"],
+      [data-keepkit="list"] > [data-layout="grid"],
+      [data-keepkit="list"] > [data-layout="compact"]
+    ) {
     --keep-list-columns: 2;
   }
 }
@@ -139,9 +146,15 @@
     --keep-list-columns: var(--keep-mobile-columns);
     --keep-thumbnail-size: 4rem;
   }
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="list"][data-layout="grid"] > ul,
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="list"][data-layout="grid"] > [data-layout],
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > ul[data-layout="grid"] {
+  :where(.keep-theme, [data-keep-theme])
+    :is(
+      [data-keepkit="layout"][data-layout="grid"],
+      [data-keepkit="layout"][data-layout="compact"],
+      [data-keepkit="list"] > ul[data-layout="grid"],
+      [data-keepkit="list"] > ul[data-layout="compact"],
+      [data-keepkit="list"] > [data-layout="grid"],
+      [data-keepkit="list"] > [data-layout="compact"]
+    ) {
     --keep-list-columns: var(--keep-mobile-columns);
   }
 }

@@ -1,5 +1,29 @@
 # Release notes
 
+## [0.14.0] - 2026-09-02
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepLayout`、`KeepList`、`KeepCollection`のレイアウト指定を安定した`data-layout`属性へ統一し、テーマCSSからレスポンシブに適用できるようにしました。
+- `KeepItemCard`と`KeepItemStatusBadge`の状態表示を強化し、期限切れ・削除済み・制限付きアイテムを明示できるようにしました。
+- 外部詳細リンクに`target="_blank"`と`rel="noreferrer"`を既定設定し、利用できないアイテムのリンクを無効化しました。
+- 同期競合復旧ダイアログにローカル／リモートの更新日時とメモの比較表示、busy・errorのアクセシビリティ属性を追加しました。
+- テーマCSSのダークモード、reduced-motion、保存アニメーション、状態別スタイル、16言語の追加ラベルを整備しました。
+- `@keepkit/core`と`@keepkit/ui`を`0.14.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Standardized `data-layout` attributes across `KeepLayout`, `KeepList`, and `KeepCollection` so responsive layouts can be applied from theme CSS.
+- Strengthened status presentation in `KeepItemCard` and `KeepItemStatusBadge` for expired, removed, and restricted items.
+- Added safe defaults of `target="_blank"` and `rel="noreferrer"` for external detail links and disabled links for unavailable items.
+- Added local/remote updated-at and note previews plus busy and error accessibility attributes to the sync recovery dialog.
+- Improved theme CSS for dark mode, reduced motion, save feedback animation, state styling, and the additional labels across all 16 locales.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.14.0`.
+
 ## [0.13.0] - 2026-09-01
 
 ### 日本語
