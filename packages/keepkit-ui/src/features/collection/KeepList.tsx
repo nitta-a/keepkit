@@ -2,8 +2,14 @@
 
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps, type UseKeepListResult } from "@keepkit/core/react";
-import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
-import { KeepSearchQueryProvider, type RenderProp, renderRoot, resolveContent } from "../../foundation/shared";
+import { type HTMLAttributes, isValidElement, type ReactNode, type Ref } from "react";
+import {
+  composeRefs,
+  KeepSearchQueryProvider,
+  type RenderProp,
+  renderRoot,
+  resolveContent,
+} from "../../foundation/shared";
 import { KeepItemCard, type KeepItemCardProps, KeepItemCardSkeleton } from "../item/KeepItemCard";
 import { KeepEmptyState } from "../status/KeepEmptyState";
 import { useKeepListView } from "./hooks/useKeepListView";
@@ -13,6 +19,7 @@ import type { KeepLayoutPreset } from "./KeepCollection";
 export type KeepListState<TMeta = Record<string, unknown>> = UseKeepListResult<TMeta>;
 
 export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
+  ref?: Ref<HTMLElement> | { readonly current: unknown };
   query?: KeepListQuery<TMeta>;
   children?: ReactNode | RenderProp<KeepListState<TMeta>>;
   renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
@@ -91,7 +98,7 @@ function KeepListContent<TMeta = Record<string, unknown>>({
       "data-loading": state.isLoading ? "true" : undefined,
       "data-roving-tabindex": "true",
       role: rootProps.role ?? "group",
-      ref: roving.ref,
+      ref: composeRefs(roving.ref as Ref<HTMLElement>, rootProps.ref as Ref<HTMLElement>),
       onKeyDown: (event) => {
         onKeyDown?.(event);
         if (!event.defaultPrevented) roving.onKeyDown(event);

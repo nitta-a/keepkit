@@ -1,7 +1,16 @@
 "use client";
 
 import type { KeepListQuery } from "@keepkit/core/core";
-import { type HTMLAttributes, isValidElement, type ReactElement, type ReactNode } from "react";
+import {
+  type HTMLAttributes,
+  isValidElement,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+  type Ref,
+  useRef,
+} from "react";
 import { type RenderProp, renderRoot } from "../../foundation/shared";
 import { useUiLabel } from "../../foundation/ui-context";
 
@@ -9,6 +18,7 @@ export type KeepActiveFiltersSummaryProps<TMeta = Record<string, unknown>> = Omi
   HTMLAttributes<HTMLElement>,
   "children"
 > & {
+  ref?: Ref<HTMLElement> | { readonly current: unknown };
   query?: KeepListQuery<TMeta>;
   search?: string;
   tags?: readonly string[];
@@ -48,6 +58,44 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
   const clearAllLabel = useUiLabel("clearAllFilters");
   const clearLabel = useUiLabel("clearFilters");
   const removeLabel = useUiLabel("removeFilter");
+  const chipRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const filterCount = Number(Boolean(search)) + tags.length;
+
+  function focusChip(index: number): void {
+    chipRefs.current[index]?.focus();
+  }
+
+  function focusAfterRemoval(index: number, source: HTMLElement): void {
+    const summaryRoot = source.closest<HTMLElement>('[data-keepkit="active-filters"]');
+    const fallbackScope =
+      source.closest<HTMLElement>('[data-keepkit="collection"]') ?? summaryRoot?.parentElement ?? source.parentElement;
+    queueMicrotask(() => {
+      const nextIndex = index < filterCount - 1 ? index : index - 1;
+      const nextChip = nextIndex >= 0 ? chipRefs.current[nextIndex] : null;
+      if (nextChip?.isConnected) {
+        nextChip.focus();
+        return;
+      }
+      focusFilterFallback(fallbackScope);
+    });
+  }
+
+  function handleChipKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number): void {
+    const nextIndex = event.key === "ArrowRight" ? index + 1 : event.key === "ArrowLeft" ? index - 1 : -1;
+    if (nextIndex < 0 || nextIndex >= filterCount || !chipRefs.current[nextIndex]) return;
+    event.preventDefault();
+    focusChip(nextIndex);
+  }
+
+  function removeSearch(event: MouseEvent<HTMLButtonElement>): void {
+    focusAfterRemoval(0, event.currentTarget);
+    onSearchChange?.("");
+  }
+
+  function removeTag(tag: string, index: number, event: MouseEvent<HTMLButtonElement>): void {
+    focusAfterRemoval(index, event.currentTarget);
+    onTagChange?.(tag);
+  }
   const state: KeepActiveFiltersSummaryState = {
     search,
     tags,
@@ -72,20 +120,28 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
                     type="button"
                     data-keep-action="remove-search-filter"
                     aria-label={`${search} ${removeLabel}`}
-                    onClick={state.removeSearch}
+                    ref={(element) => {
+                      chipRefs.current[0] = element;
+                    }}
+                    onKeyDown={(event) => handleChipKeyDown(event, 0)}
+                    onClick={removeSearch}
                   >
                     ×
                   </button>
                 </li>
               ) : null}
-              {tags.map((tag) => (
+              {tags.map((tag, tagIndex) => (
                 <li key={tag} data-filter-kind="tag">
                   <span data-filter-value="true">{tag}</span>
                   <button
                     type="button"
                     data-keep-action="remove-tag-filter"
                     aria-label={`${tag} ${removeLabel}`}
-                    onClick={() => state.removeTag(tag)}
+                    ref={(element) => {
+                      chipRefs.current[tagIndex + Number(Boolean(search))] = element;
+                    }}
+                    onKeyDown={(event) => handleChipKeyDown(event, tagIndex + Number(Boolean(search)))}
+                    onClick={(event) => removeTag(tag, tagIndex + Number(Boolean(search)), event)}
                   >
                     ×
                   </button>
@@ -120,4 +176,24 @@ function normalizeTags(tags: readonly string[]): string[] {
 
 function isElement(value: unknown): value is ReactElement {
   return isValidElement(value);
+}
+
+function focusFilterFallback(scope: HTMLElement | null): void {
+  const searchInput = scope?.querySelector<HTMLElement>('[data-keep-action="search"]');
+  if (searchInput) {
+    searchInput.focus();
+    return;
+  }
+
+  const listCard = scope?.querySelector<HTMLElement>('[data-keepkit="card"][tabindex="0"]');
+  if (listCard) {
+    listCard.focus();
+    return;
+  }
+
+  const list = scope?.querySelector<HTMLElement>('[data-keepkit="list"]');
+  if (list) {
+    if (!list.hasAttribute("tabindex")) list.tabIndex = -1;
+    list.focus();
+  }
 }

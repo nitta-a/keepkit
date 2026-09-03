@@ -5,13 +5,14 @@ import {
   type KeepButtonProps as CoreKeepButtonProps,
   type KeepButtonState,
 } from "@keepkit/core/react";
-import { createElement, type MouseEvent, type ReactNode, useEffect, useRef } from "react";
+import { createElement, type MouseEvent, type ReactNode, type Ref, useEffect, useRef } from "react";
 import type { KeepButtonIcon, KeepButtonIcons, KeepButtonLabels } from "../../foundation/shared";
 import { useKeepButton } from "./hooks/useKeepButton";
 
 export type { KeepButtonIcon, KeepButtonIconProps, KeepButtonIcons, KeepButtonLabels } from "../../foundation/shared";
 
 export type KeepButtonProps<TMeta = Record<string, unknown>> = CoreKeepButtonProps<TMeta> & {
+  ref?: Ref<HTMLElement> | { readonly current: unknown };
   labels?: KeepButtonLabels;
   icons?: KeepButtonIcons;
   iconOnly?: boolean;

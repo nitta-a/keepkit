@@ -10,7 +10,10 @@ import {
   isValidElement,
   type ReactElement,
   type ReactNode,
+  type Ref,
+  type RefCallback,
   useContext,
+  useMemo,
 } from "react";
 
 export type RenderProp<TState> = (state: TState) => ReactNode;
@@ -39,9 +42,11 @@ export type KeepHighlightProps = {
 export function KeepHighlight({ children, query }: KeepHighlightProps): ReactNode {
   const contextQuery = useKeepSearchQuery();
   const resolvedQuery = query ?? contextQuery;
-  if (typeof children !== "string" || !resolvedQuery?.trim()) return children ?? null;
-
-  return highlightText(children, resolvedQuery);
+  const normalizedQuery = resolvedQuery?.trim() ?? "";
+  return useMemo(() => {
+    if (typeof children !== "string" || !normalizedQuery) return children ?? null;
+    return highlightText(children, normalizedQuery);
+  }, [children, normalizedQuery]);
 }
 
 export function highlightText(text: string, query: string): ReactNode {
@@ -128,6 +133,19 @@ export function resolveContent<TState>(content: ReactNode | RenderProp<TState>, 
 
 type MergeableProps = Record<string, unknown>;
 
+/** Combines callback and object refs while preserving every ref target. */
+export function composeRefs<T>(...refs: Array<Ref<T> | null | undefined>): RefCallback<T> {
+  return (value) => {
+    for (const ref of refs) {
+      if (typeof ref === "function") {
+        ref(value);
+      } else if (ref !== null && ref !== undefined) {
+        ref.current = value;
+      }
+    }
+  };
+}
+
 /** Chains child and component event handlers while preserving both handlers' event order. */
 export function chainedFunction<T extends (...args: never[]) => unknown>(
   childHandler: T | undefined,
@@ -144,6 +162,12 @@ export function chainedFunction<T extends (...args: never[]) => unknown>(
 /** Merges slot props without dropping child classes, styles, ARIA attributes, or events. */
 export function mergeProps<T extends MergeableProps>(childProps: T, parentProps: Partial<T> & MergeableProps): T {
   const merged: MergeableProps = { ...parentProps, ...childProps };
+  if ("ref" in childProps || "ref" in parentProps) {
+    merged.ref = composeRefs(
+      childProps.ref as Ref<never> | null | undefined,
+      parentProps.ref as Ref<never> | null | undefined,
+    );
+  }
   const className = mergeClassNames(childProps.className, parentProps.className);
   if (className) merged.className = className;
   const style = mergeStyles(childProps.style, parentProps.style);

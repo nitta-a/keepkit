@@ -11,6 +11,7 @@ import {
   isValidElement,
   type MouseEvent,
   type ReactNode,
+  type Ref,
   type SyntheticEvent,
   useContext,
   useEffect,
@@ -51,6 +52,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   HTMLAttributes<HTMLElement>,
   "children" | "title"
 > & {
+  ref?: Ref<HTMLElement> | { readonly current: unknown };
   item: KeepItem<TMeta>;
   title?: ReactNode | ((item: KeepItem<TMeta>) => ReactNode);
   getTitle?: (item: KeepItem<TMeta>) => ReactNode;

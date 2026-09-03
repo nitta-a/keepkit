@@ -8,7 +8,7 @@ import type {
 } from "@keepkit/core/core";
 import { useKeepContext } from "@keepkit/core/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { createRef, useState } from "react";
 import { expect, test, vi } from "vitest";
 import {
   KeepActiveFiltersSummary,
@@ -134,6 +134,44 @@ test("removes individual active filters and clears all filters", () => {
   expect(screen.queryByRole("button", { name: "すべての条件をクリア" })).toBeNull();
 });
 
+test("moves focus to the adjacent chip after removal and falls back to search", async () => {
+  function FilterFocusProbe() {
+    const [search, setSearch] = useState("react");
+    const [tags, setTags] = useState(["read", "work"]);
+    return (
+      <KeepActiveFiltersSummary
+        search={search}
+        tags={tags}
+        onSearchChange={setSearch}
+        onTagChange={(tag) => setTags((current) => current.filter((value) => value !== tag))}
+      />
+    );
+  }
+
+  render(
+    <KeepUiProvider locale="ja">
+      <KeepSearchInput data-testid="filter-search" />
+      <FilterFocusProbe />
+    </KeepUiProvider>,
+  );
+
+  const readChip = screen.getByRole("button", { name: "read を解除" });
+  const workChip = screen.getByRole("button", { name: "work を解除" });
+  fireEvent.keyDown(workChip, { key: "ArrowLeft" });
+  expect(document.activeElement).toBe(readChip);
+  fireEvent.keyDown(readChip, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(workChip);
+
+  fireEvent.click(readChip);
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "work を解除" })));
+
+  fireEvent.click(screen.getByRole("button", { name: "work を解除" }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "react を解除" })));
+
+  fireEvent.click(screen.getByRole("button", { name: "react を解除" }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("filter-search")));
+});
+
 test("renders a context-aware filtered empty state and clears the query", async () => {
   function FilteredList() {
     const [search, setSearch] = useState("missing");
@@ -171,6 +209,48 @@ test("merges slot classes, styles, ARIA values, and chained click handlers", () 
   expect(merged["aria-label"]).toBe("Child");
   (merged.onClick as () => void)();
   expect(calls).toEqual(["child", "parent"]);
+});
+
+test("composes callback and object refs for slots and asChild controls", async () => {
+  const childRef = createRef<HTMLElement>();
+  const parentRef = createRef<HTMLElement>();
+  const merged = mergeProps({ ref: childRef }, { ref: parentRef });
+  const element = document.createElement("div");
+  (merged.ref as (value: HTMLElement | null) => void)(element);
+  expect(childRef.current).toBe(element);
+  expect(parentRef.current).toBe(element);
+  const callbackRef = vi.fn<(value: HTMLElement | null) => void>();
+  const callbackMerged = mergeProps({ ref: callbackRef }, {});
+  (callbackMerged.ref as (value: HTMLElement | null) => void)(element);
+  expect(callbackRef).toHaveBeenCalledWith(element);
+
+  const buttonChildRef = createRef<HTMLAnchorElement>();
+  const buttonParentRef = createRef<HTMLAnchorElement>();
+  render(
+    <KeepProvider<Meta> storage={createStorage()}>
+      <KeepButton item={item} asChild ref={buttonParentRef}>
+        <a href="/saved" ref={buttonChildRef}>
+          Save
+        </a>
+      </KeepButton>
+    </KeepProvider>,
+  );
+  const link = await screen.findByRole("button", { name: "Save article: Interaction item" });
+  expect(buttonChildRef.current).toBe(link);
+  expect(buttonParentRef.current).toBe(link);
+
+  const listChildRef = createRef<HTMLDivElement>();
+  const listParentRef = createRef<HTMLDivElement>();
+  render(
+    <KeepProvider<Meta> storage={createStorage()}>
+      <KeepList asChild ref={listParentRef}>
+        <div ref={listChildRef} />
+      </KeepList>
+    </KeepProvider>,
+  );
+  const list = await screen.findByRole("group");
+  expect(listChildRef.current).toBe(list);
+  expect(listParentRef.current).toBe(list);
 });
 
 test("renders semantic shortcut hints in tour and note actions", async () => {
@@ -487,6 +567,22 @@ test("highlights literal, case-insensitive search matches in card titles and con
   const highlight = heading.querySelector('mark.keep-highlight[data-highlight="true"]');
   expect(highlight?.textContent).toBe("Interaction");
   expect(highlight?.className).toBe("keep-highlight");
+});
+
+test("highlights CJK text and regex punctuation literally", async () => {
+  const bracketItem = { ...item, id: "bracket-item", meta: { title: "[test] 日本語" } };
+  const plusItem = { ...item, id: "plus-item", meta: { title: "a+b 日本語" } };
+  render(
+    <KeepProvider<Meta> storage={createStorage([bracketItem, plusItem])}>
+      <KeepItemCard item={bracketItem} highlightQuery="[test]" showSaveButton={false} />
+      <KeepItemCard item={plusItem} highlightQuery="a+b" showSaveButton={false} />
+    </KeepProvider>,
+  );
+
+  const bracketHeading = await screen.findByRole("heading", { name: "[test] 日本語" });
+  const plusHeading = await screen.findByRole("heading", { name: "a+b 日本語" });
+  expect(bracketHeading.querySelector("mark.keep-highlight")?.textContent).toBe("[test]");
+  expect(plusHeading.querySelector("mark.keep-highlight")?.textContent).toBe("a+b");
 });
 
 test("publishes stable card contracts for clamped titles and reserved media space", async () => {

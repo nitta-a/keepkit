@@ -8,6 +8,8 @@ import {
   type MouseEvent,
   type ReactElement,
   type ReactNode,
+  type Ref,
+  type RefCallback,
 } from "react";
 import type { KeepItemInput } from "../../features/items/types";
 import { useKeepItem } from "../hooks/useKeepItem";
@@ -24,6 +26,7 @@ type KeepButtonSharedProps<TMeta> = {
   getAriaLabel?: (state: KeepButtonState<TMeta>) => string;
   disabled?: boolean;
   onToggleError?: (error: unknown) => void;
+  ref?: Ref<HTMLElement> | { readonly current: unknown };
 };
 
 export type KeepButtonProps<TMeta = Record<string, unknown>> = KeepButtonSharedProps<TMeta> &
@@ -65,6 +68,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   onToggleError,
   onClick,
   disabled,
+  ref: providedRef,
   ...buttonProps
 }: KeepButtonProps<TMeta>) {
   const state = useKeepItem(item);
@@ -113,6 +117,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   if (asChild && !isValidElement(child)) {
     throw new Error("KeepButton with asChild requires a single React element child.");
   }
+  const childRef = asChild && isValidElement(child) ? (child.props as { ref?: Ref<HTMLElement> }).ref : undefined;
 
   const commonProps = {
     ...buttonProps,
@@ -134,6 +139,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
       : { disabled: isDisabled }),
     onClick: handleElementClick,
     onKeyDown: handleKeyDown,
+    ...(asChild ? { ref: composeRefs(childRef, providedRef) } : {}),
   };
 
   if (asChild) {
@@ -141,10 +147,23 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   }
 
   return (
-    <button {...commonProps} type={"type" in buttonProps ? (buttonProps.type ?? "button") : "button"}>
+    <button
+      {...commonProps}
+      ref={providedRef as Ref<HTMLButtonElement>}
+      type={"type" in buttonProps ? (buttonProps.type ?? "button") : "button"}
+    >
       {content}
     </button>
   );
+}
+
+function composeRefs<T>(...refs: Array<Ref<T> | { readonly current: unknown } | null | undefined>): RefCallback<T> {
+  return (value) => {
+    for (const ref of refs) {
+      if (typeof ref === "function") ref(value);
+      else if (ref) (ref as { current: T | null }).current = value;
+    }
+  };
 }
 
 function getAccessibleLabel<TMeta>(isSaved: boolean, item: KeepButtonItem<TMeta>, asChild: boolean): string {

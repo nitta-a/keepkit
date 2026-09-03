@@ -241,7 +241,14 @@ export type { KeepSelectionScope } from "./features/actions/KeepBulkActions";
 export { isAllSelected, toggleSelectAll } from "./features/actions/KeepBulkActions";
 export type { KeepEmptyStateVariant } from "./features/status/KeepEmptyState";
 export type { KeepHighlightProps, RenderProp } from "./foundation/shared";
-export { chainedFunction, createSlot, highlightText, KeepHighlight, mergeProps } from "./foundation/shared";
+export {
+  chainedFunction,
+  composeRefs,
+  createSlot,
+  highlightText,
+  KeepHighlight,
+  mergeProps,
+} from "./foundation/shared";
 export type {
   KeepActiveFiltersSummaryProps,
   KeepActiveFiltersSummaryState,

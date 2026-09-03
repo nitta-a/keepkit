@@ -2,13 +2,14 @@
 
 import type { KeepItem } from "@keepkit/core/core";
 import { type UseKeepNavigatorResult, useKeepNavigator } from "@keepkit/core/react";
-import { type HTMLAttributes, type ReactNode, useId } from "react";
+import { type HTMLAttributes, type ReactNode, type Ref, useId } from "react";
 import { getMetaTitle, renderRoot } from "../../foundation/shared";
 import { useKeepUiLabels, useUiLabel } from "../../foundation/ui-context";
 import { type KeepTourShortcutsOptions, useKeepTourShortcuts } from "./hooks/useKeepTourShortcuts";
 import { KeepShortcutHint } from "./KeepShortcutHint";
 
 export type KeepTourBarProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
+  ref?: Ref<HTMLElement> | { readonly current: unknown };
   navigation?: UseKeepNavigatorResult<TMeta>;
   currentId?: string;
   initialIndex?: number;
