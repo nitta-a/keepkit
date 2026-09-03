@@ -11,13 +11,16 @@ import {
   isValidElement,
   type MouseEvent,
   type ReactNode,
+  type SyntheticEvent,
   useContext,
+  useEffect,
+  useState,
 } from "react";
 import { useKeepItemCard } from "./hooks/useKeepItemCard";
 import { KeepButton, type KeepButtonLabels } from "./KeepButton";
 import type { KeepLayoutPreset } from "./KeepCollection";
 import { KeepStaleNotice } from "./KeepStaleNotice";
-import { type RenderProp, renderRoot, toKeepButtonItem } from "./shared";
+import { KeepHighlight, type RenderProp, renderRoot, toKeepButtonItem, useKeepSearchQuery } from "./shared";
 
 export type KeepItemCardState<TMeta = Record<string, unknown>> = {
   item: KeepItem<TMeta>;
@@ -67,6 +70,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   linkComponent?: ComponentType<KeepItemCardLinkProps>;
   linkTargetAttribute?: HTMLAttributeAnchorTarget;
   linkRel?: string;
+  highlightQuery?: string;
 };
 
 export type KeepItemCardMediaProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
@@ -87,6 +91,7 @@ type KeepItemCardCompoundContext = {
   resolvedTitle: ReactNode;
   renderTitle: (content: ReactNode) => ReactNode;
   image: ReactNode | null;
+  imageStatus: "loaded" | "error" | "loading";
   fallbackLabel: string;
   tags: string[];
   tagsLabel: string;
@@ -94,6 +99,7 @@ type KeepItemCardCompoundContext = {
   meta: ReactNode | null;
   error: ReactNode | null;
   actions: ReactNode;
+  renderText: (content: ReactNode) => ReactNode;
 };
 
 const KeepItemCardContext = createContext<KeepItemCardCompoundContext | null>(null);
@@ -131,6 +137,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   linkComponent: LinkComponent,
   linkTargetAttribute,
   linkRel,
+  highlightQuery,
   className,
   ...rootProps
 }: KeepItemCardProps<TMeta>) {
@@ -145,6 +152,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     onRemoveError,
     onRemoved,
   });
+  const contextQuery = useKeepSearchQuery();
+  const searchQuery = highlightQuery ?? contextQuery;
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
 
   function renderLink(content: ReactNode): ReactNode {
@@ -172,14 +181,34 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   }
 
   const resolvedImageProps = view.imageProps ? { ...view.imageProps, alt: imageAlt ?? view.imageProps.alt } : undefined;
-  const image = resolvedImageProps
-    ? (renderImage?.(resolvedImageProps, item) ??
+  const imageSource = resolvedImageProps?.src;
+  const [imageStatus, setImageStatus] = useState<"loaded" | "error" | "loading">(imageSource ? "loading" : "error");
+  useEffect(() => {
+    setImageStatus(imageSource ? "loading" : "error");
+  }, [imageSource]);
+  let image: ReactNode = null;
+  if (resolvedImageProps) {
+    const imagePropsWithHandlers: KeepImageProps = {
+      ...resolvedImageProps,
+      src: resolvedImageProps.src,
+      alt: imageAlt ?? resolvedImageProps.alt,
+      onLoad: (event: SyntheticEvent<HTMLImageElement, Event>) => {
+        resolvedImageProps.onLoad?.(event);
+        setImageStatus("loaded");
+      },
+      onError: (event: SyntheticEvent<HTMLImageElement, Event>) => {
+        resolvedImageProps.onError?.(event);
+        setImageStatus("error");
+      },
+    };
+    image =
+      renderImage?.(imagePropsWithHandlers, item) ??
       (ImageComponent ? (
-        <ImageComponent {...resolvedImageProps} />
+        <ImageComponent {...imagePropsWithHandlers} />
       ) : (
-        <img {...resolvedImageProps} alt={resolvedImageProps.alt} />
-      )))
-    : null;
+        <img {...imagePropsWithHandlers} alt={imagePropsWithHandlers.alt} />
+      ));
+  }
   const tags = showTags ? (item.tags ?? []) : [];
   const renderedTags = showTags && tags.length > 0 ? (renderTags?.(tags, item) ?? null) : null;
   const meta = showSavedAt ? (
@@ -217,7 +246,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   const compoundValue: KeepItemCardCompoundContext = {
     resolvedTitle: view.resolvedTitle,
     renderTitle,
-    image,
+    image: imageStatus === "error" ? null : image,
+    imageStatus,
     fallbackLabel: String(view.resolvedTitle),
     tags,
     tagsLabel: view.labels.tags,
@@ -225,6 +255,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     meta,
     error,
     actions,
+    renderText: (content) => <KeepHighlight query={searchQuery}>{content}</KeepHighlight>,
   };
   const defaultBody = (
     <>
@@ -262,10 +293,10 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
 function KeepItemCardMedia({ children, fallback, ...props }: KeepItemCardMediaProps) {
   const context = useKeepItemCardCompound("Media");
   return (
-    <div {...props} data-keep-card-part="media">
+    <div {...props} data-keep-card-part="media" data-media-status={context.imageStatus}>
       {children ?? context.image ?? (
         <span role="img" aria-label={context.fallbackLabel} data-keep-card-fallback="true">
-          {fallback ?? context.fallbackLabel.slice(0, 1)}
+          {fallback ?? <KeepMediaPlaceholderIcon />}
         </span>
       )}
     </div>
@@ -276,13 +307,15 @@ function KeepItemCardContent({ children, ...props }: KeepItemCardContentProps) {
   const context = useKeepItemCardCompound("Content");
   return (
     <div {...props} data-keep-card-part="content">
-      {children ?? (
+      {children === undefined ? (
         <>
           <KeepItemCardTitle />
           {context.meta}
           <KeepItemCardTags />
           {context.error}
         </>
+      ) : (
+        context.renderText(children)
       )}
     </div>
   );
@@ -293,7 +326,21 @@ function KeepItemCardTitle({ as = "h3", children, ...props }: KeepItemCardTitleP
   return createElement(
     as,
     { ...props, "data-keep-card-part": "title" },
-    context.renderTitle(children ?? context.resolvedTitle),
+    context.renderTitle(context.renderText(children ?? context.resolvedTitle)),
+  );
+}
+
+function KeepMediaPlaceholderIcon() {
+  return (
+    <svg data-media-fallback-icon="true" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-13Z"
+        fill="none"
+        stroke="currentColor"
+      />
+      <circle cx="9" cy="9" r="1.5" fill="currentColor" />
+      <path d="m5.5 18 4.5-4.5 3 3 2-2L19 18" fill="none" stroke="currentColor" />
+    </svg>
   );
 }
 

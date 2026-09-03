@@ -1,3 +1,4 @@
+import { orderKeepItems } from "./navigation";
 import type { KeepItem } from "./types";
 
 export type KeepListQuery<TMeta = Record<string, unknown>> = {
@@ -53,7 +54,7 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
   const tagCounts = getTagCounts(filtered);
   const sortBy = query.sort?.by;
   const direction = query.sort?.direction === "asc" ? 1 : -1;
-  const sorted = sortBy ? [...filtered].sort((a, b) => (a[sortBy] - b[sortBy]) * direction) : filtered;
+  const sorted = sortBy ? [...filtered].sort((a, b) => (a[sortBy] - b[sortBy]) * direction) : orderKeepItems(filtered);
   const pageSize = Math.max(1, query.pagination?.pageSize ?? (sorted.length || 1));
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
   const page = Math.min(Math.max(1, query.pagination?.page ?? 1), pageCount);

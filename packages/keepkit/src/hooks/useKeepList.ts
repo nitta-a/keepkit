@@ -27,6 +27,8 @@ export type UseKeepListResult<TMeta = Record<string, unknown>> = {
   updateTagsBatch: (ids: string[], tags?: string[]) => Promise<void>;
   addTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
+  reorder: (orderedIds: string[]) => Promise<void>;
+  move: (id: string, targetIndex: number) => Promise<void>;
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
   revalidate: (
@@ -117,6 +119,8 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     updateTagsBatch,
     addTagsBatch,
     removeTagsBatch,
+    reorder: actions.reorderItems,
+    move: actions.moveItem,
     clear: actions.clear,
     refresh: actions.refresh,
     revalidate: actions.revalidateItems,

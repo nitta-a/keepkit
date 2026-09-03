@@ -4,9 +4,10 @@ import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps, type UseKeepListResult } from "@keepkit/core/react";
 import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
 import { useKeepListView } from "./hooks/useKeepListView";
+import { useRovingTabIndex } from "./hooks/useRovingTabIndex";
 import type { KeepLayoutPreset } from "./KeepCollection";
 import { KeepItemCard, type KeepItemCardProps, KeepItemCardSkeleton } from "./KeepItemCard";
-import { type RenderProp, renderRoot, resolveContent } from "./shared";
+import { KeepSearchQueryProvider, type RenderProp, renderRoot, resolveContent } from "./shared";
 
 export type KeepListState<TMeta = Record<string, unknown>> = UseKeepListResult<TMeta>;
 
@@ -52,10 +53,13 @@ function KeepListContent<TMeta = Record<string, unknown>>({
   itemCardProps,
   layout = "list",
   asChild = false,
+  onKeyDown,
+  onFocusCapture,
   className,
   ...rootProps
 }: KeepListProps<TMeta>) {
   const view = useKeepListView<TMeta>(query);
+  const roving = useRovingTabIndex<HTMLDivElement>();
   const { state } = view;
   const body = getListBody(state, {
     children,
@@ -79,8 +83,19 @@ function KeepListContent<TMeta = Record<string, unknown>>({
       "aria-busy": state.isLoading || rootProps["aria-busy"],
       "data-state": getListState(state),
       "data-loading": state.isLoading ? "true" : undefined,
+      "data-roving-tabindex": "true",
+      role: rootProps.role ?? "group",
+      ref: roving.ref,
+      onKeyDown: (event) => {
+        onKeyDown?.(event);
+        if (!event.defaultPrevented) roving.onKeyDown(event);
+      },
+      onFocusCapture: (event) => {
+        onFocusCapture?.(event);
+        if (!event.defaultPrevented) roving.onFocusCapture(event);
+      },
     },
-    body,
+    <KeepSearchQueryProvider query={query?.search?.query}>{body}</KeepSearchQueryProvider>,
     "KeepList",
   );
 }

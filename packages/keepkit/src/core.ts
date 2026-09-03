@@ -7,6 +7,7 @@
 export * from "./backup";
 export * from "./integrations";
 export * from "./migration";
+export * from "./navigation";
 export * from "./presets";
 export * from "./query";
 export * from "./revalidation";

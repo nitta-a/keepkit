@@ -569,6 +569,7 @@ function isKeepItemArray(value: unknown): value is KeepItem[] {
         typeof item.updatedAt === "number" &&
         Number.isFinite(item.updatedAt) &&
         "meta" in item &&
+        (item.order === undefined || (typeof item.order === "number" && Number.isFinite(item.order))) &&
         (item.targetType === undefined || typeof item.targetType === "string") &&
         (item.note === undefined || typeof item.note === "string") &&
         (item.schemaVersion === undefined ||

@@ -26,9 +26,11 @@ const list = useKeepList({
 });
 ```
 
-`KeepItemInput`は`id`、`meta`、`targetType`、`note`、`tags`だけを持つ最小入力です。保存時刻・更新時刻・タグ正規化は内部で処理されます。
+`KeepItemInput`は`id`、`meta`、`targetType`、`note`、`tags`、`order`を持つ入力です。保存時刻・更新時刻・タグ正規化は内部で処理されます。
 
 `KeepListQuery`は`targetType`、`tags`、`search`、`sort`、`pagination`、`filter`、`savedBetween`で構成されます。`queryKeepItems`はReactなしで同じ条件を適用できます。
+
+保存順を巡回ルートとして管理する場合は、`reorderKeepItems` / `moveKeepItem`、Reactでは`useKeepNavigator`と`useKeepList().reorder()` / `.move()`を利用できます。`getKeepNavigationState`は現在・前・次のアイテムと進行度を返します。
 
 `@keepkit/core/core`はフレームワーク中立、`@keepkit/core/react`はReact、`@keepkit/core/storage`はlocalStorage、IndexedDB、fallback、同期adapter、`@keepkit/core/schema`はschema処理を公開します。パッケージルートにはexportがありません。
 
@@ -36,7 +38,7 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.16.0では、`encodeKeepListQuery` / `decodeKeepListQuery`によるURL状態codec、`createScopedStorageAdapter`によるユーザー／テナント分離、`createKeepKitPreset({ mode: "local" | "sync" | "backup" })`による標準構成も利用できます。`createAuthenticatedSyncKit`で認証付き同期とscope切り替えを構成できます。Reactでは`KeepProvider`の`autoRevalidation`、`removeItemWithUndo` / `undoLastRemoval`を利用できます。
+v0.17.0では、保存順プレイリストと`useKeepNavigator`による連続閲覧、`reorderKeepItems` / `moveKeepItem`による順序管理を追加しました。`encodeKeepListQuery` / `decodeKeepListQuery`によるURL状態codec、`createScopedStorageAdapter`によるユーザー／テナント分離、`createKeepKitPreset({ mode: "local" | "sync" | "backup" })`も利用できます。`createAuthenticatedSyncKit`で認証付き同期とscope切り替えを構成できます。
 
 `createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
@@ -71,7 +73,9 @@ const list = useKeepList({
 });
 ```
 
-`KeepItemInput` is a minimal input containing `id`, `meta`, `targetType`, `note`, and `tags`. KeepKit owns persistence timestamps and tag normalization. `KeepListQuery` uses the canonical `targetType`, `tags`, `search`, `sort`, `pagination`, `filter`, and `savedBetween` fields.
+`KeepItemInput` contains `id`, `meta`, `targetType`, `note`, `tags`, and the optional persisted `order`. KeepKit owns persistence timestamps and tag normalization. `KeepListQuery` uses the canonical `targetType`, `tags`, `search`, `sort`, `pagination`, `filter`, and `savedBetween` fields.
+
+Use `reorderKeepItems` / `moveKeepItem` for framework-neutral route ordering, or `useKeepNavigator` with `useKeepList().reorder()` / `.move()` in React. `getKeepNavigationState` returns the current, previous, next, and progress state.
 
 Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for React bindings, `@keepkit/core/storage` for browser/fallback/sync adapters, and `@keepkit/core/schema` for schema validation. The package root has no export.
 
@@ -79,7 +83,7 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-In v0.16.0, use `encodeKeepListQuery` / `decodeKeepListQuery` for URL state, `createScopedStorageAdapter` for user/tenant isolation, and `createKeepKitPreset({ mode: "local" | "sync" | "backup" })` for the standard setup. `createAuthenticatedSyncKit` composes token-aware sync and scope switching. React bindings include provider `autoRevalidation` and `removeItemWithUndo` / `undoLastRemoval`.
+In v0.17.0, use persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem` for continuous saved-item tours. `encodeKeepListQuery` / `decodeKeepListQuery` provide URL state, `createScopedStorageAdapter` provides user/tenant isolation, and `createKeepKitPreset({ mode: "local" | "sync" | "backup" })` provides the standard setup. `createAuthenticatedSyncKit` composes token-aware sync and scope switching.
 
 `createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 

@@ -83,6 +83,9 @@ test("reports malformed JSON and invalid item arrays", async () => {
 
   storage.setItem(adapter.storageKey, JSON.stringify([{ id: "missing-fields" }]));
   await assert.rejects(adapter.getAll(), KeepStorageParseError);
+
+  storage.setItem(adapter.storageKey, JSON.stringify([{ ...item, order: "bad" }]));
+  await assert.rejects(adapter.getAll(), KeepStorageParseError);
 });
 
 test("wraps storage access failures", async () => {

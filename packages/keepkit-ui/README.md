@@ -58,9 +58,12 @@ function SavedArticles() {
 
 `keep.Collection`は検索、ソート、ページング、loading / empty / error、ARIA live通知を標準で提供します。検索は既定で300msデバウンスされます。`features={{ tagFilter: true, bulkActions: true }}`でタグフィルターと一括操作も有効にできます。個別の`KeepList`、`KeepSearchInput`、`KeepSortSelect`、`KeepPagination`、`KeepItemCheckbox`、`KeepTagEditor`などは高度なレイアウト用に利用できます。`KeepBulkActions`はrender propsで操作UIを差し替えられ、`isAllSelected` / `toggleSelectAll`で表示中アイテムを一括操作できます。`KeepNoteEditor`は既定300msのデバウンス保存に対応し、`debounceMs={0}`でフォーム送信のみへ戻せます。通知領域だけを明示的に置く場合は`KeepAnnouncer`（`KeepAnnouncements`のalias）を使えます。
 `KeepItemCard`は`href`、`onOpen`、`linkTarget`、`linkComponent`に対応し、保存アイテムから詳細ページへ遷移できます。非公開・期限切れ等の`status`を持つアイテムは自動的にリンクを無効化します。`KeepBackup`はJSONのエクスポート、merge / replaceインポート、結果件数、容量エラー表示を提供します。
+`KeepTourBar`（alias: `KeepNavigator`）は進行度、前へ・次へ、一覧へ戻る操作をURLまたはコールバックで提供します。`keyboardShortcuts`を指定するとJ/Kまたは]/[で巡回でき、`useKeepTourShortcuts`ではキーと動作を個別に差し替えられます。`KeepReorderableList`はドラッグ操作と矢印キーによる並び替えを提供します。
+`KeepList`や`KeepCollection`のカードは検索語を大文字小文字を区別せず`<mark class="keep-highlight" data-highlight="true">`で表示します。単体の`KeepItemCard`では`highlightQuery`、任意のテキストでは`KeepHighlight`を使えます。`KeepItemCard.Media`は読み込み状態を`data-media-status`で公開し、失敗時は`fallback`または標準SVGへ切り替わります。
 外部URLの詳細リンクには`target="_blank"`と`rel="noreferrer"`が既定で補完され、利用できないカードには`aria-disabled="true"`と`data-item-status`が付与されます。同期競合ダイアログではローカルとリモートの更新日時・メモを並べて確認できます。
 
 `KeepList`は初回ロード中、`layout`に合う`KeepItemCardSkeleton`を既定で6枚表示します。`loadingCount`で枚数を変更でき、従来の`loading`または`renderLoading`で完全に差し替えられます。`layout="auto"`は画面幅ではなく配置コンテナ幅に追従し、サイドバーやモーダルでも1列から複数列へ切り替わります。スケルトンのパルスは`prefers-reduced-motion`で静止表示になります。
+カードグループはRoving Tabindexを採用しており、カードにフォーカスして矢印キー、Home、Endで移動できます。
 
 カードの一部だけを配置し直す場合はCompound APIを利用できます。画像alt、タイトルリンク、タグ一覧のARIAラベル、保存操作の状態は各パーツでも維持されます。
 
@@ -82,7 +85,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.16.0では`KeepCollection urlSync layout="list" | "grid" | "compact"`、`KeepBulkActions selectionScope="page" | "query" | "all"`、`KeepUndo`を利用できます。`createNextPagesRouterAdapter`はNext.js Pages Router用の注入adapterです。`locale`は英語、日本語、韓国語、中国語簡体字・繁体字、タイ語、フランス語、スペイン語、ポルトガル語、イタリア語、ドイツ語、ロシア語、フィリピン語、ベトナム語、インドネシア語、マレー語の16言語に対応し、`labels`で上書きできます。認証付き同期は`createAuthenticatedSyncKit`から利用できます。
+v0.17.0では`KeepTourBar` / `KeepNavigator`、`KeepReorderableList`、`useKeepTourShortcuts`を利用できます。`KeepCollection urlSync layout="list" | "grid" | "compact"`、`KeepBulkActions selectionScope="page" | "query" | "all"`、`KeepUndo`も利用できます。`createNextPagesRouterAdapter`はNext.js Pages Router用の注入adapterです。`locale`は16言語に対応し、`labels`で上書きできます。認証付き同期は`createAuthenticatedSyncKit`から利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -171,9 +174,12 @@ function SavedArticles() {
 
 The opt-in theme adds neutral borders, surfaces, shadows, focus treatment, and decorative action icons without changing accessible names. Target individual controls with `data-keep-action`, or override `--keep-icon-size`, `--keep-control-gap`, `--keep-shadow`, `--keep-success`, and `--keep-warning`. Consumers that omit the CSS keep the headless markup, and `KeepButton icons` continues to take precedence over the built-in icon.
 `KeepItemCard` accepts `href`, `onOpen`, `linkTarget`, and `linkComponent` for detail-page navigation. Links are disabled for unavailable `status` values such as private or expired. `KeepBackup` provides JSON export, merge/replace import, result counts, and quota-error messaging.
+`KeepTourBar` (aliased as `KeepNavigator`) provides progress, previous/next, and return-to-list actions through URLs or callbacks. Set `keyboardShortcuts` for J/K or ]/[ tour navigation, or use `useKeepTourShortcuts` for custom bindings. `KeepReorderableList` supports drag and keyboard reordering.
+Cards rendered by `KeepList` and `KeepCollection` highlight case-insensitive search matches with `<mark class="keep-highlight" data-highlight="true">`. Use `highlightQuery` on a standalone `KeepItemCard` or `KeepHighlight` for arbitrary text. `KeepItemCard.Media` exposes its loading state through `data-media-status` and replaces failed images with `fallback` or the built-in SVG placeholder.
 External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, and the sync recovery dialog compares local and remote updated dates and notes side by side.
 
 During initial loading, `KeepList` renders six layout-matched `KeepItemCardSkeleton` placeholders by default. Change the count with `loadingCount`, or replace them with the existing `loading` prop or its `renderLoading` alias. `layout="auto"` responds to the available container width rather than viewport width, so embedded sidebars and dialogs collapse to one column. Skeleton pulses become static under `prefers-reduced-motion`.
+Card groups use Roving Tabindex, so a focused card can move to adjacent cards with arrow keys or jump with Home and End.
 
 Use the compound parts to rearrange only the card regions you own while preserving image alt text, linked headings, the labelled tag list, and action state:
 
@@ -195,7 +201,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-In v0.16.0, use `KeepCollection urlSync` with `layout="list" | "grid" | "compact"`, `KeepBulkActions selectionScope="page" | "query" | "all"`, and `KeepUndo`. `createNextPagesRouterAdapter` is the injected adapter for Next.js Pages Router. `locale` includes complete dictionaries for 16 built-in locales; `labels` overrides individual entries. Authenticated sync is available through `createAuthenticatedSyncKit`.
+In v0.17.0, use `KeepTourBar` / `KeepNavigator`, `KeepReorderableList`, and `useKeepTourShortcuts` for continuous saved-item tours. `KeepCollection urlSync` with `layout="list" | "grid" | "compact"`, `KeepBulkActions selectionScope="page" | "query" | "all"`, and `KeepUndo` remain available. `createNextPagesRouterAdapter` is the injected adapter for Next.js Pages Router. `locale` includes 16 built-in dictionaries, and `labels` overrides individual entries. Authenticated sync is available through `createAuthenticatedSyncKit`.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme

@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { type UseKeepItemResult, useKeepItem } from "./hooks/useKeepItem";
 import { type UseKeepListResult, useKeepList } from "./hooks/useKeepList";
+import { type UseKeepNavigatorOptions, type UseKeepNavigatorResult, useKeepNavigator } from "./hooks/useKeepNavigator";
 import { type KeepShortcutOptions, useKeepShortcut } from "./hooks/useKeepShortcut";
 import { KeepButton, type KeepButtonProps } from "./KeepButton";
 import { KeepProvider, type KeepProviderProps, useKeepContext } from "./KeepProvider";
@@ -15,6 +16,7 @@ export type KeepKit<TMeta> = {
   useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useItem: (item?: KeepItemInput<TMeta>) => UseKeepItemResult<TMeta>;
   useList: (query?: KeepListQuery<TMeta>) => UseKeepListResult<TMeta>;
+  useNavigator: (options?: UseKeepNavigatorOptions<TMeta>) => UseKeepNavigatorResult<TMeta>;
   useShortcut: (options: KeepShortcutOptions<TMeta>) => void;
 };
 
@@ -28,6 +30,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     useContext: () => useKeepContext<TMeta>(),
     useItem: (item) => useKeepItem<TMeta>(item),
     useList: (query) => useKeepList<TMeta>(query),
+    useNavigator: (navigatorOptions) => useKeepNavigator<TMeta>(navigatorOptions),
     useShortcut: (shortcutOptions) => useKeepShortcut<TMeta>(shortcutOptions),
   };
 }

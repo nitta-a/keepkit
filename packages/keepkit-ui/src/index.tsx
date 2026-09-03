@@ -14,6 +14,8 @@ import {
   createKeepKit as createCoreKeepKit,
   type KeepProviderProps,
   type KeepShortcutOptions,
+  type UseKeepNavigatorOptions,
+  type UseKeepNavigatorResult,
   type useKeepContext,
   type useKeepItem,
   type useKeepList,
@@ -60,6 +62,11 @@ import { KeepLayout, type KeepLayoutProps } from "./KeepLayout";
 import { KeepList, type KeepListProps, type KeepListState } from "./KeepList";
 import { KeepNoteEditor, type KeepNoteEditorProps, type KeepNoteEditorState } from "./KeepNoteEditor";
 import {
+  type KeepReorderableItemState,
+  KeepReorderableList,
+  type KeepReorderableListProps,
+} from "./KeepReorderableList";
+import {
   KeepPruneStaleButton,
   type KeepPruneStaleButtonProps,
   KeepStaleNotice,
@@ -70,6 +77,7 @@ import { KeepSyncRecoveryDialog, type KeepSyncRecoveryDialogProps } from "./Keep
 import { KeepSyncStatusBanner, type KeepSyncStatusBannerProps } from "./KeepSyncStatusBanner";
 import { KeepTagEditor, type KeepTagEditorProps, type KeepTagEditorState } from "./KeepTagEditor";
 import { KeepTagFilter, type KeepTagFilterProps, type KeepTagFilterState } from "./KeepTagFilter";
+import { KeepNavigator, KeepTourBar, type KeepTourBarProps } from "./KeepTourBar";
 import { KeepUndo, type KeepUndoProps } from "./KeepUndo";
 import {
   KeepPagination,
@@ -121,6 +129,9 @@ import {
   type KeepUrlAdapter,
   useKeepUrlSync,
 } from "./url-sync";
+
+export type { KeepTourShortcutsOptions } from "./hooks/useKeepTourShortcuts";
+export { useKeepTourShortcuts } from "./hooks/useKeepTourShortcuts";
 
 export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children"> &
   Omit<KeepUiProviderProps<TMeta>, "children"> &
@@ -199,6 +210,7 @@ export {
   useKeepContext,
   useKeepItem,
   useKeepList,
+  useKeepNavigator,
   useKeepShortcut,
 } from "@keepkit/core/react";
 export {
@@ -213,7 +225,8 @@ export {
 } from "@keepkit/core/storage";
 export type { KeepSelectionScope } from "./KeepBulkActions";
 export { isAllSelected, toggleSelectAll } from "./KeepBulkActions";
-export type { RenderProp } from "./shared";
+export type { KeepHighlightProps, RenderProp } from "./shared";
+export { highlightText, KeepHighlight } from "./shared";
 export type {
   KeepAnnouncementsProps,
   KeepBackupProps,
@@ -250,6 +263,8 @@ export type {
   KeepPaginationProps,
   KeepPaginationState,
   KeepPruneStaleButtonProps,
+  KeepReorderableItemState,
+  KeepReorderableListProps,
   KeepScope,
   KeepSearchInputProps,
   KeepSortSelectProps,
@@ -273,6 +288,7 @@ export type {
   KeepThemeVariables,
   KeepToastFeedbackOptions,
   KeepToastHandler,
+  KeepTourBarProps,
   KeepUiFeedbackEvent,
   KeepUiLabelContext,
   KeepUiLabelKey,
@@ -301,9 +317,11 @@ export {
   KeepItemStatusBadge,
   KeepLayout,
   KeepList,
+  KeepNavigator,
   KeepNoteEditor,
   KeepPagination,
   KeepPruneStaleButton,
+  KeepReorderableList,
   KeepSearchInput,
   KeepSortSelect,
   KeepStaleNotice,
@@ -313,6 +331,7 @@ export {
   KeepTagEditor,
   KeepTagFilter,
   KeepThemeProvider,
+  KeepTourBar,
   KeepUiProvider,
   KeepUndo,
   keepThemeNames,
@@ -345,6 +364,7 @@ export type KeepKit<TMeta = Record<string, unknown>> = {
   useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useItem: (item?: KeepItemInput<TMeta>) => ReturnType<typeof useKeepItem<TMeta>>;
   useList: (query?: KeepListQuery<TMeta>) => ReturnType<typeof useKeepList<TMeta>>;
+  useNavigator: (options?: UseKeepNavigatorOptions<TMeta>) => UseKeepNavigatorResult<TMeta>;
   useShortcut: (options: KeepShortcutOptions<TMeta>) => void;
 };
 
@@ -408,6 +428,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     useContext: () => coreKit.useContext(),
     useItem: (item) => coreKit.useItem(item),
     useList: (query) => coreKit.useList(query),
+    useNavigator: (navigatorOptions) => coreKit.useNavigator(navigatorOptions),
     useShortcut: (shortcutOptions) => coreKit.useShortcut(shortcutOptions),
   };
 }

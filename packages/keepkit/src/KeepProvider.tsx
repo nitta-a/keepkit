@@ -10,6 +10,7 @@ import {
 } from "react";
 import { exportItems, type ImportItemsOptions, type ImportItemsResult, importItems } from "./backup";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "./KeepErrorBoundary";
+import { moveKeepItem, orderKeepItems, reorderKeepItems } from "./navigation";
 import type { KeepAutoRevalidationOptions, KeepItemResolver } from "./revalidation";
 import {
   type KeepItemMetadataRefresher,
@@ -67,6 +68,8 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
     revalidator?: KeepItemRevalidator<TMeta>,
     options?: RevalidateKeepItemsOptions<TMeta>,
   ) => Promise<KeepItemRevalidationSummary<TMeta>>;
+  reorderItems: (orderedIds: string[]) => Promise<void>;
+  moveItem: (id: string, targetIndex: number) => Promise<void>;
   exportBackup: () => Promise<string>;
   importBackup: (
     data: string,
@@ -429,16 +432,82 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         reportError(cause, { action: "save", id: item.id });
         throw cause;
       }
-      await runMutation("save", normalizedItem.id, (previous) => ({
-        next: [...previous.filter((current) => current.id !== normalizedItem.id), normalizedItem].sort(
-          (a, b) => b.updatedAt - a.updatedAt,
-        ),
-        persist: () => storage.set(normalizedItem),
-        onSuccess: () => handlersRef.current.onSave?.(normalizedItem),
-        pluginContext: { action: "save", id: normalizedItem.id, item: normalizedItem },
-      }));
+      await runMutation("save", normalizedItem.id, (previous) => {
+        const current = previous.find((item) => item.id === normalizedItem.id);
+        const hasCustomOrder = previous.some((item) => item.order !== undefined);
+        const nextItem = {
+          ...normalizedItem,
+          ...(normalizedItem.order === undefined && current?.order !== undefined ? { order: current.order } : {}),
+          ...(normalizedItem.order === undefined && !current && hasCustomOrder
+            ? { order: previous.reduce((max, item) => Math.max(max, item.order ?? -1), -1) + 1 }
+            : {}),
+        };
+        const withoutCurrent = previous.filter((item) => item.id !== nextItem.id);
+        const next = hasCustomOrder
+          ? reorderKeepItems(
+              [...withoutCurrent, nextItem],
+              orderKeepItems(previous).map((item) => (item.id === nextItem.id ? nextItem.id : item.id)),
+            )
+          : [...withoutCurrent, nextItem].sort((a, b) => b.updatedAt - a.updatedAt);
+        return {
+          next,
+          persist: () => storage.set(nextItem),
+          onSuccess: () => handlersRef.current.onSave?.(nextItem),
+          pluginContext: { action: "save", id: nextItem.id, item: nextItem },
+        };
+      });
     },
     [reportError, runMutation, storage],
+  );
+
+  const reorderItems = useCallback(
+    async (orderedIds: string[]) => {
+      await runMutation("reorder", undefined, (previous) => {
+        const next = reorderKeepItems(previous, orderedIds);
+        const changedItems = next.filter(
+          (item, index) => item.id !== previous[index]?.id || item.order !== previous[index]?.order,
+        );
+        return {
+          next,
+          persist: async () => {
+            try {
+              if (storage.setMany) await storage.setMany(changedItems);
+              else for (const item of changedItems) await storage.set(item);
+            } catch (cause) {
+              await restoreItems(storage, previous);
+              throw cause;
+            }
+          },
+          pluginContext: { action: "reorder", items: changedItems },
+        };
+      });
+    },
+    [runMutation, storage],
+  );
+
+  const moveItem = useCallback(
+    async (id: string, targetIndex: number) => {
+      await runMutation("reorder", id, (previous) => {
+        const next = moveKeepItem(previous, id, targetIndex);
+        const changedItems = next.filter(
+          (item, index) => item.id !== previous[index]?.id || item.order !== previous[index]?.order,
+        );
+        return {
+          next,
+          persist: async () => {
+            try {
+              if (storage.setMany) await storage.setMany(changedItems);
+              else for (const item of changedItems) await storage.set(item);
+            } catch (cause) {
+              await restoreItems(storage, previous);
+              throw cause;
+            }
+          },
+          pluginContext: { action: "reorder", id, items: changedItems },
+        };
+      });
+    },
+    [runMutation, storage],
   );
 
   const updateNote = useCallback(
@@ -852,6 +921,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       resolveSyncConflict,
       refreshItemMetadata,
       revalidateItems,
+      reorderItems,
+      moveItem,
       exportBackup,
       importBackup,
     }),
@@ -881,6 +952,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       removeItems,
       refreshItemMetadata,
       revalidateItems,
+      reorderItems,
+      moveItem,
       exportBackup,
       importBackup,
     ],
@@ -903,6 +976,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       refresh,
       refreshItemMetadata,
       revalidateItems,
+      reorderItems,
+      moveItem,
     }),
     [
       addTagsBatch,
@@ -917,6 +992,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       updateTagsBatch,
       refreshItemMetadata,
       revalidateItems,
+      reorderItems,
+      moveItem,
       removeItemWithUndo,
       removeItemsWithUndo,
       undoLastRemoval,

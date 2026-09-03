@@ -1,5 +1,25 @@
 # Release notes
 
+## [0.17.0] - 2026-09-04
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepItem.order`と`reorderItems` / `moveItem`を追加し、既存ストレージで保存アイテムの巡回順を永続化できるようにしました。
+- `getKeepNavigationState`と`useKeepNavigator`で、現在・前・次のアイテムと進行度を取得できるようにしました。
+- `KeepTourBar` / `KeepNavigator`、`useKeepTourShortcuts`、`KeepReorderableList`を追加しました。
+- Core、UI、demoのテストと公開パッケージ検証を更新しました。
+
+### English
+
+#### Added and changed
+
+- Added `KeepItem.order`, `reorderItems`, and `moveItem` for persisted saved-item route ordering with existing storage adapters.
+- Added `getKeepNavigationState` and `useKeepNavigator` for current, previous, next, and progress state.
+- Added `KeepTourBar` / `KeepNavigator`, `useKeepTourShortcuts`, and `KeepReorderableList`.
+- Updated Core, UI, and demo tests plus publishable-package verification.
+
 ## [0.16.0] - 2026-09-04
 
 ### 日本語

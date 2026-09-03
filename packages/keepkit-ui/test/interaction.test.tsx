@@ -6,6 +6,7 @@ import type {
   StorageAdapter,
   SyncCapableStorageAdapter,
 } from "@keepkit/core/core";
+import { useKeepContext } from "@keepkit/core/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import {
@@ -27,6 +28,7 @@ import {
   KeepPagination,
   KeepProvider,
   KeepPruneStaleButton,
+  KeepReorderableList,
   KeepSearchInput,
   KeepSortSelect,
   KeepStaleNotice,
@@ -36,6 +38,7 @@ import {
   KeepTagEditor,
   KeepTagFilter,
   KeepThemeProvider,
+  KeepTourBar,
   KeepUiProvider,
   KeepUndo,
   useKeepToastFeedback,
@@ -185,6 +188,77 @@ test("publishes the standalone skeleton primitive", () => {
   expect(screen.getByTestId("skeleton").querySelectorAll("[data-skeleton-part]")).toHaveLength(5);
 });
 
+test("navigates a saved tour with progress, links, and keyboard shortcuts", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, secondItem])}>
+      <KeepTourBar initialIndex={0} keyboardShortcuts backHref="/saved" />
+    </KeepProvider>,
+  );
+
+  await waitFor(() => expect(screen.getByText("1 / 2")).not.toBeNull());
+  expect(screen.getByRole("button", { name: "Previous page" }).getAttribute("disabled")).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Next page" }).getAttribute("disabled")).toBeNull();
+  fireEvent.keyDown(window, { key: "j" });
+  await waitFor(() => expect(screen.getByText("2 / 2")).not.toBeNull());
+});
+
+test("renders a tour URL action for router or link integration", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, secondItem])}>
+      <KeepTourBar initialIndex={0} nextHref="/saved/second" />
+    </KeepProvider>,
+  );
+
+  await waitFor(() => expect(screen.getByText("1 / 2")).not.toBeNull());
+  expect(screen.getByRole("link", { name: "Next page" }).getAttribute("href")).toBe("/saved/second");
+});
+
+test("reorders items with keyboard handles and reports the new id order", () => {
+  const onReorder = vi.fn();
+  render(
+    <KeepReorderableList
+      items={[item, secondItem]}
+      onReorder={onReorder}
+      renderItem={(entry, state) => <span {...state.dragHandleProps}>{entry.meta.title}</span>}
+    />,
+  );
+
+  fireEvent.keyDown(screen.getByRole("button", { name: "Move item 2" }), { key: "ArrowUp" });
+  expect(onReorder).toHaveBeenCalledWith([secondItem.id, item.id]);
+});
+
+test("persists provider reorder actions and exposes the custom order in list state", async () => {
+  function ReorderProbe() {
+    const { items, reorderItems } = useKeepContext<Meta>();
+    return (
+      <>
+        <button type="button" onClick={() => void reorderItems([secondItem.id, item.id])}>
+          Reorder
+        </button>
+        <output data-testid="ordered-items">{items.map((entry) => entry.id).join(",")}</output>
+      </>
+    );
+  }
+
+  const storage = createStorage([item, secondItem]);
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <ReorderProbe />
+    </KeepProvider>,
+  );
+
+  await waitFor(() =>
+    expect(screen.getByTestId("ordered-items").textContent).toBe("ui-interaction-item,ui-interaction-item-2"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Reorder" }));
+  await waitFor(() =>
+    expect(screen.getByTestId("ordered-items").textContent).toBe("ui-interaction-item-2,ui-interaction-item"),
+  );
+  expect(
+    (await storage.getAll()).sort((left, right) => (left.order ?? 0) - (right.order ?? 0)).map((entry) => entry.id),
+  ).toEqual([secondItem.id, item.id]);
+});
+
 test("emits localized feedback payloads when an item is saved and removed", async () => {
   const onFeedback = vi.fn();
   render(
@@ -276,6 +350,88 @@ test("keeps compound card parts complete and accessible", async () => {
   expect(screen.getByTestId("compound-media").getAttribute("data-keep-card-part")).toBe("media");
   expect(screen.getByTestId("compound-content").getAttribute("data-keep-card-part")).toBe("content");
   expect(screen.getByTestId("compound-actions").getAttribute("data-keep-card-part")).toBe("actions");
+});
+
+test("highlights literal, case-insensitive search matches in card titles and content", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepList query={{ search: { query: "INTERACTION" } }} itemCardProps={{ showSaveButton: false }} />
+    </KeepProvider>,
+  );
+
+  const heading = await screen.findByRole("heading", { name: "Interaction item" });
+  const highlight = heading.querySelector('mark.keep-highlight[data-highlight="true"]');
+  expect(highlight?.textContent).toBe("Interaction");
+  expect(highlight?.className).toBe("keep-highlight");
+});
+
+test("replaces failed card media with a custom fallback and exposes media status", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepItemCard
+        item={item}
+        showSaveButton={false}
+        getImageProps={() => ({ src: "/broken.png", alt: "Broken preview" })}
+      >
+        <KeepItemCard.Media data-testid="media" fallback={<span data-testid="media-fallback">No preview</span>} />
+        <KeepItemCard.Content />
+        <KeepItemCard.Actions />
+      </KeepItemCard>
+    </KeepProvider>,
+  );
+
+  const media = await screen.findByTestId("media");
+  expect(media.getAttribute("data-media-status")).toBe("loading");
+  const image = media.querySelector("img");
+  if (!image) throw new Error("The card image was not rendered.");
+  fireEvent.load(image);
+  expect(media.getAttribute("data-media-status")).toBe("loaded");
+  fireEvent.error(image);
+  await waitFor(() => expect(media.getAttribute("data-media-status")).toBe("error"));
+  expect(media.querySelector("img")).toBeNull();
+  expect(screen.getByTestId("media-fallback").textContent).toBe("No preview");
+});
+
+test("moves focus between list cards with roving tabindex keys", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, secondItem])}>
+      <KeepList data-testid="roving-list" itemCardProps={{ showSaveButton: false }} />
+    </KeepProvider>,
+  );
+
+  const list = await screen.findByTestId("roving-list");
+  await waitFor(() => expect(list.querySelectorAll('[data-keepkit="card"]')).toHaveLength(2));
+  const cards = Array.from(list.querySelectorAll<HTMLElement>('[data-keepkit="card"]'));
+  await waitFor(() => expect(cards[0]?.tabIndex).toBe(0));
+
+  cards[0]?.focus();
+  fireEvent.keyDown(cards[0] as HTMLElement, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(cards[1]);
+  expect(cards[0]?.tabIndex).toBe(-1);
+  expect(cards[1]?.tabIndex).toBe(0);
+
+  fireEvent.keyDown(cards[1] as HTMLElement, { key: "Home" });
+  expect(document.activeElement).toBe(cards[0]);
+  fireEvent.keyDown(cards[0] as HTMLElement, { key: "End" });
+  expect(document.activeElement).toBe(cards[1]);
+});
+
+test("applies roving tabindex to cards placed directly in KeepLayout", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, secondItem])}>
+      <KeepLayout data-testid="roving-layout">
+        <KeepItemCard item={item} showSaveButton={false} />
+        <KeepItemCard item={secondItem} showSaveButton={false} />
+      </KeepLayout>
+    </KeepProvider>,
+  );
+
+  const layout = await screen.findByTestId("roving-layout");
+  const cards = Array.from(layout.querySelectorAll<HTMLElement>('[data-keepkit="card"]'));
+  await waitFor(() => expect(cards[0]?.tabIndex).toBe(0));
+  cards[1]?.focus();
+  fireEvent.keyDown(cards[1] as HTMLElement, { key: "ArrowUp" });
+  expect(document.activeElement).toBe(cards[0]);
 });
 
 test("ships dark-mode and reduced-motion CSS contracts", async () => {

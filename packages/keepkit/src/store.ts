@@ -35,6 +35,8 @@ export type KeepStoreActions<TMeta = Record<string, unknown>> = {
     revalidator: KeepItemRevalidator<TMeta>,
     options?: RevalidateKeepItemsOptions<TMeta>,
   ) => Promise<KeepItemRevalidationSummary<TMeta>>;
+  reorderItems: (orderedIds: string[]) => Promise<void>;
+  moveItem: (id: string, targetIndex: number) => Promise<void>;
 };
 
 export class KeepStore<TMeta = Record<string, unknown>> {

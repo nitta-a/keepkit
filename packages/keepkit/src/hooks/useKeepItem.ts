@@ -40,16 +40,18 @@ export function useKeepItem<TMeta = Record<string, unknown>>(input?: KeepItemInp
     store,
     useCallback((state) => state.error, []),
   );
+  const currentOrder = item?.order;
 
   const save = useCallback(async () => {
     if (!input) throw new Error("An item input is required to save an item.");
     const now = Date.now();
     await actions.saveItem({
       ...input,
+      ...(currentOrder === undefined ? {} : { order: currentOrder }),
       savedAt: item?.savedAt ?? now,
       updatedAt: now,
     });
-  }, [actions, input, item?.savedAt]);
+  }, [actions, currentOrder, input, item?.savedAt]);
 
   const remove = useCallback(() => actions.removeItem(id), [actions, id]);
   const removeWithUndo = useCallback(() => actions.removeItemWithUndo(id), [actions, id]);

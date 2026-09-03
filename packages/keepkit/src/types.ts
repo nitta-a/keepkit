@@ -10,6 +10,8 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
   savedAt: number;
   updatedAt: number;
   meta: TMeta;
+  /** Optional zero-based position in the user's custom viewing order. */
+  order?: number;
   targetType?: string;
   note?: string;
   tags?: string[];
@@ -30,6 +32,7 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
 export type KeepItemInput<TMeta = Record<string, unknown>> = {
   id: string;
   meta: TMeta;
+  order?: number;
   targetType?: string;
   note?: string;
   tags?: string[];
@@ -59,6 +62,7 @@ export type KeepAction =
   | "remove"
   | "removeBatch"
   | "undo"
+  | "reorder"
   | "clear";
 
 export type KeepChangePhase = "local" | "synced";

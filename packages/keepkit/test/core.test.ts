@@ -8,6 +8,7 @@ import {
   encodeKeepListQuery,
   exportItems,
   KeepStore as FrameworkNeutralKeepStore,
+  getKeepNavigationState,
   getTagCounts,
   importItems,
   isKeepItemMetadataStale,
@@ -22,10 +23,13 @@ import {
   LocalStorageAdapter,
   mergeKeepItems,
   migrateKeepItems,
+  moveKeepItem,
   normalizeKeepTags,
+  orderKeepItems,
   parseKeepMeta,
   queryKeepItems,
   reconcileKeepItems,
+  reorderKeepItems,
   revalidateKeepItems,
   SyncStorageAdapter,
 } from "../dist/core.js";
@@ -345,6 +349,7 @@ test("validates all backup fields and accepts object backups", async () => {
     { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, savedAt: "bad" }] },
     { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, updatedAt: NaN }] },
     { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, meta: undefined }] },
+    { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, order: NaN }] },
     { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, note: 1 }] },
     { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, tags: [1] }] },
     { format: "keepkit", version: 1, exportedAt: 1, items: [{ ...itemA, schemaVersion: NaN }] },
@@ -761,4 +766,48 @@ test("resumes a persisted queue on adapter startup", async () => {
   assert.deepEqual(pushed, ["previous-client:1:operation"]);
   assert.equal(adapter.getSyncState().status, "synced");
   adapter.dispose();
+});
+
+test("reorders items and derives a previous/current/next tour state", () => {
+  const source = [itemA, itemB, { ...itemA, id: "c", savedAt: 30, updatedAt: 30 }];
+  const reordered = reorderKeepItems(source, ["c", "a"]);
+  assert.deepEqual(
+    reordered.map((item) => [item.id, item.order]),
+    [
+      ["c", 0],
+      ["a", 1],
+      ["b", 2],
+    ],
+  );
+  assert.deepEqual(
+    orderKeepItems(reordered).map((item) => item.id),
+    ["c", "a", "b"],
+  );
+  assert.deepEqual(
+    queryKeepItems(reordered).items.map((item) => item.id),
+    ["c", "a", "b"],
+  );
+  assert.deepEqual(getKeepNavigationState(reordered, "a"), {
+    items: reordered,
+    currentIndex: 1,
+    currentPosition: 2,
+    currentItem: reordered[1],
+    hasNext: true,
+    hasPrev: true,
+    nextItem: reordered[2],
+    prevItem: reordered[0],
+  });
+  assert.deepEqual(
+    moveKeepItem(reordered, "b", 0).map((item) => item.id),
+    ["b", "c", "a"],
+  );
+});
+
+test("rejects unknown and duplicate ids while preserving legacy order", () => {
+  assert.deepEqual(
+    orderKeepItems([itemB, itemA]).map((item) => item.id),
+    ["b", "a"],
+  );
+  assert.throws(() => reorderKeepItems([itemA], ["missing"]), /unknown Keep item/);
+  assert.throws(() => reorderKeepItems([itemA], ["a", "a"]), /duplicate id/);
 });

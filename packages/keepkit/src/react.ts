@@ -7,6 +7,8 @@ export type { UseKeepItemResult } from "./hooks/useKeepItem";
 export { useKeepItem } from "./hooks/useKeepItem";
 export type { UseKeepListResult } from "./hooks/useKeepList";
 export { useKeepList } from "./hooks/useKeepList";
+export type { UseKeepNavigatorOptions, UseKeepNavigatorResult } from "./hooks/useKeepNavigator";
+export { useKeepNavigator } from "./hooks/useKeepNavigator";
 export type { KeepShortcutModifier, KeepShortcutOptions } from "./hooks/useKeepShortcut";
 export { useKeepShortcut } from "./hooks/useKeepShortcut";
 export type { KeepButtonItem, KeepButtonProps, KeepButtonState } from "./KeepButton";

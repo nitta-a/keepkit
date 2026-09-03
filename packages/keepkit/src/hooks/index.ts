@@ -2,5 +2,7 @@ export type { UseKeepItemResult } from "./useKeepItem";
 export { useKeepItem } from "./useKeepItem";
 export type { KeepListQuery, UseKeepListResult } from "./useKeepList";
 export { useKeepList } from "./useKeepList";
+export type { UseKeepNavigatorOptions, UseKeepNavigatorResult } from "./useKeepNavigator";
+export { useKeepNavigator } from "./useKeepNavigator";
 export type { KeepShortcutModifier, KeepShortcutOptions } from "./useKeepShortcut";
 export { useKeepShortcut } from "./useKeepShortcut";

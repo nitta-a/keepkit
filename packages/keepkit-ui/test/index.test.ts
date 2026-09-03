@@ -18,9 +18,11 @@ import {
   KeepKitProvider,
   KeepLayout,
   KeepList,
+  KeepNavigator,
   KeepNoteEditor,
   KeepPagination,
   KeepPruneStaleButton,
+  KeepReorderableList,
   KeepSearchInput,
   KeepSortSelect,
   KeepStaleNotice,
@@ -30,6 +32,7 @@ import {
   KeepTagEditor,
   KeepTagFilter,
   KeepThemeProvider,
+  KeepTourBar,
   KeepUiProvider,
   KeepUndo,
   keepThemeNames,
@@ -57,6 +60,8 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepLayout, "function");
   assert.equal(typeof KeepUndo, "function");
   assert.equal(typeof KeepNoteEditor, "function");
+  assert.equal(typeof KeepNavigator, "function");
+  assert.equal(typeof KeepReorderableList, "function");
   assert.equal(typeof KeepPagination, "function");
   assert.equal(typeof KeepSearchInput, "function");
   assert.equal(typeof KeepSortSelect, "function");
@@ -67,6 +72,7 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepSyncRecoveryDialog, "function");
   assert.equal(typeof KeepSyncStatusBanner, "function");
   assert.equal(typeof KeepTagEditor, "function");
+  assert.equal(typeof KeepTourBar, "function");
   assert.equal(typeof KeepUiProvider, "function");
   assert.equal(typeof KeepKitProvider, "function");
   assert.equal(typeof KeepCollection, "function");
