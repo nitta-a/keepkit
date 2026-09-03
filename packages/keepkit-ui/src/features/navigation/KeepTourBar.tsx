@@ -3,9 +3,10 @@
 import type { KeepItem } from "@keepkit/core/core";
 import { type UseKeepNavigatorResult, useKeepNavigator } from "@keepkit/core/react";
 import { type HTMLAttributes, type ReactNode, useId } from "react";
-import { getMetaTitle } from "../../foundation/shared";
+import { getMetaTitle, renderRoot } from "../../foundation/shared";
 import { useKeepUiLabels, useUiLabel } from "../../foundation/ui-context";
 import { type KeepTourShortcutsOptions, useKeepTourShortcuts } from "./hooks/useKeepTourShortcuts";
+import { KeepShortcutHint } from "./KeepShortcutHint";
 
 export type KeepTourBarProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   navigation?: UseKeepNavigatorResult<TMeta>;
@@ -22,9 +23,12 @@ export type KeepTourBarProps<TMeta = Record<string, unknown>> = Omit<HTMLAttribu
   nextLabel?: string;
   backLabel?: string;
   keyboardShortcuts?: boolean;
+  showShortcutHint?: boolean;
   shortcutOptions?: Omit<KeepTourShortcutsOptions, "onNext" | "onPrev">;
   progress?: ReactNode;
   getItemTitle?: (item: KeepItem<TMeta>) => ReactNode;
+  children?: ReactNode;
+  asChild?: boolean;
 };
 
 /** Headless previous/current/next navigation with optional URL links and keyboard shortcuts. */
@@ -43,9 +47,12 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
   nextLabel,
   backLabel,
   keyboardShortcuts = false,
+  showShortcutHint = false,
   shortcutOptions,
   progress,
   getItemTitle = (item) => getMetaTitle(item.meta) ?? item.id,
+  children,
+  asChild = false,
   ...props
 }: KeepTourBarProps<TMeta>) {
   const ownNavigation = useKeepNavigator<TMeta>({ currentId, initialIndex });
@@ -67,8 +74,8 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
     },
   });
 
-  return (
-    <nav {...props} data-keepkit="tour-bar" aria-label={props["aria-label"] ?? labels.pagination}>
+  const body = (
+    <>
       {showProgress ? (
         <span data-keepkit="tour-progress" aria-live="polite">
           {progress ?? `${navigation.currentPosition ?? 0} / ${navigation.items.length}`}
@@ -79,6 +86,7 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
         disabled={!navigation.hasPrev}
         onClick={prevHref ? onPrev : resolvedPrev}
         data-keep-action="tour-prev"
+        shortcut={showShortcutHint ? (shortcutOptions?.prevKeys?.[0] ?? "K") : undefined}
         preview={
           navigation.prevItem ? (
             <>
@@ -94,6 +102,7 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
         disabled={!navigation.hasNext}
         onClick={nextHref ? onNext : resolvedNext}
         data-keep-action="tour-next"
+        shortcut={showShortcutHint ? (shortcutOptions?.nextKeys?.[0] ?? "J") : undefined}
         preview={
           navigation.nextItem ? (
             <>
@@ -109,7 +118,14 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
           {listLabel}
         </TourAction>
       ) : null}
-    </nav>
+    </>
+  );
+  return renderRoot(
+    asChild,
+    children,
+    { ...props, "data-keepkit": "tour-bar", "aria-label": props["aria-label"] ?? labels.pagination },
+    body,
+    "KeepTourBar",
   );
 }
 
@@ -120,13 +136,15 @@ type TourActionProps = {
   children?: ReactNode;
   "data-keep-action": string;
   preview?: ReactNode;
+  shortcut?: string;
 };
 
-function TourAction({ href, disabled = false, onClick, children, preview, ...props }: TourActionProps) {
+function TourAction({ href, disabled = false, onClick, children, preview, shortcut, ...props }: TourActionProps) {
   const previewId = useId();
   const content = (
     <>
       <span data-tour-label="true">{children}</span>
+      {shortcut ? <KeepShortcutHint shortcut={shortcut} /> : null}
       {preview ? (
         <small id={previewId} data-tour-preview="true">
           {preview}

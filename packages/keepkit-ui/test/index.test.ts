@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   createKeepKit,
+  createSlot,
   getKeepLocaleLabels,
   isAllSelected,
+  KeepActiveFiltersSummary,
   KeepAnnouncements,
   KeepAnnouncer,
   KeepBackup,
@@ -24,6 +26,7 @@ import {
   KeepPruneStaleButton,
   KeepReorderableList,
   KeepSearchInput,
+  KeepShortcutHint,
   KeepSortSelect,
   KeepStaleNotice,
   KeepStatus,
@@ -36,6 +39,7 @@ import {
   KeepUiProvider,
   KeepUndo,
   keepThemeNames,
+  mergeProps,
   toggleSelectAll,
 } from "../dist/index.js";
 import { keepKitTheme } from "../dist/tailwind.js";
@@ -43,6 +47,7 @@ import { keepKitTheme } from "../dist/tailwind.js";
 test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepButton, "function");
   assert.equal(typeof KeepAnnouncements, "function");
+  assert.equal(typeof KeepActiveFiltersSummary, "function");
   assert.equal(typeof KeepBackup, "function");
   assert.equal(typeof KeepAnnouncer, "function");
   assert.equal(typeof KeepBulkActions, "function");
@@ -65,6 +70,7 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepPagination, "function");
   assert.equal(typeof KeepSearchInput, "function");
   assert.equal(typeof KeepSortSelect, "function");
+  assert.equal(typeof KeepShortcutHint, "function");
   assert.equal(typeof KeepEmptyState, "function");
   assert.equal(typeof KeepStatus, "function");
   assert.equal(typeof KeepPruneStaleButton, "function");
@@ -78,6 +84,8 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepCollection, "function");
   assert.equal(typeof createKeepKit, "function");
   assert.equal(typeof KeepThemeProvider, "function");
+  assert.equal(typeof mergeProps, "function");
+  assert.equal(typeof createSlot, "function");
   assert.deepEqual(keepThemeNames.slice(0, 5), ["default", "ocean", "forest", "sunset", "lavender"]);
   assert.equal(keepKitTheme.colors.primary, "var(--keep-primary)");
   assert.equal(keepKitTheme.colors.success, "var(--keep-success)");

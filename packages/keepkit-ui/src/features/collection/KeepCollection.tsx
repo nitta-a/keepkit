@@ -4,9 +4,10 @@ import type { KeepItem, KeepListQuery, KeepUrlSyncOptions } from "@keepkit/core/
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "@keepkit/core/react";
 import type { HTMLAttributes, ReactNode } from "react";
 import type { KeepUrlAdapter } from "../../adapters/url-sync";
-import type { RenderProp } from "../../foundation/shared";
+import { type RenderProp, resolveContent } from "../../foundation/shared";
 import { KeepBulkActions } from "../actions/KeepBulkActions";
 import type { KeepItemCardProps } from "../item/KeepItemCard";
+import { KeepActiveFiltersSummary } from "../query/KeepActiveFiltersSummary";
 import { KeepTagFilter } from "../query/KeepTagFilter";
 import { KeepPagination, KeepSearchInput, KeepSortSelect } from "../query/query-controls";
 import { useKeepCollection } from "./hooks/useKeepCollection";
@@ -28,6 +29,7 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   /** Alias for `loading`. When neither is provided, KeepList renders skeleton cards. */
   renderLoading?: ReactNode | RenderProp<KeepListState<TMeta>>;
   loadingCount?: number;
+  activeFilters?: ReactNode | RenderProp<KeepListState<TMeta>>;
   empty?: ReactNode | RenderProp<KeepListState<TMeta>>;
   error?: ReactNode | RenderProp<KeepListState<TMeta>>;
   fallback?: KeepErrorBoundaryProps["fallback"];
@@ -59,6 +61,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   loading,
   renderLoading,
   loadingCount,
+  activeFilters,
   empty,
   error,
   className,
@@ -80,9 +83,20 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         {view.enabled.search ? <KeepSearchInput value={view.searchValue} onValueChange={view.setSearchValue} /> : null}
         {view.enabled.sort ? <KeepSortSelect value={view.sortValue} onValueChange={view.setSortValue} /> : null}
         {view.enabled.tagFilter ? (
-          <KeepTagFilter<TMeta> query={query} value={view.tag} onValueChange={view.setTag} />
+          <KeepTagFilter<TMeta> query={query} value={view.activeTags[0]} onValueChange={view.setTag} />
         ) : null}
       </div>
+      {activeFilters === undefined ? (
+        <KeepActiveFiltersSummary<TMeta>
+          search={view.searchValue}
+          tags={view.activeTags}
+          onSearchChange={view.setSearchValue}
+          onTagChange={view.removeTag}
+          onClear={view.clearFilters}
+        />
+      ) : (
+        resolveContent(activeFilters, view.list)
+      )}
       <KeepList<TMeta>
         query={view.resolvedQuery}
         renderItem={renderItem}
@@ -91,7 +105,8 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         loading={loading}
         renderLoading={renderLoading}
         loadingCount={loadingCount}
-        empty={empty}
+        onClearFilters={view.clearFilters}
+        empty={view.list.totalCount === 0 && view.allState.totalCount > 0 ? undefined : empty}
         error={error}
       />
       {view.enabled.pagination ? (

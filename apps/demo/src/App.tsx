@@ -176,7 +176,7 @@ export function App() {
                 </KeepItemCard.Content>
                 <KeepItemCard.Actions />
               </KeepItemCard>
-              <KeepNoteEditor item={item} placeholder="Why is this worth returning to?" />
+              <KeepNoteEditor item={item} placeholder="Why is this worth returning to?" showShortcutHint />
             </li>
           )}
         />
@@ -185,6 +185,8 @@ export function App() {
           currentId={content[0].id}
           backHref="#collection-heading"
           getItemTitle={(entry) => entry.meta.title}
+          keyboardShortcuts
+          showShortcutHint
         />
       </section>
       <section className="section" aria-labelledby="feedback-heading">

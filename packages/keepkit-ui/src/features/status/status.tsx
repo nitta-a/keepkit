@@ -3,43 +3,10 @@
 import type { KeepItem } from "@keepkit/core/core";
 import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
 import { type RenderProp, renderRoot } from "../../foundation/shared";
-import { useKeepAnnouncements, useKeepEmptyState, useKeepStatus } from "./hooks/useStatusViews";
+import { useKeepAnnouncements, useKeepStatus } from "./hooks/useStatusViews";
 
-export type KeepEmptyStateProps = Omit<HTMLAttributes<HTMLElement>, "children" | "title"> & {
-  title?: ReactNode;
-  description?: ReactNode;
-  action?: ReactNode;
-  children?: ReactNode;
-  asChild?: boolean;
-};
-
-/** A style-free, reusable empty collection state. */
-export function KeepEmptyState({
-  title,
-  description,
-  action,
-  children,
-  asChild = false,
-  className,
-  ...rootProps
-}: KeepEmptyStateProps) {
-  const defaultTitle = useKeepEmptyState();
-  const contentChildren = asChild && isValidElement(children) ? undefined : children;
-  const body = contentChildren ?? (
-    <>
-      <h2>{title ?? defaultTitle}</h2>
-      {description ? <p>{description}</p> : null}
-      {action}
-    </>
-  );
-  return renderRoot(
-    asChild,
-    children,
-    { ...rootProps, className, "data-keepkit": "empty-state", "data-state": "empty" },
-    body,
-    "KeepEmptyState",
-  );
-}
+export type { KeepEmptyStateProps, KeepEmptyStateVariant } from "./KeepEmptyState";
+export { KeepEmptyState } from "./KeepEmptyState";
 
 export type KeepStatusValue = "idle" | "empty" | "loading" | "saving" | "syncing" | "error";
 export type KeepStatusLabels = Partial<Record<KeepStatusValue, ReactNode>>;

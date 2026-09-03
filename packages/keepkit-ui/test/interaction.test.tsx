@@ -8,8 +8,10 @@ import type {
 } from "@keepkit/core/core";
 import { useKeepContext } from "@keepkit/core/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { expect, test, vi } from "vitest";
 import {
+  KeepActiveFiltersSummary,
   KeepAnnouncements,
   KeepBackup,
   KeepBulkActions,
@@ -41,6 +43,7 @@ import {
   KeepTourBar,
   KeepUiProvider,
   KeepUndo,
+  mergeProps,
   useKeepToastFeedback,
 } from "../src/index";
 
@@ -95,6 +98,96 @@ test("toggles the UI button from keyboard and propagates asChild state attribute
 
   fireEvent.keyDown(link, { key: " " });
   await waitFor(() => expect(link.textContent).toContain("false"));
+});
+
+test("removes individual active filters and clears all filters", () => {
+  function FilterProbe() {
+    const [search, setSearch] = useState("react");
+    const [tags, setTags] = useState(["read", "work"]);
+    return (
+      <>
+        <KeepActiveFiltersSummary
+          search={search}
+          tags={tags}
+          onSearchChange={setSearch}
+          onTagChange={(tag) => setTags((current) => current.filter((value) => value !== tag))}
+          onClear={() => {
+            setSearch("");
+            setTags([]);
+          }}
+        />
+        <output data-testid="filter-state">{`${search}|${tags.join(",")}`}</output>
+      </>
+    );
+  }
+
+  render(
+    <KeepUiProvider locale="ja">
+      <FilterProbe />
+    </KeepUiProvider>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "read を解除" }));
+  expect(screen.getByTestId("filter-state").textContent).toBe("react|work");
+  fireEvent.click(screen.getByRole("button", { name: "すべての条件をクリア" }));
+  expect(screen.getByTestId("filter-state").textContent).toBe("|");
+  expect(screen.queryByRole("button", { name: "すべての条件をクリア" })).toBeNull();
+});
+
+test("renders a context-aware filtered empty state and clears the query", async () => {
+  function FilteredList() {
+    const [search, setSearch] = useState("missing");
+    return (
+      <KeepList
+        query={{ search: { query: search } }}
+        onClearFilters={() => setSearch("")}
+        itemCardProps={{ showSaveButton: false }}
+      />
+    );
+  }
+
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <FilteredList />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "No matching items found." })).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+});
+
+test("merges slot classes, styles, ARIA values, and chained click handlers", () => {
+  const calls: string[] = [];
+  const childClick = () => calls.push("child");
+  const parentClick = () => calls.push("parent");
+  const merged = mergeProps(
+    { className: "child", style: { color: "red" }, "aria-label": "Child", onClick: childClick },
+    { className: "parent", style: { backgroundColor: "blue" }, "aria-label": undefined, onClick: parentClick },
+  );
+
+  expect(merged.className).toBe("child parent");
+  expect(merged.style).toEqual({ color: "red", backgroundColor: "blue" });
+  expect(merged["aria-label"]).toBe("Child");
+  (merged.onClick as () => void)();
+  expect(calls).toEqual(["child", "parent"]);
+});
+
+test("renders semantic shortcut hints in tour and note actions", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, secondItem])}>
+      <KeepTourBar initialIndex={0} keyboardShortcuts showShortcutHint />
+      <KeepNoteEditor item={item} showShortcutHint />
+    </KeepProvider>,
+  );
+
+  await screen.findByText("1 / 2");
+  expect(screen.getByRole("button", { name: "Next page" }).querySelectorAll("kbd")).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "Save note" }).querySelector("kbd")?.textContent).toBe("Ctrl");
+  expect(screen.getByRole("button", { name: "Save note" }).querySelectorAll("kbd")).toHaveLength(2);
+  expect(
+    screen.getByRole("button", { name: "Save note" }).querySelector('[data-keepkit="shortcut-hint"]'),
+  ).not.toBeNull();
 });
 
 test("scopes theme options and supports icon-only save buttons", async () => {

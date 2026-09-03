@@ -1,5 +1,25 @@
 # Release notes
 
+## [0.19.0] - 2026-09-04
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepActiveFiltersSummary`で検索語と選択タグをチップ表示し、個別解除と一括クリアを行えるようにしました。
+- `KeepEmptyState`が保存アイテム未登録と絞り込み結果0件を区別し、結果0件ではフィルターをクリアして復帰できるようにしました。
+- `KeepShortcutHint`、`KeepTourBar showShortcutHint`、`KeepNoteEditor showShortcutHint`でキーボード操作を視覚的に確認できるようにしました。
+- `mergeProps` / `createSlot`を追加し、`asChild`のclassName、style、ARIA属性、イベントハンドラ合成を共通化しました。
+
+### English
+
+#### Added and changed
+
+- Added `KeepActiveFiltersSummary` chips for search and selected tags, with individual removal and clear-all actions.
+- `KeepEmptyState` now distinguishes an empty storage from zero filtered results and provides filter recovery for the latter.
+- Added `KeepShortcutHint`, `KeepTourBar showShortcutHint`, and `KeepNoteEditor showShortcutHint` for visible keyboard-operation hints.
+- Added shared `mergeProps` / `createSlot` utilities for composing `asChild` className, style, ARIA attributes, and event handlers.
+
 ## [0.17.0] - 2026-09-04
 
 ### 日本語

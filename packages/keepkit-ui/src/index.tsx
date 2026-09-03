@@ -82,7 +82,13 @@ import {
   KeepItemStatusBadge,
   type KeepItemStatusBadgeProps,
 } from "./features/item/KeepItemStatusBadge";
+import { KeepShortcutHint, type KeepShortcutHintProps } from "./features/navigation/KeepShortcutHint";
 import { KeepNavigator, KeepTourBar, type KeepTourBarProps } from "./features/navigation/KeepTourBar";
+import {
+  KeepActiveFiltersSummary,
+  type KeepActiveFiltersSummaryProps,
+  type KeepActiveFiltersSummaryState,
+} from "./features/query/KeepActiveFiltersSummary";
 import { KeepTagFilter, type KeepTagFilterProps, type KeepTagFilterState } from "./features/query/KeepTagFilter";
 import {
   KeepPagination,
@@ -233,9 +239,12 @@ export {
 } from "@keepkit/core/storage";
 export type { KeepSelectionScope } from "./features/actions/KeepBulkActions";
 export { isAllSelected, toggleSelectAll } from "./features/actions/KeepBulkActions";
+export type { KeepEmptyStateVariant } from "./features/status/KeepEmptyState";
 export type { KeepHighlightProps, RenderProp } from "./foundation/shared";
-export { highlightText, KeepHighlight } from "./foundation/shared";
+export { chainedFunction, createSlot, highlightText, KeepHighlight, mergeProps } from "./foundation/shared";
 export type {
+  KeepActiveFiltersSummaryProps,
+  KeepActiveFiltersSummaryState,
   KeepAnnouncementsProps,
   KeepBackupProps,
   KeepBulkActionsProps,
@@ -275,6 +284,7 @@ export type {
   KeepReorderableListProps,
   KeepScope,
   KeepSearchInputProps,
+  KeepShortcutHintProps,
   KeepSortSelectProps,
   KeepSortValue,
   KeepStaleNoticeProps,
@@ -312,6 +322,7 @@ export type {
 export {
   createNextPagesRouterAdapter,
   getKeepLocaleLabels,
+  KeepActiveFiltersSummary,
   KeepAnnouncements,
   KeepAnnouncer,
   KeepBackup,
@@ -331,6 +342,7 @@ export {
   KeepPruneStaleButton,
   KeepReorderableList,
   KeepSearchInput,
+  KeepShortcutHint,
   KeepSortSelect,
   KeepStaleNotice,
   KeepStatus,

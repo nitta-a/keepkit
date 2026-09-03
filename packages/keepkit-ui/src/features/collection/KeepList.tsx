@@ -5,6 +5,7 @@ import { KeepErrorBoundary, type KeepErrorBoundaryProps, type UseKeepListResult 
 import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
 import { KeepSearchQueryProvider, type RenderProp, renderRoot, resolveContent } from "../../foundation/shared";
 import { KeepItemCard, type KeepItemCardProps, KeepItemCardSkeleton } from "../item/KeepItemCard";
+import { KeepEmptyState } from "../status/KeepEmptyState";
 import { useKeepListView } from "./hooks/useKeepListView";
 import { useRovingTabIndex } from "./hooks/useRovingTabIndex";
 import type { KeepLayoutPreset } from "./KeepCollection";
@@ -21,6 +22,7 @@ export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes
   loadingCount?: number;
   empty?: ReactNode | RenderProp<KeepListState<TMeta>>;
   error?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  onClearFilters?: () => void;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
   layout?: KeepLayoutPreset;
   asChild?: boolean;
@@ -50,6 +52,7 @@ function KeepListContent<TMeta = Record<string, unknown>>({
   loadingCount = 6,
   empty,
   error: errorContent,
+  onClearFilters,
   itemCardProps,
   layout = "list",
   asChild = false,
@@ -67,8 +70,11 @@ function KeepListContent<TMeta = Record<string, unknown>>({
     loading: renderLoading !== undefined ? renderLoading : loading,
     loadingCount,
     loadingLabel: view.labels.loading,
-    empty: empty ?? view.labels.empty,
+    empty,
     error: errorContent ?? view.labels.error,
+    onClearFilters,
+    allItemCount: view.allState.totalCount,
+    query,
     itemCardProps,
     layout,
   });
@@ -115,8 +121,11 @@ function getListBody<TMeta>(
     loading: ReactNode | RenderProp<KeepListState<TMeta>> | undefined;
     loadingCount: number;
     loadingLabel: string;
-    empty: ReactNode | RenderProp<KeepListState<TMeta>>;
+    empty: ReactNode | RenderProp<KeepListState<TMeta>> | undefined;
     error: ReactNode | RenderProp<KeepListState<TMeta>>;
+    onClearFilters?: () => void;
+    allItemCount: number;
+    query: KeepListQuery<TMeta> | undefined;
     itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
     layout: KeepLayoutPreset;
   },
@@ -141,7 +150,15 @@ function getListBody<TMeta>(
       </>
     );
   }
-  if (state.isHydrated && state.items.length === 0) return resolveContent(options.empty, state);
+  if (state.isHydrated && state.items.length === 0) {
+    if (options.empty !== undefined) return resolveContent(options.empty, state);
+    return (
+      <KeepEmptyState
+        variant={options.allItemCount > 0 && hasActiveQueryFilters(options.query) ? "empty-filtered" : "empty-storage"}
+        onClearFilters={options.onClearFilters}
+      />
+    );
+  }
   if (typeof options.children === "function") return options.children(state);
   if (options.children !== undefined && !isValidElement(options.children)) return options.children;
   return (
@@ -156,5 +173,16 @@ function getListBody<TMeta>(
         ),
       )}
     </ul>
+  );
+}
+
+function hasActiveQueryFilters<TMeta>(query: KeepListQuery<TMeta> | undefined): boolean {
+  if (!query) return false;
+  return Boolean(
+    query.search?.query?.trim() ||
+      query.tags?.some((tag) => tag.trim()) ||
+      query.targetType ||
+      query.savedBetween ||
+      query.filter,
   );
 }

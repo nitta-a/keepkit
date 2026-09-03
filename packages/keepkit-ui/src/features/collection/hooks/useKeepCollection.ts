@@ -31,7 +31,7 @@ export function useKeepCollection<TMeta>({
   };
   const [searchValue, setSearchValue] = useState(query.search?.query ?? "");
   const [sort, setSort] = useState(query.sort ?? { by: "updatedAt" as const, direction: "desc" as const });
-  const [tag, setTag] = useState<string | undefined>(query.tags?.[0]);
+  const [activeTags, setActiveTags] = useState<string[]>(query.tags ?? []);
   const [page, setPage] = useState(query.pagination?.page ?? 1);
   const resolvedPageSize = query.pagination?.pageSize ?? pageSize;
   const resolvedQuery = useMemo<KeepListQuery<TMeta>>(
@@ -39,10 +39,10 @@ export function useKeepCollection<TMeta>({
       ...query,
       search: enabled.search ? { ...query.search, query: searchValue } : query.search,
       sort: enabled.sort ? sort : query.sort,
-      tags: tag ? [...new Set([...(query.tags ?? []), tag])] : query.tags,
+      tags: activeTags.length > 0 ? activeTags : undefined,
       pagination: enabled.pagination ? { ...query.pagination, page, pageSize: resolvedPageSize } : query.pagination,
     }),
-    [enabled.pagination, enabled.search, enabled.sort, page, query, resolvedPageSize, searchValue, sort, tag],
+    [activeTags, enabled.pagination, enabled.search, enabled.sort, page, query, resolvedPageSize, searchValue, sort],
   );
   useKeepUrlSync({
     enabled: Boolean(urlSync),
@@ -51,22 +51,24 @@ export function useKeepCollection<TMeta>({
       const next = typeof nextOrUpdater === "function" ? nextOrUpdater(resolvedQuery) : nextOrUpdater;
       setSearchValue(next.search?.query ?? "");
       setSort(next.sort ?? { by: "updatedAt", direction: "desc" });
-      setTag(next.tags?.[0]);
+      setActiveTags(next.tags ?? []);
       setPage(next.pagination?.page ?? 1);
     },
     options: typeof urlSync === "object" ? urlSync : {},
     adapter: urlAdapter,
   });
   const list = useKeepList<TMeta>(resolvedQuery);
+  const allState = useKeepList<TMeta>({});
 
   return {
     enabled,
     searchValue,
     sortValue: sortToValue(sort),
-    tag,
+    activeTags,
     resolvedPageSize,
     resolvedQuery,
     list,
+    allState,
     setSearchValue: (value: string) => {
       setSearchValue(value);
       setPage(1);
@@ -76,7 +78,16 @@ export function useKeepCollection<TMeta>({
       setPage(1);
     },
     setTag: (value?: string) => {
-      setTag(value);
+      setActiveTags(value ? [value] : []);
+      setPage(1);
+    },
+    removeTag: (tagToRemove: string) => {
+      setActiveTags((current) => current.filter((tag) => tag !== tagToRemove));
+      setPage(1);
+    },
+    clearFilters: () => {
+      setSearchValue("");
+      setActiveTags([]);
       setPage(1);
     },
     setPage,

@@ -22,6 +22,48 @@
   flex: 1 1 12rem;
 }
 
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="active-filters"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--keep-control-gap);
+  color: var(--keep-muted-foreground);
+  font-size: var(--keep-tag-size);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-active-filters-list="true"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--keep-control-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-active-filters-list="true"] li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--keep-border);
+  border-radius: 999px;
+  padding: 0.2rem 0.35rem 0.2rem 0.6rem;
+  background: var(--keep-muted);
+  color: var(--keep-foreground);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-active-filters-list="true"] button {
+  min-height: 1.25rem;
+  width: 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
 :where(.keep-theme, [data-keep-theme])
   :is(
     [data-keepkit="layout"],

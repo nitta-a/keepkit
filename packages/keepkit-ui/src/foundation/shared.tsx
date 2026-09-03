@@ -126,6 +126,79 @@ export function resolveContent<TState>(content: ReactNode | RenderProp<TState>, 
   return typeof content === "function" ? content(state) : content;
 }
 
+type MergeableProps = Record<string, unknown>;
+
+/** Chains child and component event handlers while preserving both handlers' event order. */
+export function chainedFunction<T extends (...args: never[]) => unknown>(
+  childHandler: T | undefined,
+  parentHandler: T | undefined,
+): T | undefined {
+  if (!childHandler) return parentHandler;
+  if (!parentHandler) return childHandler;
+  return ((...args: never[]) => {
+    childHandler(...args);
+    parentHandler(...args);
+  }) as T;
+}
+
+/** Merges slot props without dropping child classes, styles, ARIA attributes, or events. */
+export function mergeProps<T extends MergeableProps>(childProps: T, parentProps: Partial<T> & MergeableProps): T {
+  const merged: MergeableProps = { ...parentProps, ...childProps };
+  const className = mergeClassNames(childProps.className, parentProps.className);
+  if (className) merged.className = className;
+  const style = mergeStyles(childProps.style, parentProps.style);
+  if (style) merged.style = style;
+
+  for (const key of Object.keys(parentProps)) {
+    if (!isEventProp(key)) continue;
+    const chained = chainedFunction(getHandler(childProps[key]), getHandler(parentProps[key]));
+    if (chained) merged[key] = chained;
+  }
+
+  for (const [key, value] of Object.entries(merged)) {
+    if (value === undefined && key.startsWith("aria-") && childProps[key] !== undefined) {
+      merged[key] = childProps[key];
+    }
+  }
+  return merged as T;
+}
+
+function getHandler(value: unknown): ((...args: never[]) => unknown) | undefined {
+  return typeof value === "function" ? (value as (...args: never[]) => unknown) : undefined;
+}
+
+function isEventProp(key: string): boolean {
+  return key.startsWith("on") && key.length > 2 && key[2] === key[2]?.toUpperCase();
+}
+
+function mergeClassNames(childClassName: unknown, parentClassName: unknown): string | undefined {
+  const values = [childClassName, parentClassName].filter(
+    (value): value is string => typeof value === "string" && Boolean(value),
+  );
+  return values.length > 0 ? values.join(" ") : undefined;
+}
+
+function mergeStyles(childStyle: unknown, parentStyle: unknown): Record<string, unknown> | undefined {
+  if (!childStyle && !parentStyle) return undefined;
+  return {
+    ...(isObject(childStyle) ? childStyle : {}),
+    ...(isObject(parentStyle) ? parentStyle : {}),
+  };
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function createSlot(
+  child: ReactElement<MergeableProps>,
+  props: MergeableProps,
+  body?: ReactNode,
+): ReactElement<MergeableProps> {
+  const nextProps = body === undefined ? props : { ...props, children: body };
+  return cloneElement(child, mergeProps(child.props, nextProps));
+}
+
 export function renderRoot(
   asChild: boolean,
   child: ReactNode,
@@ -135,7 +208,7 @@ export function renderRoot(
 ): ReactElement {
   if (asChild) {
     if (!isValidElement(child)) throw new Error(`${componentName} with asChild requires a single React element child.`);
-    return cloneElement(child as ReactElement<Record<string, unknown>>, { ...props, children: body });
+    return createSlot(child as ReactElement<MergeableProps>, props, body);
   }
   return <div {...props}>{body}</div>;
 }

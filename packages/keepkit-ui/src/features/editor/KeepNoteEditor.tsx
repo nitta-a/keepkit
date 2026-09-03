@@ -3,6 +3,7 @@
 import type { KeepItem } from "@keepkit/core/core";
 import { type FormHTMLAttributes, isValidElement, type ReactNode } from "react";
 import { type RenderProp, renderRoot } from "../../foundation/shared";
+import { KeepShortcutHint } from "../navigation/KeepShortcutHint";
 import { useKeepNoteEditor } from "./hooks/useKeepNoteEditor";
 
 export type KeepNoteEditorState<TMeta = Record<string, unknown>> = {
@@ -25,6 +26,7 @@ export type KeepNoteEditorProps<TMeta = Record<string, unknown>> = Omit<
   placeholder?: string;
   /** Automatically save dirty notes after this delay; set to 0 to disable auto-save. */
   debounceMs?: number;
+  showShortcutHint?: boolean;
   onSaved?: (note?: string) => void;
   onSaveError?: (error: unknown) => void;
   render?: RenderProp<KeepNoteEditorState<TMeta>>;
@@ -39,6 +41,7 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
   saveLabel,
   placeholder,
   debounceMs = 300,
+  showShortcutHint = false,
   onSaved,
   onSaveError,
   render,
@@ -69,6 +72,7 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
             </label>
             <button type="submit" data-keep-action="save-note" disabled={isSaving} aria-busy={isSaving}>
               {saveLabel ?? view.labels.save}
+              {showShortcutHint ? <KeepShortcutHint shortcut="Ctrl+Enter" /> : null}
             </button>
           </>
         ));

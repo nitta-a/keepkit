@@ -1,3 +1,35 @@
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="empty-state"] {
+  display: grid;
+  gap: var(--keep-card-gap);
+  justify-items: start;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="empty-state"] h2,
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="empty-state"] p {
+  margin: 0;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="shortcut-hint"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-inline-start: 0.35rem;
+  color: var(--keep-muted-foreground);
+  font-size: 0.75em;
+  font-weight: 500;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="shortcut-hint"] kbd {
+  border: 1px solid var(--keep-border);
+  border-bottom-width: 2px;
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.25rem;
+  background: var(--keep-card);
+  color: inherit;
+  font: inherit;
+  line-height: 1.2;
+}
+
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="status-badge"] {
   display: inline-flex;
   align-items: center;

@@ -1,6 +1,7 @@
 "use client";
 
-import { type CSSProperties, cloneElement, isValidElement, type ReactNode } from "react";
+import { type CSSProperties, isValidElement, type ReactElement, type ReactNode } from "react";
+import { createSlot } from "./shared";
 
 export const keepThemeNames = [
   "default",
@@ -94,7 +95,7 @@ export function KeepThemeProvider({
   if (asChild) {
     if (!isValidElement(children))
       throw new Error("KeepThemeProvider with asChild requires a single React element child.");
-    return cloneElement(children, rootProps);
+    return createSlot(children as ReactElement<Record<string, unknown>>, rootProps);
   }
   return <div {...rootProps}>{children}</div>;
 }
