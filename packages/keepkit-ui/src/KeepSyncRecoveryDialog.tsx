@@ -1,11 +1,10 @@
 "use client";
 
 import type { KeepItem, KeepSyncConflict } from "@keepkit/core/core";
-import { useKeepContext } from "@keepkit/core/react";
-import { type HTMLAttributes, type ReactNode, useEffect, useState } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
+import { useKeepSyncRecoveryDialog } from "./hooks/useKeepSyncRecoveryDialog";
 import { KeepBackup } from "./KeepBackup";
 import { getMetaTitle } from "./shared";
-import { useUiLabel } from "./ui-context";
 
 export type KeepSyncRecoveryDialogProps<TMeta = Record<string, unknown>> = Omit<
   HTMLAttributes<HTMLElement>,
@@ -34,50 +33,8 @@ export function KeepSyncRecoveryDialog<TMeta = Record<string, unknown>>({
   className,
   ...props
 }: KeepSyncRecoveryDialogProps<TMeta>) {
-  const context = useKeepContext<TMeta>();
-  const closeLabel = useUiLabel("close");
-  const defaultDialogTitle = useUiLabel("resolveSync");
-  const dialogTitle = title ?? defaultDialogTitle;
-  const conflictLabel = useUiLabel("syncConflict");
-  const keepLocalLabel = useUiLabel("keepLocal");
-  const useServerLabel = useUiLabel("useServer");
-  const manualMergeLabel = useUiLabel("manualMerge");
-  const localVersionLabel = useUiLabel("localVersion");
-  const remoteVersionLabel = useUiLabel("remoteVersion");
-  const updatedAtLabel = useUiLabel("updatedAt");
-  const noteLabel = useUiLabel("note");
-  const backupRecoveryLabel = useUiLabel("backupRecovery");
-  const backupRecoveryDescription = useUiLabel("backupRecoveryDescription");
-  const errorLabel = useUiLabel("error");
-  const conflictList = conflicts ?? context.syncState.conflicts ?? [];
-  const hasRecovery = conflictList.length > 0 || context.syncState.status === "error" || Boolean(context.error);
-  const [dismissed, setDismissed] = useState(false);
-  const [busyId, setBusyId] = useState<string>();
-  const [error, setError] = useState<unknown>();
-  useEffect(() => {
-    if (hasRecovery) setDismissed(false);
-  }, [hasRecovery]);
-  const isOpen = open ?? (hasRecovery && !dismissed);
-  if (!isOpen) return null;
-
-  const close = () => {
-    setDismissed(true);
-    onOpenChange?.(false);
-  };
-
-  async function resolve(conflict: KeepSyncConflict<TMeta>, resolution: "local" | "remote" | "manual") {
-    setError(undefined);
-    setBusyId(conflict.id);
-    try {
-      const merged = resolution === "manual" ? await onManualMerge?.(conflict) : undefined;
-      if (resolution === "manual" && !merged) throw new Error("A manual merge result is required.");
-      await context.resolveSyncConflict(conflict.id, resolution, merged);
-    } catch (cause) {
-      setError(cause);
-    } finally {
-      setBusyId(undefined);
-    }
-  }
+  const view = useKeepSyncRecoveryDialog<TMeta>({ open, onOpenChange, conflicts, onManualMerge });
+  if (!view.isOpen) return null;
 
   return (
     <section
@@ -86,70 +43,81 @@ export function KeepSyncRecoveryDialog<TMeta = Record<string, unknown>>({
       role="dialog"
       aria-modal="true"
       aria-labelledby="keepkit-sync-recovery-title"
-      aria-describedby={error ? "keepkit-sync-recovery-error" : undefined}
-      aria-busy={busyId !== undefined}
+      aria-describedby={view.error ? "keepkit-sync-recovery-error" : undefined}
+      aria-busy={view.busyId !== undefined}
       data-keepkit="sync-recovery"
-      data-state={conflictList.length > 0 ? "conflict" : "error"}
-      data-loading={busyId !== undefined ? "true" : undefined}
+      data-state={view.conflictList.length > 0 ? "conflict" : "error"}
+      data-loading={view.busyId !== undefined ? "true" : undefined}
     >
       <header>
-        <h2 id="keepkit-sync-recovery-title">{dialogTitle}</h2>
-        <button type="button" onClick={close} aria-label={closeLabel}>
-          {closeLabel}
+        <h2 id="keepkit-sync-recovery-title">{title ?? view.labels.title}</h2>
+        <button type="button" data-keep-action="close-dialog" onClick={view.close} aria-label={view.labels.close}>
+          {view.labels.close}
         </button>
       </header>
       {children}
-      {conflictList.length > 0 ? (
+      {view.conflictList.length > 0 ? (
         <div>
-          <p>{conflictLabel}</p>
-          {conflictList.map((conflict) => (
+          <p>{view.labels.conflict}</p>
+          {view.conflictList.map((conflict) => (
             <article key={conflict.id} data-conflict-id={conflict.id}>
               <h3>{getMetaTitle(conflict.operation.item?.meta) ?? conflict.id}</h3>
               <div data-conflict-preview>
                 <ConflictPreview
                   item={conflict.operation.item}
-                  heading={localVersionLabel}
-                  updatedAtLabel={updatedAtLabel}
-                  noteLabel={noteLabel}
+                  heading={view.labels.localVersion}
+                  updatedAtLabel={view.labels.updatedAt}
+                  noteLabel={view.labels.note}
                   side="local"
                 />
                 <ConflictPreview
                   item={conflict.remote}
-                  heading={remoteVersionLabel}
-                  updatedAtLabel={updatedAtLabel}
-                  noteLabel={noteLabel}
+                  heading={view.labels.remoteVersion}
+                  updatedAtLabel={view.labels.updatedAt}
+                  noteLabel={view.labels.note}
                   side="remote"
                 />
               </div>
               <div>
-                <button type="button" onClick={() => void resolve(conflict, "local")} disabled={busyId !== undefined}>
-                  {keepLocalLabel}
-                </button>
-                <button type="button" onClick={() => void resolve(conflict, "remote")} disabled={busyId !== undefined}>
-                  {useServerLabel}
+                <button
+                  type="button"
+                  data-keep-action="keep-local"
+                  onClick={() => void view.resolve(conflict, "local")}
+                  disabled={view.busyId !== undefined}
+                >
+                  {view.labels.keepLocal}
                 </button>
                 <button
                   type="button"
-                  onClick={() => void resolve(conflict, "manual")}
-                  disabled={busyId !== undefined || !onManualMerge}
+                  data-keep-action="use-server"
+                  onClick={() => void view.resolve(conflict, "remote")}
+                  disabled={view.busyId !== undefined}
                 >
-                  {manualMergeLabel}
+                  {view.labels.useServer}
+                </button>
+                <button
+                  type="button"
+                  data-keep-action="manual-merge"
+                  onClick={() => void view.resolve(conflict, "manual")}
+                  disabled={view.busyId !== undefined || !onManualMerge}
+                >
+                  {view.labels.manualMerge}
                 </button>
               </div>
             </article>
           ))}
         </div>
       ) : null}
-      {context.syncState.status === "error" || context.error ? (
+      {view.showBackupRecovery ? (
         <section data-recovery="backup">
-          <h3>{backupRecoveryLabel}</h3>
-          <p>{backupRecoveryDescription}</p>
+          <h3>{view.labels.backupRecovery}</h3>
+          <p>{view.labels.backupRecoveryDescription}</p>
           {backup ?? (showBackupControls ? <KeepBackup /> : null)}
         </section>
       ) : null}
-      {error ? (
+      {view.error ? (
         <p id="keepkit-sync-recovery-error" role="alert" aria-live="assertive">
-          {error instanceof Error ? error.message : errorLabel}
+          {view.error instanceof Error ? view.error.message : view.labels.error}
         </p>
       ) : null}
     </section>

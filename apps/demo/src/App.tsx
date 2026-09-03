@@ -1,13 +1,9 @@
 import type { KeepItem } from "@keepkit/core/core";
-import { KeepButton, useKeepContext, useKeepItem, useKeepList, useKeepShortcut } from "@keepkit/ui";
-import { useEffect, useState } from "react";
+import { KeepButton, KeepCollection, KeepEmptyState, KeepItemCard, KeepNoteEditor } from "@keepkit/ui";
 import type { DemoMeta } from "./main";
+import { useAppView } from "./useAppView";
 
 type Content = KeepItem<DemoMeta> & { kindLabel: string };
-
-interface SavedRowProps {
-  item: KeepItem<DemoMeta>;
-}
 
 const content: Content[] = [
   {
@@ -69,41 +65,7 @@ const content: Content[] = [
 ];
 
 export function App() {
-  const [targetType, setTargetType] = useState<string | undefined>();
-  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
-  const { items, isLoading, error, clear } = useKeepList<DemoMeta>(targetType === undefined ? {} : { targetType });
-  const { syncState } = useKeepContext<DemoMeta>();
-
-  useEffect(() => {
-    const updateOnline = () => setOnline(navigator.onLine);
-    window.addEventListener("online", updateOnline);
-    window.addEventListener("offline", updateOnline);
-    return () => {
-      window.removeEventListener("online", updateOnline);
-      window.removeEventListener("offline", updateOnline);
-    };
-  }, []);
-
-  useKeepShortcut({
-    key: "k",
-    modifier: "meta",
-    item: {
-      id: content[0].id,
-      meta: content[0].meta,
-      tags: ["shortcut"],
-      ...(content[0].targetType === undefined ? {} : { targetType: content[0].targetType }),
-    },
-  });
-
-  const syncLabel = !online
-    ? "Offline · changes are queued locally"
-    : syncState.status === "pending"
-      ? `${syncState.pendingCount} change${syncState.pendingCount === 1 ? "" : "s"} waiting to sync`
-      : syncState.status === "syncing"
-        ? "Syncing changes…"
-        : syncState.status === "error"
-          ? "Sync paused · will retry when online"
-          : "All changes synced";
+  const { isOnline, savedItemCount, syncLabel, clearAll } = useAppView(content[0]);
 
   return (
     <main className="shell">
@@ -114,7 +76,7 @@ export function App() {
           Save articles and products with the same headless API. Notes and the collection persist in localStorage, while
           changes in another tab are reloaded automatically.
         </p>
-        <div className={online ? "sync-status online" : "sync-status offline"} aria-live="polite">
+        <div className={isOnline ? "sync-status online" : "sync-status offline"} aria-live="polite">
           <span className="status-dot" aria-hidden="true" />
           <span>{syncLabel}</span>
           <span className="shortcut-hint">⌘K saves the first article</span>
@@ -151,7 +113,7 @@ export function App() {
                   item={{
                     id: entry.id,
                     meta: entry.meta,
-                    tags: [entry.targetType ?? "resource"],
+                    tags: [entry.kindLabel],
                     ...(entry.targetType === undefined ? {} : { targetType: entry.targetType }),
                   }}
                   savedLabel="Saved ✓"
@@ -163,100 +125,44 @@ export function App() {
         </div>
       </section>
 
-      <section className="section collection" aria-labelledby="collection-heading">
+      <section className="section collection-shell" aria-labelledby="collection-heading">
         <div className="section-heading">
           <div>
             <p className="eyebrow">Your collection</p>
             <h2 id="collection-heading">Kept items</h2>
           </div>
           <div className="collection-actions">
-            <span className="count">{items.length} saved</span>
-            <button className="text-button" onClick={() => void clear()} type="button">
+            <span className="count">{savedItemCount} saved</span>
+            <button className="text-button" onClick={clearAll} type="button">
               Clear all
             </button>
           </div>
         </div>
 
-        <fieldset className="filters">
-          <legend>Filter saved items</legend>
-          {[
-            [undefined, "All"],
-            ["article", "Articles"],
-            ["product", "Products"],
-            ["job", "Jobs"],
-          ].map(([value, label]) => (
-            <button
-              className={targetType === value ? "filter-button active" : "filter-button"}
-              key={label}
-              onClick={() => setTargetType(value)}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </fieldset>
-
-        {error ? <p className="error-state">Could not load the collection. Please try again.</p> : null}
-        {isLoading ? (
-          <p className="empty-state">Restoring your collection…</p>
-        ) : items.length === 0 ? (
-          <p className="empty-state">Nothing here yet. Save a resource above.</p>
-        ) : (
-          <ul className="favorite-list">
-            {items.map((item) => (
-              <SavedRow item={item} key={item.id} />
-            ))}
-          </ul>
-        )}
+        <KeepCollection<DemoMeta>
+          className="demo-collection"
+          layout="grid"
+          pageSize={6}
+          features={{ tagFilter: true }}
+          empty={
+            <KeepEmptyState
+              title="Nothing here yet"
+              description="Save a resource above and it will appear in this searchable collection."
+            />
+          }
+          renderItem={(item) => (
+            <li className="saved-item" key={item.id}>
+              <KeepItemCard
+                item={item}
+                href={item.meta.url}
+                showSaveButton={false}
+                getImageProps={(entry) => ({ src: entry.meta.image, alt: entry.meta.title })}
+              />
+              <KeepNoteEditor item={item} placeholder="Why is this worth returning to?" />
+            </li>
+          )}
+        />
       </section>
     </main>
-  );
-}
-
-function SavedRow({ item }: SavedRowProps) {
-  const { updateNote, remove } = useKeepItem<DemoMeta>(item);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(item.note ?? "");
-
-  async function saveNote() {
-    await updateNote(draft);
-    setEditing(false);
-  }
-
-  return (
-    <li className="favorite-row">
-      <div className="favorite-info">
-        <span className="type-badge">{item.targetType ?? "item"}</span>
-        <a href={item.meta.url} target="_blank" rel="noreferrer">
-          <strong>{item.meta.title}</strong>
-          <span>{item.meta.url}</span>
-        </a>
-        {editing ? (
-          <div className="edit-comment">
-            <input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              aria-label={`Edit note for ${item.meta.title}`}
-              placeholder="Add a note"
-            />
-            <button onClick={() => void saveNote()} type="button">
-              Save note
-            </button>
-          </div>
-        ) : (
-          <button className="text-button" onClick={() => setEditing(true)} type="button">
-            {item.note ? `“${item.note}” · Edit note` : "Add a note"}
-          </button>
-        )}
-      </div>
-      <button
-        className="remove-button"
-        aria-label={`Remove ${item.meta.title}`}
-        onClick={() => void remove()}
-        type="button"
-      >
-        Remove
-      </button>
-    </li>
   );
 }

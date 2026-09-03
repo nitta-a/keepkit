@@ -49,9 +49,18 @@ function createStorage(initialItems: KeepItem<DemoMeta>[] = []) {
 function toSavedItem(item: typeof firstArticle | typeof product, timestamps = 1) {
   return {
     ...item,
+    tags: [item.targetType === "product" ? "Product" : "Article"],
     savedAt: timestamps,
     updatedAt: timestamps,
   } as KeepItem<DemoMeta>;
+}
+
+async function findCollectionList() {
+  return waitFor(() => {
+    const list = document.querySelector('[data-keepkit="list"] > ul');
+    if (!(list instanceof HTMLUListElement)) throw new Error("The KeepCollection list was not rendered.");
+    return list;
+  });
 }
 
 function renderDemo(initialItems: KeepItem<DemoMeta>[] = []) {
@@ -67,25 +76,25 @@ function renderDemo(initialItems: KeepItem<DemoMeta>[] = []) {
 test("saves a resource and displays it in the collection", async () => {
   const { getItems } = renderDemo();
 
-  expect(await screen.findByText("Nothing here yet. Save a resource above.")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Nothing here yet" })).toBeInTheDocument();
   fireEvent.click(screen.getAllByText("Save for later")[0]);
 
   await waitFor(() => {
     expect(screen.getByRole("button", { name: "Remove saved item" })).toHaveAttribute("aria-pressed", "true");
   });
-  expect(within(screen.getByRole("list")).getByText(firstArticle.meta.title)).toBeInTheDocument();
+  expect(within(await findCollectionList()).getByText(firstArticle.meta.title)).toBeInTheDocument();
   expect(getItems()).toHaveLength(1);
   expect(getItems()[0]?.id).toBe(firstArticle.id);
 });
 
 test("filters the collection by resource type", async () => {
   const { storage } = renderDemo([toSavedItem(firstArticle), toSavedItem(product, 2)]);
-  const collection = await screen.findByRole("list");
+  const collection = await findCollectionList();
 
   expect(within(collection).getByText(firstArticle.meta.title)).toBeInTheDocument();
   expect(within(collection).getByText(product.meta.title)).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "Products" }));
+  fireEvent.click(screen.getByRole("button", { name: /Product/ }));
 
   await waitFor(() => {
     expect(within(collection).getByText(product.meta.title)).toBeInTheDocument();
@@ -96,31 +105,33 @@ test("filters the collection by resource type", async () => {
 
 test("adds and saves a note for an existing resource", async () => {
   const { getItems } = renderDemo([toSavedItem(firstArticle)]);
-  await screen.findByRole("list");
 
-  fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
-  const input = screen.getByRole("textbox", {
-    name: `Edit note for ${firstArticle.meta.title}`,
-  });
+  const collection = await findCollectionList();
+  const savedItem = within(collection).getByRole("heading", { name: firstArticle.meta.title }).closest("li");
+  expect(savedItem).not.toBeNull();
+  const input = within(savedItem as HTMLElement).getByRole("textbox", { name: "Note" });
   fireEvent.change(input, { target: { value: "Read this later" } });
-  fireEvent.click(screen.getByRole("button", { name: "Save note" }));
+  fireEvent.click(within(savedItem as HTMLElement).getByRole("button", { name: "Save note" }));
 
   await waitFor(() => {
-    expect(screen.getByText("“Read this later” · Edit note")).toBeInTheDocument();
+    expect(input).toHaveValue("Read this later");
+    expect(input.closest("form")).toHaveAttribute("data-state", "clean");
   });
   expect(getItems()[0]?.note).toBe("Read this later");
 });
 
 test("removes an item and clears the remaining collection", async () => {
   renderDemo([toSavedItem(firstArticle), toSavedItem(product, 2)]);
-  const collection = await screen.findByRole("list");
+  const collection = await findCollectionList();
 
-  fireEvent.click(screen.getByRole("button", { name: `Remove ${firstArticle.meta.title}` }));
+  const firstSavedItem = within(collection).getByRole("heading", { name: firstArticle.meta.title }).closest("li");
+  expect(firstSavedItem).not.toBeNull();
+  fireEvent.click(within(firstSavedItem as HTMLElement).getByRole("button", { name: "Remove" }));
   await waitFor(() => {
     expect(within(collection).queryByText(firstArticle.meta.title)).not.toBeInTheDocument();
     expect(within(collection).getByText(product.meta.title)).toBeInTheDocument();
   });
 
   fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
-  expect(await screen.findByText("Nothing here yet. Save a resource above.")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Nothing here yet" })).toBeInTheDocument();
 });

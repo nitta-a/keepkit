@@ -88,6 +88,7 @@ import {
   type KeepThemeProviderProps,
   type KeepThemeRadius,
   type KeepThemeVariables,
+  keepThemeNames,
 } from "./theme";
 import {
   getKeepLocaleLabels,
@@ -288,6 +289,7 @@ export {
   KeepThemeProvider,
   KeepUiProvider,
   KeepUndo,
+  keepThemeNames,
   useKeepUiLabels,
   useKeepUrlSync,
 };

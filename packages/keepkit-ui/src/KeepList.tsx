@@ -1,17 +1,12 @@
 "use client";
 
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
-import {
-  KeepErrorBoundary,
-  type KeepErrorBoundaryProps,
-  type UseKeepListResult,
-  useKeepList,
-} from "@keepkit/core/react";
+import { KeepErrorBoundary, type KeepErrorBoundaryProps, type UseKeepListResult } from "@keepkit/core/react";
 import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
+import { useKeepListView } from "./hooks/useKeepListView";
 import type { KeepLayoutPreset } from "./KeepCollection";
 import { KeepItemCard, type KeepItemCardProps } from "./KeepItemCard";
 import { type RenderProp, renderRoot, resolveContent } from "./shared";
-import { useUiLabel } from "./ui-context";
 
 export type KeepListState<TMeta = Record<string, unknown>> = UseKeepListResult<TMeta>;
 
@@ -55,16 +50,14 @@ function KeepListContent<TMeta = Record<string, unknown>>({
   className,
   ...rootProps
 }: KeepListProps<TMeta>) {
-  const defaultLoading = useUiLabel("loadingItems");
-  const defaultEmpty = useUiLabel("noItems");
-  const defaultError = useUiLabel("errorItems");
-  const state = useKeepList<TMeta>(query);
+  const view = useKeepListView<TMeta>(query);
+  const { state } = view;
   const body = getListBody(state, {
     children,
     renderItem,
-    loading: loading ?? defaultLoading,
-    empty: empty ?? defaultEmpty,
-    error: errorContent ?? defaultError,
+    loading: loading ?? view.labels.loading,
+    empty: empty ?? view.labels.empty,
+    error: errorContent ?? view.labels.error,
     itemCardProps,
     layout,
   });

@@ -31,6 +31,7 @@ import {
   KeepThemeProvider,
   KeepUiProvider,
   KeepUndo,
+  keepThemeNames,
   toggleSelectAll,
 } from "../dist/index.js";
 import { keepKitTheme } from "../dist/tailwind.js";
@@ -64,8 +65,11 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepCollection, "function");
   assert.equal(typeof createKeepKit, "function");
   assert.equal(typeof KeepThemeProvider, "function");
+  assert.deepEqual(keepThemeNames.slice(0, 5), ["default", "ocean", "forest", "sunset", "lavender"]);
   assert.equal(keepKitTheme.colors.primary, "var(--keep-primary)");
+  assert.equal(keepKitTheme.colors.success, "var(--keep-success)");
   assert.equal(keepKitTheme.colors["card-foreground"], "var(--keep-card-foreground)");
+  assert.equal(keepKitTheme.spacing.icon, "var(--keep-icon-size)");
 });
 
 test("select-all helpers operate on visible items and preserve hidden selections", () => {

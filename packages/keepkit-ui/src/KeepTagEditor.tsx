@@ -1,10 +1,9 @@
 "use client";
 
 import type { KeepItem } from "@keepkit/core/core";
-import { useKeepItem } from "@keepkit/core/react";
-import { type FormHTMLAttributes, useCallback, useEffect, useState } from "react";
-import { normalizeUiTags, type RenderProp } from "./shared";
-import { useUiLabel } from "./ui-context";
+import type { FormHTMLAttributes } from "react";
+import { useKeepTagEditor } from "./hooks/useKeepTagEditor";
+import type { RenderProp } from "./shared";
 
 export type KeepTagEditorState = {
   tags: string[];
@@ -33,49 +32,20 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
   render,
   ...props
 }: KeepTagEditorProps<TMeta>) {
-  const tagsLabel = useUiLabel("tagsToApply");
-  const removeLabel = useUiLabel("remove");
-  const applyTagsLabel = useUiLabel("applyTags");
-  const errorLabel = useUiLabel("error");
-  const itemState = useKeepItem<TMeta>(item);
-  const [tags, setTags] = useState(item.tags ?? []);
-  const [input, setInput] = useState("");
-  useEffect(() => setTags(itemState.item?.tags ?? item.tags ?? []), [item.tags, itemState.item?.tags]);
-  const save = useCallback(async () => {
-    const nextTags = normalizeUiTags(tags);
-    try {
-      await itemState.updateTags(nextTags);
-      setTags(nextTags);
-      onSaved?.(nextTags);
-    } catch (error) {
-      onSaveError?.(error);
-      throw error;
-    }
-  }, [itemState, onSaveError, onSaved, tags]);
-  const addTag = (tag: string) => {
-    setTags(normalizeUiTags([...tags, tag]));
-    setInput("");
-  };
+  const view = useKeepTagEditor<TMeta>({ item, onSaved, onSaveError });
+  const { isSaving, tags } = view.state;
   const body = render ? (
-    render({ tags, setTags, save, isSaving: itemState.isMutating })
+    render(view.state)
   ) : (
     <>
       <label>
-        {tagsLabel}
+        {view.labels.tags}
         <input
-          value={input}
+          data-keep-action="edit-tags"
+          value={view.input}
           list={availableTags.length > 0 ? `keep-tags-${item.id}` : undefined}
-          onChange={(event) => setInput(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              if (event.nativeEvent.isComposing) return;
-              event.preventDefault();
-              if (input.trim()) addTag(input);
-            } else if (event.key === "Backspace" && input.length === 0 && tags.length > 0) {
-              event.preventDefault();
-              setTags(tags.slice(0, -1));
-            }
-          }}
+          onChange={(event) => view.setInput(event.currentTarget.value)}
+          onKeyDown={view.handleInputKeyDown}
         />
       </label>
       {availableTags.length > 0 ? (
@@ -85,36 +55,33 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
           ))}
         </datalist>
       ) : null}
-      <ul aria-label={tagsLabel}>
+      <ul aria-label={view.labels.tags}>
         {tags.map((tag) => (
           <li key={tag}>
             {tag}
-            <button type="button" onClick={() => setTags(tags.filter((current) => current !== tag))}>
-              {removeLabel}
+            <button type="button" data-keep-action="remove-tag" onClick={() => view.removeTag(tag)}>
+              {view.labels.remove}
             </button>
           </li>
         ))}
       </ul>
-      <button type="submit" disabled={itemState.isMutating} aria-busy={itemState.isMutating}>
-        {applyTagsLabel}
+      <button type="submit" data-keep-action="apply-tags" disabled={isSaving} aria-busy={isSaving}>
+        {view.labels.apply}
       </button>
     </>
   );
   return (
     <form
       {...props}
-      onSubmit={(event) => {
-        event.preventDefault();
-        void save().catch(() => undefined);
-      }}
-      aria-busy={itemState.isMutating || props["aria-busy"]}
+      onSubmit={view.submit}
+      aria-busy={isSaving || props["aria-busy"]}
       data-keepkit="tag-editor"
-      data-state={itemState.error ? "error" : itemState.isMutating ? "saving" : "idle"}
-      data-loading={itemState.isMutating ? "true" : undefined}
-      data-disabled={itemState.isMutating ? "true" : undefined}
+      data-state={view.error ? "error" : isSaving ? "saving" : "idle"}
+      data-loading={isSaving ? "true" : undefined}
+      data-disabled={isSaving ? "true" : undefined}
     >
       {body}
-      {itemState.error ? <p role="alert">{getErrorMessage(itemState.error, errorLabel)}</p> : null}
+      {view.error ? <p role="alert">{getErrorMessage(view.error, view.labels.error)}</p> : null}
     </form>
   );
 }

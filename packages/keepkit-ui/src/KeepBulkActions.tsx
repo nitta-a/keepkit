@@ -1,11 +1,12 @@
 "use client";
 
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
-import { useKeepList } from "@keepkit/core/react";
-import { type HTMLAttributes, type ReactNode, useState } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
+import { useKeepBulkActions } from "./hooks/useKeepBulkActions";
 import { KeepItemCheckbox } from "./KeepItemCheckbox";
-import { getMetaTitle, normalizeUiTags, type RenderProp } from "./shared";
-import { useUiLabel } from "./ui-context";
+import { getMetaTitle, type RenderProp } from "./shared";
+
+export { isAllSelected, toggleSelectAll } from "./hooks/useKeepBulkActions";
 
 export type KeepBulkActionsState<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
@@ -26,30 +27,6 @@ export type KeepBulkActionsState<TMeta = Record<string, unknown>> = {
 };
 
 export type KeepSelectionScope = "page" | "query" | "all";
-
-/** Returns whether every visible item is selected. Empty lists are never all selected. */
-export function isAllSelected<TMeta>(
-  items: readonly Pick<KeepItem<TMeta>, "id">[],
-  selectedIds: readonly string[],
-): boolean {
-  if (items.length === 0) return false;
-  const selected = new Set(selectedIds);
-  return items.every((item) => selected.has(item.id));
-}
-
-/** Toggles only the visible items, preserving selections outside the current query or page. */
-export function toggleSelectAll<TMeta>(
-  items: readonly Pick<KeepItem<TMeta>, "id">[],
-  selectedIds: readonly string[],
-): string[] {
-  const visibleIds = new Set(items.map((item) => item.id));
-  if (isAllSelected(items, selectedIds)) return selectedIds.filter((id) => !visibleIds.has(id));
-  const nextIds = [...selectedIds];
-  for (const item of items) {
-    if (!nextIds.includes(item.id)) nextIds.push(item.id);
-  }
-  return nextIds;
-}
 
 export type KeepBulkActionsProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   query?: KeepListQuery<TMeta>;
@@ -78,67 +55,15 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   children,
   ...props
 }: KeepBulkActionsProps<TMeta>) {
-  const selectItemsLabel = useUiLabel("selectItems");
-  const selectedCountLabel = useUiLabel("selectedCount");
-  const deleteSelectedLabel = useUiLabel("deleteSelected");
-  const tagsLabel = useUiLabel("tagsToApply");
-  const applyTagsLabel = useUiLabel("applyTags");
-  const selectionScopeLabel = useUiLabel("selectionScope");
-  const currentPageLabel = useUiLabel("currentPage");
-  const searchResultsLabel = useUiLabel("searchResults");
-  const allItemsLabel = useUiLabel("allItems");
-  const list = useKeepList<TMeta>(query);
-  const queryList = useKeepList<TMeta>(query ? { ...query, pagination: undefined } : { pagination: undefined });
-  const allList = useKeepList<TMeta>({ pagination: undefined });
-  const [uncontrolledScope, setUncontrolledScope] = useState<KeepSelectionScope>(controlledScope ?? "page");
-  const selectionScope = controlledScope ?? uncontrolledScope;
-  const setSelectionScope = (scope: KeepSelectionScope) => {
-    if (controlledScope === undefined) setUncontrolledScope(scope);
-    onSelectionScopeChange?.(scope);
-  };
-  const targetItems =
-    selectionScope === "page" ? list.items : selectionScope === "query" ? queryList.items : allList.items;
-  const [uncontrolledSelectedIds, setUncontrolledSelectedIds] = useState(defaultSelectedIds);
-  const selectedIds = controlledSelectedIds ?? uncontrolledSelectedIds;
-  const selected = new Set(selectedIds);
-  const [tagsInput, setTagsInput] = useState("");
-  const setSelectedIds = (ids: string[]) => {
-    if (controlledSelectedIds === undefined) setUncontrolledSelectedIds(ids);
-    onSelectedIdsChange?.(ids);
-  };
-  const toggle = (id: string) =>
-    setSelectedIds(selected.has(id) ? selectedIds.filter((current) => current !== id) : [...selectedIds, id]);
-  const allSelected = isAllSelected(targetItems, selectedIds);
-  const toggleAll = () => setSelectedIds(toggleSelectAll(targetItems, selectedIds));
-  const remove = async () => {
-    const ids = [...selectedIds];
-    await list.removeBatchWithUndo(ids);
-    onCompleted?.("remove", ids);
-    setSelectedIds([]);
-  };
-  const updateTags = async () => {
-    const ids = [...selectedIds];
-    await list.updateTagsBatch(ids, normalizeUiTags(tagsInput.split(",")));
-    onCompleted?.("tags", ids);
-    setSelectedIds([]);
-  };
-  const state: KeepBulkActionsState<TMeta> = {
-    items: targetItems,
-    selectedIds,
-    selectedCount: selectedIds.length,
-    isAllSelected: allSelected,
-    allSelected,
-    tagsInput,
-    setTagsInput,
-    toggle,
-    toggleSelectAll: toggleAll,
-    toggleAll,
-    remove,
-    updateTags,
-    isMutating: list.isMutating,
-    selectionScope,
-    setSelectionScope,
-  };
+  const { state, selected, isLoading, labels } = useKeepBulkActions<TMeta>({
+    query,
+    controlledSelectedIds,
+    defaultSelectedIds,
+    onSelectedIdsChange,
+    onCompleted,
+    controlledScope,
+    onSelectionScopeChange,
+  });
   const body = render
     ? render(state)
     : typeof children === "function"
@@ -146,46 +71,63 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
       : (children ?? (
           <>
             <fieldset>
-              <legend>{selectItemsLabel}</legend>
+              <legend>{labels.selectItems}</legend>
               <label>
-                {selectionScopeLabel}
+                {labels.selectionScope}
                 <select
-                  value={selectionScope}
-                  onChange={(event) => setSelectionScope(event.currentTarget.value as KeepSelectionScope)}
+                  data-keep-action="select-scope"
+                  value={state.selectionScope}
+                  onChange={(event) => state.setSelectionScope(event.currentTarget.value as KeepSelectionScope)}
                 >
-                  <option value="page">{currentPageLabel}</option>
-                  <option value="query">{searchResultsLabel}</option>
-                  <option value="all">{allItemsLabel}</option>
+                  <option value="page">{labels.currentPage}</option>
+                  <option value="query">{labels.searchResults}</option>
+                  <option value="all">{labels.allItems}</option>
                 </select>
               </label>
               <label>
-                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label={selectItemsLabel} />
-                {selectedIds.length} {selectedCountLabel}
+                <input
+                  type="checkbox"
+                  data-keep-action="select-all"
+                  checked={state.allSelected}
+                  onChange={state.toggleAll}
+                  aria-label={labels.selectItems}
+                />
+                {state.selectedIds.length} {labels.selectedCount}
               </label>
-              {targetItems.map((item) => (
+              {state.items.map((item) => (
                 <span key={item.id}>
                   <KeepItemCheckbox
                     item={item}
                     checked={selected.has(item.id)}
-                    onCheckedChange={() => toggle(item.id)}
+                    onCheckedChange={() => state.toggle(item.id)}
                   />
                   {renderItem ? renderItem(item, selected.has(item.id)) : (getMetaTitle(item.meta) ?? item.id)}
                 </span>
               ))}
             </fieldset>
-            <button type="button" onClick={() => void remove()} disabled={selectedIds.length === 0 || list.isMutating}>
-              {deleteSelectedLabel}
+            <button
+              type="button"
+              data-keep-action="delete-selected"
+              onClick={() => void state.remove()}
+              disabled={state.selectedIds.length === 0 || state.isMutating}
+            >
+              {labels.deleteSelected}
             </button>
             <label>
-              {tagsLabel}
-              <input value={tagsInput} onChange={(event) => setTagsInput(event.currentTarget.value)} />
+              {labels.tags}
+              <input
+                data-keep-action="edit-tags"
+                value={state.tagsInput}
+                onChange={(event) => state.setTagsInput(event.currentTarget.value)}
+              />
             </label>
             <button
               type="button"
-              onClick={() => void updateTags()}
-              disabled={selectedIds.length === 0 || list.isMutating}
+              data-keep-action="apply-tags"
+              onClick={() => void state.updateTags()}
+              disabled={state.selectedIds.length === 0 || state.isMutating}
             >
-              {applyTagsLabel}
+              {labels.applyTags}
             </button>
           </>
         ));
@@ -193,9 +135,9 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
     <section
       {...props}
       data-keepkit="bulk-actions"
-      aria-busy={list.isMutating || props["aria-busy"]}
-      data-state={selectedIds.length > 0 ? "selected" : "idle"}
-      data-loading={list.isLoading || list.isMutating ? "true" : undefined}
+      aria-busy={state.isMutating || props["aria-busy"]}
+      data-state={state.selectedIds.length > 0 ? "selected" : "idle"}
+      data-loading={isLoading || state.isMutating ? "true" : undefined}
     >
       {body}
     </section>

@@ -13,12 +13,43 @@ body {
   margin: 0;
   min-width: 320px;
 }
+.keep-theme {
+  min-height: 100vh;
+}
 button,
 input {
   font: inherit;
 }
 button {
   cursor: pointer;
+}
+
+.theme-switcher {
+  position: fixed;
+  z-index: 10;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--keep-border);
+  border-radius: var(--keep-radius);
+  padding: 8px 10px;
+  color: var(--keep-muted-foreground);
+  background: color-mix(in srgb, var(--keep-card) 92%, transparent);
+  box-shadow: var(--keep-shadow);
+  font-size: 12px;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+}
+.theme-switcher select {
+  min-height: 32px;
+  border: 1px solid var(--keep-input);
+  border-radius: calc(var(--keep-radius) - 4px);
+  padding: 4px 28px 4px 8px;
+  color: var(--keep-foreground);
+  background: var(--keep-background);
+  font: inherit;
 }
 
 .shell {
@@ -120,35 +151,6 @@ h2 {
   align-items: center;
   gap: 18px;
 }
-.filters {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 18px;
-  border: 0;
-  padding: 0;
-}
-.filters legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-.filter-button {
-  border: 1px solid #d8cebd;
-  border-radius: 999px;
-  padding: 7px 11px;
-  color: #746e64;
-  background: transparent;
-  font-size: 12px;
-}
-.filter-button.active,
-.filter-button:hover {
-  border-color: #a44c2a;
-  color: #853a20;
-  background: #f1e1d2;
-}
 .content-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -203,96 +205,28 @@ h3 {
   font-size: 22px;
   font-weight: 400;
 }
-.card-body a,
-.favorite-info a {
+.card-body a {
   overflow: hidden;
   color: #8b8378;
   font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.comment-field {
-  display: grid;
-  gap: 7px;
-}
-.comment-field span {
-  color: #746e64;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-input {
+.favorite-button {
   width: 100%;
-  border: 1px solid #d8cebd;
-  border-radius: 9px;
-  padding: 10px 11px;
-  color: #25231f;
-  background: #fffdf8;
-  outline: none;
 }
-input:focus {
-  border-color: #a44c2a;
-  box-shadow: 0 0 0 3px rgba(164, 76, 42, 0.12);
-}
-.favorite-button,
-.edit-comment button {
-  border: 0;
-  border-radius: 9px;
-  padding: 11px 13px;
-  color: #fffdf8;
-  background: #a44c2a;
-  font-weight: 700;
-}
-.favorite-button:hover,
-.edit-comment button:hover {
-  background: #853a20;
-}
-.favorite-button[aria-pressed="true"] {
-  color: #853a20;
-  background: #f1e1d2;
-}
-.collection {
+.collection-shell {
   padding: 30px;
   border: 1px solid #e1d9ca;
   border-radius: 20px;
   background: rgba(255, 252, 245, 0.72);
 }
-.favorite-list {
+.saved-item {
   display: grid;
   gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.favorite-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 16px 18px;
-  border: 1px solid #e8e0d2;
-  border-radius: 12px;
-  background: #fffdf8;
-}
-.favorite-info {
-  display: grid;
-  gap: 6px;
   min-width: 0;
 }
-.favorite-info a {
-  display: grid;
-  gap: 5px;
-  color: inherit;
-  text-decoration: none;
-}
-.favorite-info strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.text-button,
-.remove-button {
+.text-button {
   width: fit-content;
   border: 0;
   padding: 0;
@@ -301,36 +235,8 @@ input:focus {
   font-size: 13px;
   text-align: left;
 }
-.text-button:hover,
-.remove-button:hover {
+.text-button:hover {
   text-decoration: underline;
-}
-.remove-button {
-  flex: 0 0 auto;
-  color: #8b8378;
-}
-.edit-comment {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.edit-comment input {
-  min-width: min(300px, 45vw);
-}
-.edit-comment button {
-  padding: 8px 10px;
-  font-size: 13px;
-}
-.empty-state {
-  margin: 0;
-  padding: 25px 0 8px;
-  color: #8b8378;
-  text-align: center;
-}
-.error-state {
-  margin: 0 0 16px;
-  color: #a44c2a;
-  font-size: 14px;
 }
 
 @media (max-width: 800px) {
@@ -352,7 +258,7 @@ input:focus {
     width: min(100% - 28px, 560px);
     padding-top: 52px;
   }
-  .collection {
+  .collection-shell {
     padding: 20px;
   }
   .section-heading {
@@ -369,19 +275,5 @@ input:focus {
   .content-card img {
     height: 150px;
     min-height: 0;
-  }
-  .favorite-row {
-    align-items: start;
-    flex-direction: column;
-  }
-  .remove-button {
-    padding-top: 3px;
-  }
-  .edit-comment {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .edit-comment input {
-    min-width: 0;
   }
 }

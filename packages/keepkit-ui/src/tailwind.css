@@ -15,6 +15,8 @@
   --color-primary-foreground: var(--keep-primary-foreground);
   --color-destructive: var(--keep-destructive);
   --color-destructive-foreground: var(--keep-destructive-foreground);
+  --color-success: var(--keep-success);
+  --color-warning: var(--keep-warning);
   --color-ring: var(--keep-ring);
   --radius-sm: calc(var(--keep-radius) - 4px);
   --radius-md: calc(var(--keep-radius) - 2px);

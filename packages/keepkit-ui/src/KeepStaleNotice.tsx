@@ -1,11 +1,9 @@
 "use client";
 
 import type { KeepItem, KeepItemStatus } from "@keepkit/core/core";
-import { useKeepContext } from "@keepkit/core/react";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
-import { useState } from "react";
+import { useKeepPruneStale, useKeepStaleNotice } from "./hooks/useKeepStaleNotice";
 import { KeepItemStatusBadge } from "./KeepItemStatusBadge";
-import { useUiLabel } from "./ui-context";
 
 export type KeepStaleNoticeProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   item: KeepItem<TMeta>;
@@ -27,49 +25,31 @@ export function KeepStaleNotice<TMeta = Record<string, unknown>>({
   className,
   ...props
 }: KeepStaleNoticeProps<TMeta>) {
-  const context = useKeepContext<TMeta>();
-  const retryText = useUiLabel("retry");
-  const removeText = useUiLabel("removeFromList");
-  const errorText = useUiLabel("error");
-  const [isRetrying, setIsRetrying] = useState(false);
-  const [error, setError] = useState<unknown | null>(null);
-  const status = item.status && item.status !== "available" ? item.status : "unknown";
-
-  async function handleRetry() {
-    setError(null);
-    setIsRetrying(true);
-    try {
-      if (onRetry) await onRetry(item);
-      else await context.revalidateItems();
-    } catch (cause) {
-      setError(cause);
-    } finally {
-      setIsRetrying(false);
-    }
-  }
-
-  async function handleRemove() {
-    try {
-      await context.removeItemWithUndo(item.id);
-      onRemoved?.(item);
-    } catch (cause) {
-      setError(cause);
-    }
-  }
+  const view = useKeepStaleNotice<TMeta>({ item, onRetry, onRemoved });
 
   return (
-    <aside {...props} className={className} data-keepkit="stale-notice" data-state={error ? "error" : "stale"}>
-      <KeepItemStatusBadge status={status} />
+    <aside {...props} className={className} data-keepkit="stale-notice" data-state={view.error ? "error" : "stale"}>
+      <KeepItemStatusBadge status={view.status} />
       {children ?? (item.statusReason ? <p>{item.statusReason}</p> : null)}
       <div>
-        <button type="button" onClick={() => void handleRetry()} disabled={isRetrying || context.isMutating}>
-          {retryLabel ?? retryText}
+        <button
+          type="button"
+          data-keep-action="retry-item"
+          onClick={() => void view.retry()}
+          disabled={view.isRetrying || view.isMutating}
+        >
+          {retryLabel ?? view.labels.retry}
         </button>
-        <button type="button" onClick={() => void handleRemove()} disabled={context.isMutating}>
-          {removeLabel ?? removeText}
+        <button
+          type="button"
+          data-keep-action="remove-item"
+          onClick={() => void view.remove()}
+          disabled={view.isMutating}
+        >
+          {removeLabel ?? view.labels.remove}
         </button>
       </div>
-      {error ? <p role="alert">{error instanceof Error ? error.message : errorText}</p> : null}
+      {view.error ? <p role="alert">{view.error instanceof Error ? view.error.message : view.labels.error}</p> : null}
     </aside>
   );
 }
@@ -90,15 +70,7 @@ export function KeepPruneStaleButton<TMeta = Record<string, unknown>>({
   disabled,
   ...props
 }: KeepPruneStaleButtonProps) {
-  const context = useKeepContext<TMeta>();
-  const defaultLabel = useUiLabel("pruneStale");
-  const staleIds = context.items.filter((item) => item.status && statuses.includes(item.status)).map((item) => item.id);
-
-  async function handlePrune() {
-    const ids = [...staleIds];
-    await context.removeItemsWithUndo(ids);
-    onPruned?.(ids);
-  }
+  const view = useKeepPruneStale<TMeta>({ statuses, onPruned });
 
   return (
     <button
@@ -106,11 +78,12 @@ export function KeepPruneStaleButton<TMeta = Record<string, unknown>>({
       type="button"
       className={props.className}
       data-keepkit="prune-stale"
-      data-state={staleIds.length > 0 ? "available" : "empty"}
-      disabled={staleIds.length === 0 || context.isMutating || disabled}
-      onClick={() => void handlePrune()}
+      data-keep-action="prune-stale"
+      data-state={view.staleIds.length > 0 ? "available" : "empty"}
+      disabled={view.staleIds.length === 0 || view.isMutating || disabled}
+      onClick={() => void view.prune()}
     >
-      {children ?? label ?? `${defaultLabel} (${staleIds.length})`}
+      {children ?? label ?? `${view.label} (${view.staleIds.length})`}
     </button>
   );
 }

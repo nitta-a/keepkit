@@ -1,8 +1,8 @@
 "use client";
 
 import type { KeepListQuery } from "@keepkit/core/core";
-import { type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, useEffect, useState } from "react";
-import { useUiLabel } from "./ui-context";
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import { useKeepPagination, useKeepSearchInput, useKeepSortSelect } from "./hooks/useQueryControls";
 
 export type KeepSearchInputProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -25,34 +25,20 @@ export function KeepSearchInput({
   placeholder,
   ...props
 }: KeepSearchInputProps) {
-  const label = useUiLabel("search");
-  const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue);
-  const value = controlledValue ?? uncontrolledValue;
-
-  useEffect(() => {
-    if (!onValueChange) return;
-    if (debounceMs <= 0) {
-      onValueChange(value);
-      return;
-    }
-    const timer = window.setTimeout(() => onValueChange(value), debounceMs);
-    return () => window.clearTimeout(timer);
-  }, [debounceMs, onValueChange, value]);
+  const view = useKeepSearchInput({ controlledValue, defaultValue, debounceMs, onValueChange });
 
   return (
     <input
       {...props}
       data-keepkit="search-input"
+      data-keep-action="search"
       type="search"
-      value={value}
-      data-state={value ? "active" : "idle"}
+      value={view.value}
+      data-state={view.value ? "active" : "idle"}
       data-disabled={props.disabled ? "true" : undefined}
-      aria-label={ariaLabel ?? label}
-      placeholder={placeholder ?? label}
-      onChange={(event) => {
-        const nextValue = event.currentTarget.value;
-        if (controlledValue === undefined) setUncontrolledValue(nextValue);
-      }}
+      aria-label={ariaLabel ?? view.label}
+      placeholder={placeholder ?? view.label}
+      onChange={view.change}
     />
   );
 }
@@ -77,35 +63,25 @@ export function KeepSortSelect({
   children,
   ...props
 }: KeepSortSelectProps) {
-  const label = useUiLabel("sort");
-  const updatedNewestLabel = useUiLabel("updatedNewest");
-  const updatedOldestLabel = useUiLabel("updatedOldest");
-  const savedNewestLabel = useUiLabel("savedNewest");
-  const savedOldestLabel = useUiLabel("savedOldest");
-  const [uncontrolledValue, setUncontrolledValue] = useState<KeepSortValue>(defaultValue);
-  const value = controlledValue ?? uncontrolledValue;
+  const view = useKeepSortSelect({ controlledValue, defaultValue, onValueChange });
   const options = children ?? (
     <>
-      <option value="updatedAt:desc">{updatedNewestLabel}</option>
-      <option value="updatedAt:asc">{updatedOldestLabel}</option>
-      <option value="savedAt:desc">{savedNewestLabel}</option>
-      <option value="savedAt:asc">{savedOldestLabel}</option>
+      <option value="updatedAt:desc">{view.labels.updatedNewest}</option>
+      <option value="updatedAt:asc">{view.labels.updatedOldest}</option>
+      <option value="savedAt:desc">{view.labels.savedNewest}</option>
+      <option value="savedAt:asc">{view.labels.savedOldest}</option>
     </>
   );
   return (
     <select
       {...props}
       data-keepkit="sort-select"
-      value={value}
+      data-keep-action="sort"
+      value={view.value}
       data-state="selected"
       data-disabled={props.disabled ? "true" : undefined}
-      aria-label={ariaLabel ?? label}
-      onChange={(event) => {
-        const nextValue = event.currentTarget.value as KeepSortValue;
-        if (controlledValue === undefined) setUncontrolledValue(nextValue);
-        const [by, direction] = nextValue.split(":") as ["savedAt" | "updatedAt", "asc" | "desc"];
-        onValueChange?.(nextValue, { by, direction });
-      }}
+      aria-label={ariaLabel ?? view.labels.sort}
+      onChange={view.change}
     >
       {options}
     </select>
@@ -133,50 +109,47 @@ export function KeepPagination({
   render,
   ...props
 }: KeepPaginationProps) {
-  const previousPageLabel = useUiLabel("previousPage");
-  const nextPageLabel = useUiLabel("nextPage");
-  const pageLabel = useUiLabel("page");
-  const paginationLabel = useUiLabel("pagination");
-  const pageCount = Math.max(1, Math.ceil(totalCount / Math.max(1, pageSize)));
-  const currentPage = Math.min(Math.max(1, page), pageCount);
-  const goToPage = (nextPage: number) => {
-    const next = Math.min(Math.max(1, nextPage), pageCount);
-    onPageChange?.(next, (next - 1) * pageSize);
-  };
+  const view = useKeepPagination({ totalCount, pageSize, page, maxPageButtons, onPageChange });
   const navProps = {
     ...props,
     "data-keepkit": "pagination",
-    "aria-label": props["aria-label"] ?? paginationLabel,
-    "data-state": pageCount > 1 ? "active" : "idle",
+    "aria-label": props["aria-label"] ?? view.labels.pagination,
+    "data-state": view.pageCount > 1 ? "active" : "idle",
   };
-  if (render) return <nav {...navProps}>{render({ page: currentPage, pageCount, goToPage })}</nav>;
-  const visiblePages = getVisiblePages(currentPage, pageCount, Math.max(1, maxPageButtons));
+  if (render)
+    return (
+      <nav {...navProps}>{render({ page: view.currentPage, pageCount: view.pageCount, goToPage: view.goToPage })}</nav>
+    );
   return (
     <nav {...navProps}>
-      <button type="button" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}>
-        {previousPageLabel}
+      <button
+        type="button"
+        data-keep-action="previous-page"
+        onClick={() => view.goToPage(view.currentPage - 1)}
+        disabled={view.currentPage <= 1}
+      >
+        {view.labels.previous}
       </button>
-      {visiblePages.map((nextPage) => (
+      {view.visiblePages.map((nextPage) => (
         <button
           key={nextPage}
           type="button"
-          aria-current={nextPage === currentPage ? "page" : undefined}
-          aria-label={`${pageLabel} ${nextPage}`}
-          onClick={() => goToPage(nextPage)}
+          data-keep-action="select-page"
+          aria-current={nextPage === view.currentPage ? "page" : undefined}
+          aria-label={`${view.labels.page} ${nextPage}`}
+          onClick={() => view.goToPage(nextPage)}
         >
           {nextPage}
         </button>
       ))}
-      <button type="button" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= pageCount}>
-        {nextPageLabel}
+      <button
+        type="button"
+        data-keep-action="next-page"
+        onClick={() => view.goToPage(view.currentPage + 1)}
+        disabled={view.currentPage >= view.pageCount}
+      >
+        {view.labels.next}
       </button>
     </nav>
   );
-}
-
-function getVisiblePages(currentPage: number, pageCount: number, maxPageButtons: number): number[] {
-  if (pageCount <= maxPageButtons) return Array.from({ length: pageCount }, (_, index) => index + 1);
-  const half = Math.floor(maxPageButtons / 2);
-  const start = Math.min(Math.max(1, currentPage - half), pageCount - maxPageButtons + 1);
-  return Array.from({ length: maxPageButtons }, (_, index) => start + index);
 }

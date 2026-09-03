@@ -1,7 +1,6 @@
 "use client";
 
 import type { KeepItem } from "@keepkit/core/core";
-import { useKeepItem } from "@keepkit/core/react";
 import {
   type ComponentType,
   type HTMLAttributeAnchorTarget,
@@ -11,10 +10,10 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
+import { useKeepItemCard } from "./hooks/useKeepItemCard";
 import { KeepButton, type KeepButtonLabels } from "./KeepButton";
 import { KeepStaleNotice } from "./KeepStaleNotice";
-import { getMetaTitle, type RenderProp, renderRoot, toKeepButtonItem } from "./shared";
-import { useUiLabel } from "./ui-context";
+import { type RenderProp, renderRoot, toKeepButtonItem } from "./shared";
 
 export type KeepItemCardState<TMeta = Record<string, unknown>> = {
   item: KeepItem<TMeta>;
@@ -99,87 +98,63 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
   className,
   ...rootProps
 }: KeepItemCardProps<TMeta>) {
-  const saveActionLabel = useUiLabel("save");
-  const savedAtLabel = useUiLabel("saved");
-  const errorLabel = useUiLabel("error");
-  const removeActionLabel = useUiLabel("remove");
-  const itemState = useKeepItem<TMeta>(item);
-  const contentChildren = asChild && isValidElement(children) ? undefined : children;
-  const state: KeepItemCardState<TMeta> = {
+  const view = useKeepItemCard<TMeta>({
     item,
-    isSaved: itemState.isSaved,
-    isMutating: itemState.isMutating,
-    error: itemState.error,
-    remove: itemState.remove,
-    status: item.status,
-  };
-  const resolvedTitle =
-    typeof title === "function" ? title(item) : (title ?? getTitle?.(item) ?? getMetaTitle(item.meta) ?? item.id);
-  const imageProps = getImageProps?.(item, resolvedTitle);
-  const href = typeof hrefOption === "function" ? hrefOption(item) : hrefOption;
-  const isAvailable = item.status === undefined || item.status === "available";
-  const displayStatus = getDisplayStatus(item.status);
-  const isExternalLink = href ? isExternalHref(href) : false;
-  const resolvedLinkTarget = linkTargetAttribute ?? (isExternalLink ? "_blank" : undefined);
-  const resolvedLinkRel = linkRel ?? (isExternalLink ? "noreferrer" : undefined);
-  const statusLabelKey = item.status && item.status !== "available" ? getStatusLabelKey(item.status) : "statusUnknown";
-  const unavailableLabel = useUiLabel(statusLabelKey);
-  const tagsLabel = useUiLabel("tags");
-  const statusLabel = item.status && item.status !== "available" ? unavailableLabel : undefined;
+    title,
+    getTitle,
+    getImageProps,
+    href: hrefOption,
+    linkTargetAttribute,
+    linkRel,
+    onRemoveError,
+    onRemoved,
+  });
+  const contentChildren = asChild && isValidElement(children) ? undefined : children;
 
   function renderLink(content: ReactNode): ReactNode {
-    if (!href || !isAvailable) return content;
+    if (!view.href || !view.isAvailable) return content;
     const linkProps: KeepItemCardLinkProps = {
-      href,
-      target: resolvedLinkTarget,
-      rel: resolvedLinkRel,
+      href: view.href,
+      target: view.resolvedLinkTarget,
+      rel: view.resolvedLinkRel,
       onClick: (event) => onOpen?.(item, event),
       children: content,
     };
     return LinkComponent ? <LinkComponent {...linkProps} /> : <a {...linkProps} />;
   }
 
-  async function handleRemove() {
-    try {
-      await itemState.remove();
-      onRemoved?.(item);
-    } catch (error) {
-      onRemoveError?.(error);
-    }
-  }
-
   const body = render
-    ? render(state)
+    ? render(view.state)
     : typeof contentChildren === "function"
-      ? contentChildren(state)
+      ? contentChildren(view.state)
       : (contentChildren ?? (
           <>
-            {imageProps
-              ? (renderImage?.({ ...imageProps, alt: imageAlt ?? imageProps.alt }, item) ??
+            {view.imageProps
+              ? (renderImage?.({ ...view.imageProps, alt: imageAlt ?? view.imageProps.alt }, item) ??
                 (ImageComponent ? (
-                  <ImageComponent {...imageProps} alt={imageAlt ?? imageProps.alt} />
+                  <ImageComponent {...view.imageProps} alt={imageAlt ?? view.imageProps.alt} />
                 ) : (
-                  <img {...imageProps} alt={imageAlt ?? imageProps.alt} />
+                  <img {...view.imageProps} alt={imageAlt ?? view.imageProps.alt} />
                 )))
               : null}
             <h3>
               {linkTarget === "title" ? (
-                isAvailable ? (
-                  renderLink(resolvedTitle)
-                ) : href ? (
+                view.isAvailable ? (
+                  renderLink(view.resolvedTitle)
+                ) : view.href ? (
                   <span aria-disabled="true" data-link-disabled="true">
-                    {resolvedTitle}
+                    {view.resolvedTitle}
                   </span>
                 ) : (
-                  resolvedTitle
+                  view.resolvedTitle
                 )
               ) : (
-                resolvedTitle
+                view.resolvedTitle
               )}
             </h3>
             {showSavedAt ? (
               <div data-card-meta>
-                <span>{savedAtLabel}:</span>{" "}
+                <span>{view.labels.savedAt}:</span>{" "}
                 <time dateTime={new Date(item.savedAt).toISOString()}>{formatSavedAt(item.savedAt)}</time>
               </div>
             ) : null}
@@ -187,33 +162,40 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
               renderTags ? (
                 renderTags(item.tags ?? [], item)
               ) : (
-                <ul aria-label={tagsLabel}>
+                <ul aria-label={view.labels.tags}>
                   {item.tags?.map((tag) => (
                     <li key={tag}>{tag}</li>
                   ))}
                 </ul>
               )
             ) : null}
-            {itemState.error ? <p role="alert">{getErrorMessage(itemState.error, errorLabel)}</p> : null}
-            {statusLabel ? <KeepStaleNotice item={item} onRetry={onRetry} onRemoved={onRemoved} /> : null}
-            {showSaveButton && !statusLabel ? (
+            {view.itemState.error ? (
+              <p role="alert">{getErrorMessage(view.itemState.error, view.labels.error)}</p>
+            ) : null}
+            {view.statusLabel ? <KeepStaleNotice item={item} onRetry={onRetry} onRemoved={onRemoved} /> : null}
+            {showSaveButton && !view.statusLabel ? (
               <KeepButton
                 item={toKeepButtonItem(item)}
                 labels={saveButtonLabels}
                 getAriaLabel={(buttonState) =>
-                  `${buttonState.isSaved ? removeActionLabel : saveActionLabel} ${String(resolvedTitle)}`
+                  `${buttonState.isSaved ? view.labels.remove : view.labels.save} ${String(view.resolvedTitle)}`
                 }
               />
             ) : null}
-            {!statusLabel ? (
-              <button type="button" onClick={() => void handleRemove()} disabled={itemState.isMutating}>
-                {removeLabel ?? removeActionLabel}
+            {!view.statusLabel ? (
+              <button
+                type="button"
+                data-keep-action="remove-item"
+                onClick={() => void view.remove()}
+                disabled={view.itemState.isMutating}
+              >
+                {removeLabel ?? view.labels.remove}
               </button>
             ) : null}
           </>
         ));
 
-  const linkedBody = linkTarget === "card" && isAvailable ? renderLink(body) : body;
+  const linkedBody = linkTarget === "card" && view.isAvailable ? renderLink(body) : body;
   return renderRoot(
     asChild,
     isValidElement(children) ? children : undefined,
@@ -221,44 +203,16 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
       ...rootProps,
       className,
       "data-keepkit": "card",
-      "aria-busy": itemState.isMutating || rootProps["aria-busy"],
-      "aria-disabled": rootProps["aria-disabled"] ?? (!isAvailable ? "true" : undefined),
-      "data-state": itemState.error ? "error" : itemState.isSaved ? "saved" : "unsaved",
+      "aria-busy": view.itemState.isMutating || rootProps["aria-busy"],
+      "aria-disabled": rootProps["aria-disabled"] ?? (!view.isAvailable ? "true" : undefined),
+      "data-state": view.itemState.error ? "error" : view.itemState.isSaved ? "saved" : "unsaved",
       "data-status": item.status ?? "available",
-      "data-item-status": displayStatus,
-      "data-loading": itemState.isMutating ? "true" : undefined,
+      "data-item-status": view.displayStatus,
+      "data-loading": view.itemState.isMutating ? "true" : undefined,
     },
     linkedBody,
     "KeepItemCard",
   );
-}
-
-function getStatusLabelKey(
-  status: NonNullable<KeepItem["status"]>,
-): "statusExpired" | "statusRemoved" | "statusDeleted" | "statusPrivate" | "statusUnknown" {
-  switch (status) {
-    case "expired":
-      return "statusExpired";
-    case "removed":
-      return "statusRemoved";
-    case "deleted":
-      return "statusDeleted";
-    case "private":
-      return "statusPrivate";
-    default:
-      return "statusUnknown";
-  }
-}
-
-function getDisplayStatus(status: KeepItem["status"]): "available" | "expired" | "removed" | "restricted" {
-  if (status === undefined || status === "available") return "available";
-  if (status === "expired") return "expired";
-  if (status === "removed") return "removed";
-  return "restricted";
-}
-
-function isExternalHref(href: string): boolean {
-  return /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href);
 }
 
 function formatSavedAt(timestamp: number): string {

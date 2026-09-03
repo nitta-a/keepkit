@@ -1,6 +1,6 @@
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection"] {
   display: grid;
-  gap: var(--keep-card-gap);
+  gap: calc(var(--keep-card-gap) * 1.5);
   color: var(--keep-foreground);
 }
 
@@ -9,6 +9,15 @@
   flex-wrap: wrap;
   gap: var(--keep-card-gap);
   align-items: center;
+  border: 1px solid var(--keep-border);
+  border-radius: calc(var(--keep-radius) + 0.25rem);
+  padding: var(--keep-card-padding);
+  background: color-mix(in srgb, var(--keep-muted) 64%, var(--keep-card));
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--keep-foreground) 4%, transparent);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection"] > :first-child > :is(input, select) {
+  flex: 1 1 12rem;
 }
 
 :where(.keep-theme, [data-keep-theme])
@@ -53,6 +62,7 @@
   padding: var(--keep-card-padding);
   background: var(--keep-card);
   color: var(--keep-card-foreground);
+  box-shadow: var(--keep-shadow);
   transition:
     opacity 160ms ease,
     box-shadow 160ms ease,
@@ -60,7 +70,15 @@
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="card"]:hover {
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--keep-foreground) 12%, transparent);
+  border-color: color-mix(in srgb, var(--keep-primary) 32%, var(--keep-border));
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--keep-foreground) 8%, transparent),
+    0 12px 28px color-mix(in srgb, var(--keep-foreground) 9%, transparent);
+  transform: translateY(-1px);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"]:has(> img) {
+  grid-template-columns: var(--keep-thumbnail-size) minmax(0, 1fr);
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="card"] img {
@@ -68,11 +86,29 @@
   height: var(--keep-thumbnail-size);
   border-radius: calc(var(--keep-radius) - 2px);
   object-fit: cover;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--keep-foreground) 8%, transparent);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"]:has(> img) > :not(img) {
+  grid-column: 2;
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="card"] h3 {
   margin: 0;
+  padding-inline-end: calc(var(--keep-button-size) + var(--keep-card-gap));
   font-size: var(--keep-title-size);
+  line-height: 1.35;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"] h3 a {
+  color: inherit;
+  text-decoration-color: color-mix(in srgb, currentColor 25%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"] h3 a:hover {
+  color: var(--keep-primary);
+  text-decoration-color: currentColor;
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="card"] > [data-keepkit="button"] {
@@ -84,6 +120,19 @@
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="card"] > [data-card-meta] {
   color: var(--keep-muted-foreground);
   font-size: 0.8125rem;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"] > [data-keep-action="remove-item"] {
+  justify-self: start;
+  border-color: color-mix(in srgb, var(--keep-destructive) 28%, var(--keep-border));
+  background: transparent;
+  color: var(--keep-destructive);
+}
+
+:where(.keep-theme, [data-keep-theme])
+  [data-keepkit="card"]:has(> [data-keepkit="button"])
+  > [data-keep-action="remove-item"] {
+  display: none;
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-item-status="expired"],
@@ -125,6 +174,192 @@
   padding: 0.125rem 0.5rem;
   background: var(--keep-muted);
   color: var(--keep-muted-foreground);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--keep-border) 70%, transparent);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="pagination"] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--keep-control-gap);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="pagination"] button {
+  min-width: var(--keep-button-size);
+  padding-inline: 0.75rem;
+  background: var(--keep-card);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="pagination"] button[aria-current="page"] {
+  border-color: var(--keep-primary);
+  background: var(--keep-primary);
+  color: var(--keep-primary-foreground);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--keep-primary) 22%, transparent);
+}
+
+:where(.keep-theme, [data-keep-theme]) :is([data-keepkit="tag-filter"], [data-keepkit="bulk-actions"]) fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--keep-control-gap);
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="tag-filter"] legend {
+  width: 100%;
+  margin-block-end: 0.25rem;
+  color: var(--keep-muted-foreground);
+  font-size: var(--keep-tag-size);
+  font-weight: 650;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="tag-filter"] button {
+  min-height: 2.25rem;
+  border-radius: 999px;
+  padding: 0.375rem 0.75rem;
+  background: var(--keep-card);
+  font-size: var(--keep-tag-size);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="tag-filter"] button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--keep-primary) 55%, var(--keep-border));
+  background: color-mix(in srgb, var(--keep-primary) 11%, var(--keep-card));
+  color: var(--keep-primary);
+}
+
+:where(.keep-theme, [data-keep-theme])
+  :is([data-keepkit="note-editor"], [data-keepkit="tag-editor"], [data-keepkit="bulk-actions"]) {
+  display: grid;
+  gap: var(--keep-card-gap);
+  border: 1px solid var(--keep-border);
+  border-radius: var(--keep-radius);
+  padding: var(--keep-card-padding);
+  background: var(--keep-card);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--keep-foreground) 5%, transparent);
+}
+
+:where(.keep-theme, [data-keep-theme])
+  :is([data-keepkit="note-editor"], [data-keepkit="tag-editor"], [data-keepkit="bulk-actions"])
+  label {
+  display: grid;
+  gap: 0.375rem;
+  color: var(--keep-muted-foreground);
+  font-size: var(--keep-tag-size);
+  font-weight: 600;
+}
+
+:where(.keep-theme, [data-keep-theme])
+  :is([data-keepkit="note-editor"], [data-keepkit="tag-editor"], [data-keepkit="bulk-actions"])
+  :is(input:not([type="checkbox"]), select, textarea) {
+  width: 100%;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="note-editor"] textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="tag-editor"] ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--keep-control-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="tag-editor"][data-state] ul li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding-inline-start: 0.625rem;
+  background: var(--keep-muted);
+  color: var(--keep-muted-foreground);
+  font-size: var(--keep-tag-size);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="tag-editor"] [data-keep-action="remove-tag"] {
+  min-width: 2rem;
+  min-height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem;
+  background: transparent;
+  font-size: 0;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="tag-editor"] [data-keep-action="remove-tag"]::before {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="bulk-actions"] {
+  background: color-mix(in srgb, var(--keep-muted) 42%, var(--keep-card));
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="bulk-actions"] fieldset > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid var(--keep-border);
+  border-radius: var(--keep-radius);
+  padding: 0.375rem 0.625rem;
+  background: var(--keep-card);
+}
+
+:where(.keep-theme, [data-keep-theme]) :is([data-keepkit="item-checkbox"], [data-keep-action="select-all"]) {
+  width: 1rem;
+  min-width: 1rem;
+  height: 1rem;
+  min-height: 1rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--keep-primary);
+  box-shadow: none;
+}
+
+:where(.keep-theme, [data-keep-theme])
+  :is([data-keepkit="empty-state"], [data-keepkit="status"]):not([data-state="idle"]) {
+  display: grid;
+  place-items: center;
+  gap: var(--keep-control-gap);
+  min-height: 8rem;
+  border: 1px dashed var(--keep-border);
+  border-radius: var(--keep-radius);
+  padding: calc(var(--keep-card-padding) * 1.5);
+  background: color-mix(in srgb, var(--keep-muted) 42%, var(--keep-card));
+  color: var(--keep-muted-foreground);
+  text-align: center;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="empty-state"] :is(h2, p) {
+  margin: 0;
+}
+
+:where(.keep-theme, [data-keep-theme])
+  :is([data-keep-action="delete-selected"], [data-keep-action="remove-item"], [data-keep-action="prune-stale"]) {
+  border-color: color-mix(in srgb, var(--keep-destructive) 30%, var(--keep-border));
+  color: var(--keep-destructive);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > ul[data-layout="grid"] [data-keepkit="card"]:has(> img) {
+  grid-template-columns: 1fr;
+}
+
+:where(.keep-theme, [data-keep-theme])
+  [data-keepkit="list"]
+  > ul[data-layout="grid"]
+  [data-keepkit="card"]:has(> img)
+  > * {
+  grid-column: 1;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > ul[data-layout="grid"] [data-keepkit="card"] > img {
+  width: 100%;
+  height: 10rem;
 }
 
 @media (max-width: 48rem) {
@@ -156,5 +391,12 @@
       [data-keepkit="list"] > [data-layout="compact"]
     ) {
     --keep-list-columns: var(--keep-mobile-columns);
+  }
+  :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection"] > :first-child {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection"] > :first-child > :is(input, select) {
+    width: 100%;
   }
 }

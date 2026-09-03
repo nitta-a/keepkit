@@ -1,10 +1,9 @@
 "use client";
 
-import type { KeepChangeContext, KeepItem } from "@keepkit/core/core";
-import { useKeepContext } from "@keepkit/core/react";
-import { type HTMLAttributes, isValidElement, type ReactNode, useEffect, useRef, useState } from "react";
+import type { KeepItem } from "@keepkit/core/core";
+import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
+import { useKeepAnnouncements, useKeepEmptyState, useKeepStatus } from "./hooks/useStatusViews";
 import { type RenderProp, renderRoot } from "./shared";
-import { type KeepUiLabelKey, useUiLabel } from "./ui-context";
 
 export type KeepEmptyStateProps = Omit<HTMLAttributes<HTMLElement>, "children" | "title"> & {
   title?: ReactNode;
@@ -24,7 +23,7 @@ export function KeepEmptyState({
   className,
   ...rootProps
 }: KeepEmptyStateProps) {
-  const defaultTitle = useUiLabel("noItems").replace(/\.$/, "");
+  const defaultTitle = useKeepEmptyState();
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
   const body = contentChildren ?? (
     <>
@@ -70,22 +69,14 @@ export function KeepStatus<TMeta = Record<string, unknown>>({
   className,
   ...rootProps
 }: KeepStatusProps<TMeta>) {
-  const context = useKeepContext<TMeta>();
+  const view = useKeepStatus<TMeta>(status);
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
-  const resolvedStatus = status ?? getDerivedStatus(context);
-  const defaultLabel = useUiLabel(getStatusLabelKey(resolvedStatus));
-  const state: KeepStatusState<TMeta> = {
-    status: resolvedStatus,
-    error: context.error,
-    pendingCount: context.syncState.pendingCount,
-    items: context.items,
-  };
   const body = render
-    ? render(state)
+    ? render(view.state)
     : typeof contentChildren === "function"
-      ? contentChildren(state)
-      : (contentChildren ?? labels?.[resolvedStatus] ?? defaultLabel);
-  const role = rootProps.role ?? (resolvedStatus === "error" ? "alert" : "status");
+      ? contentChildren(view.state)
+      : (contentChildren ?? labels?.[view.state.status] ?? view.defaultLabel);
+  const role = rootProps.role ?? (view.state.status === "error" ? "alert" : "status");
   return renderRoot(
     asChild,
     isValidElement(children) ? children : undefined,
@@ -95,9 +86,9 @@ export function KeepStatus<TMeta = Record<string, unknown>>({
       "data-keepkit": "status",
       role,
       "aria-live": rootProps["aria-live"] ?? "polite",
-      "data-state": resolvedStatus,
+      "data-state": view.state.status,
       "data-loading":
-        resolvedStatus === "loading" || resolvedStatus === "saving" || resolvedStatus === "syncing"
+        view.state.status === "loading" || view.state.status === "saving" || view.state.status === "syncing"
           ? "true"
           : undefined,
     },
@@ -112,20 +103,7 @@ export type KeepAnnouncementsProps = Omit<HTMLAttributes<HTMLElement>, "children
 
 /** Announces successful save, remove, and note operations in a polite live region. */
 export function KeepAnnouncements<TMeta = Record<string, unknown>>({ messages, ...props }: KeepAnnouncementsProps) {
-  const context = useKeepContext<TMeta>();
-  const savedMessage = useUiLabel("savedMessage", messages?.save);
-  const removedMessage = useUiLabel("removedMessage", messages?.remove);
-  const noteSavedMessage = useUiLabel("noteSavedMessage", messages?.note);
-  const [message, setMessage] = useState("");
-  const lastChangeRef = useRef<KeepChangeContext<TMeta> | undefined>(undefined);
-  useEffect(() => {
-    const change = context.lastChange;
-    if (!change || change === lastChangeRef.current) return;
-    lastChangeRef.current = change;
-    if (change.action === "save") setMessage(savedMessage);
-    else if (change.action === "remove" || change.action === "removeBatch") setMessage(removedMessage);
-    else if (change.action === "updateNote") setMessage(noteSavedMessage);
-  }, [context.lastChange, noteSavedMessage, removedMessage, savedMessage]);
+  const message = useKeepAnnouncements<TMeta>(messages);
   return (
     <div
       {...props}
@@ -142,21 +120,3 @@ export function KeepAnnouncements<TMeta = Record<string, unknown>>({ messages, .
 
 /** Singular alias for applications that mount one announcer explicitly. */
 export const KeepAnnouncer = KeepAnnouncements;
-
-function getDerivedStatus<TMeta>(context: ReturnType<typeof useKeepContext<TMeta>>): KeepStatusValue {
-  if (context.error) return "error";
-  if (context.syncState.status === "pending" || context.syncState.status === "syncing") return "syncing";
-  if (context.isMutating) return "saving";
-  if (context.isLoading && !context.isHydrated) return "loading";
-  if (context.isHydrated && context.items.length === 0) return "empty";
-  return "idle";
-}
-
-function getStatusLabelKey(status: KeepStatusValue): KeepUiLabelKey {
-  if (status === "empty") return "noItems";
-  if (status === "loading") return "loadingItems";
-  if (status === "error") return "error";
-  if (status === "saving") return "saving";
-  if (status === "syncing") return "syncing";
-  return "saved";
-}

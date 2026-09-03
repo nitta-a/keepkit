@@ -1,18 +1,9 @@
 "use client";
 
 import type { KeepItem } from "@keepkit/core/core";
-import { useKeepItem } from "@keepkit/core/react";
-import {
-  type FormHTMLAttributes,
-  isValidElement,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type FormHTMLAttributes, isValidElement, type ReactNode } from "react";
+import { useKeepNoteEditor } from "./hooks/useKeepNoteEditor";
 import { type RenderProp, renderRoot } from "./shared";
-import { useUiLabel } from "./ui-context";
 
 export type KeepNoteEditorState<TMeta = Record<string, unknown>> = {
   item: KeepItem<TMeta>;
@@ -56,86 +47,45 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
   className,
   ...formProps
 }: KeepNoteEditorProps<TMeta>) {
-  const defaultLabel = useUiLabel("note");
-  const defaultSaveLabel = useUiLabel("saveNote");
-  const errorLabel = useUiLabel("error");
-  const itemState = useKeepItem<TMeta>(item);
-  const { error, isMutating, item: savedItem, updateNote } = itemState;
+  const view = useKeepNoteEditor<TMeta>({ item, debounceMs, onSaved, onSaveError });
+  const { error, isDirty, isSaving, note, setNote } = view.state;
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
-  const [note, setNote] = useState(item.note ?? "");
-  const baselineNote = savedItem?.note ?? item.note ?? "";
-  const isDirty = note !== baselineNote;
-  const lastSavedNoteRef = useRef<string | undefined>(undefined);
-  useEffect(() => setNote(baselineNote), [baselineNote]);
-  const save = useCallback(async () => {
-    const nextNote = note.trim() || undefined;
-    try {
-      await updateNote(nextNote);
-      lastSavedNoteRef.current = note;
-      onSaved?.(nextNote);
-    } catch (error) {
-      onSaveError?.(error);
-      throw error;
-    }
-  }, [note, onSaveError, onSaved, updateNote]);
-  useEffect(() => {
-    if (!isDirty || debounceMs <= 0 || lastSavedNoteRef.current === note) return;
-    const timer = window.setTimeout(() => void save().catch(() => undefined), debounceMs);
-    return () => window.clearTimeout(timer);
-  }, [debounceMs, isDirty, note, save]);
-  const state: KeepNoteEditorState<TMeta> = {
-    item,
-    note,
-    setNote,
-    isDirty,
-    isSaving: isMutating,
-    error,
-    save,
-  };
   const body = render
-    ? render(state)
+    ? render(view.state)
     : typeof contentChildren === "function"
-      ? contentChildren(state)
+      ? contentChildren(view.state)
       : (contentChildren ?? (
           <>
             <label>
-              {label ?? defaultLabel}
+              {label ?? view.labels.note}
               <textarea
+                data-keep-action="edit-note"
                 value={note}
                 onChange={(event) => setNote(event.currentTarget.value)}
                 placeholder={placeholder}
-                disabled={isMutating}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-                    event.preventDefault();
-                    void save().catch(() => undefined);
-                  }
-                }}
+                disabled={isSaving}
+                onKeyDown={view.handleKeyDown}
               />
             </label>
-            <button type="submit" disabled={isMutating} aria-busy={isMutating}>
-              {saveLabel ?? defaultSaveLabel}
+            <button type="submit" data-keep-action="save-note" disabled={isSaving} aria-busy={isSaving}>
+              {saveLabel ?? view.labels.save}
             </button>
           </>
         ));
-  const handleSubmit: FormHTMLAttributes<HTMLFormElement>["onSubmit"] = (event) => {
-    event.preventDefault();
-    void save().catch(() => undefined);
-  };
   if (!asChild) {
     return (
       <form
         {...formProps}
         className={className}
         data-keepkit="note-editor"
-        onSubmit={handleSubmit}
-        aria-busy={isMutating || formProps["aria-busy"]}
+        onSubmit={view.submit}
+        aria-busy={isSaving || formProps["aria-busy"]}
         data-state={error ? "error" : isDirty ? "dirty" : "clean"}
-        data-loading={isMutating ? "true" : undefined}
-        data-disabled={isMutating ? "true" : undefined}
+        data-loading={isSaving ? "true" : undefined}
+        data-disabled={isSaving ? "true" : undefined}
       >
         {body}
-        {error ? <p role="alert">{getErrorMessage(error, errorLabel)}</p> : null}
+        {error ? <p role="alert">{getErrorMessage(error, view.labels.error)}</p> : null}
       </form>
     );
   }
@@ -146,11 +96,11 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
       ...formProps,
       className,
       "data-keepkit": "note-editor",
-      onSubmit: handleSubmit,
-      "aria-busy": isMutating || formProps["aria-busy"],
+      onSubmit: view.submit,
+      "aria-busy": isSaving || formProps["aria-busy"],
       "data-state": error ? "error" : isDirty ? "dirty" : "clean",
-      "data-loading": isMutating ? "true" : undefined,
-      "data-disabled": isMutating ? "true" : undefined,
+      "data-loading": isSaving ? "true" : undefined,
+      "data-disabled": isSaving ? "true" : undefined,
     },
     body,
     "KeepNoteEditor",

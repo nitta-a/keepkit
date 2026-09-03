@@ -1,5 +1,29 @@
 # Release notes
 
+## [0.15.0] - 2026-09-03
+
+### 日本語
+
+#### 追加・改善
+
+- opt-inの`@keepkit/ui/theme.css`へ、カード、検索・ソート、ページング、タグ、編集、一括操作、状態・同期UIの枠、面色、影、hover、focus、disabled表現を追加しました。
+- 保存、検索、並び替え、ページ移動、削除、タグ、ノート、再試行、同期、バックアップ、Undoへ依存なしの装飾アイコンと`data-keep-action`を追加しました。
+- `default`、`ocean`、`forest`、`sunset`、`lavender`のカラーテーマと、選択肢を列挙する`keepThemeNames`を追加しました。`theme`は`mode`、`density`、`radius`と組み合わせられます。
+- デモを`KeepCollection`、`KeepItemCard`、`KeepNoteEditor`中心の構成へ変更し、テーマ切替、検索、ソート、タグフィルター、ページングを確認できるようにしました。
+- CSS未導入、render props、`asChild`、ローカライズ、ARIA名、既存の`KeepButton.icons`を維持しました。
+- `@keepkit/core`と`@keepkit/ui`を`0.15.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Expanded the opt-in `@keepkit/ui/theme.css` with borders, surfaces, shadows, hover, focus, and disabled treatments across cards, query controls, pagination, tags, editors, bulk actions, status, and sync UI.
+- Added dependency-free decorative icons and `data-keep-action` hooks for save, search, sort, pagination, removal, tags, notes, retry, sync, backup, and undo actions.
+- Added `default`, `ocean`, `forest`, `sunset`, and `lavender` color themes plus the exported `keepThemeNames` list. Themes compose with `mode`, `density`, and `radius`.
+- Rebuilt the demo around `KeepCollection`, `KeepItemCard`, and `KeepNoteEditor`, with live theme switching, search, sorting, tag filtering, and pagination.
+- Preserved CSS-free usage, render props, `asChild`, localization, accessible names, and existing `KeepButton.icons` overrides.
+- Updated `@keepkit/core` and `@keepkit/ui` to `0.15.0`.
+
 ## [0.14.0] - 2026-09-02
 
 ### 日本語

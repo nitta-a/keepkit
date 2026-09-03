@@ -34,6 +34,7 @@ import {
   KeepTagEditor,
   KeepTagFilter,
   KeepThemeProvider,
+  KeepUndo,
 } from "../src/index";
 
 type Meta = { title: string };
@@ -119,6 +120,8 @@ test("scopes theme options and supports icon-only save buttons", async () => {
   expect(theme.style.getPropertyValue("--keep-card-gap")).toBe("2rem");
   const button = await screen.findByTestId("icon-button");
   expect(button.getAttribute("data-keepkit")).toBe("button");
+  expect(button.getAttribute("data-keep-action")).toBe("toggle-save");
+  expect(button.getAttribute("data-has-custom-icon")).toBe("true");
   expect(button.getAttribute("aria-label")).toBe("Save item");
   expect(screen.getByTestId("save-icon")).not.toBeNull();
   expect(button.textContent).toBe("");
@@ -141,16 +144,53 @@ test("publishes all layout presets through stable data attributes", async () => 
 test("ships dark-mode and reduced-motion CSS contracts", async () => {
   const cssText = (
     await Promise.all(
-      ["../src/styles/base.css", "../src/styles/collection.css", "../src/styles/sync.css"].map((path) =>
-        readFile(new URL(path, import.meta.url), "utf8"),
-      ),
+      [
+        "../src/styles/base.css",
+        "../src/styles/button.css",
+        "../src/styles/collection.css",
+        "../src/styles/sync.css",
+      ].map((path) => readFile(new URL(path, import.meta.url), "utf8")),
     )
   ).join("\n");
 
   expect(cssText).toContain("prefers-color-scheme: dark");
   expect(cssText).toContain("prefers-reduced-motion: reduce");
   expect(cssText).toContain("--keep-primary");
+  expect(cssText).toContain("--keep-icon-size");
+  expect(cssText).toContain("--keep-control-gap");
+  expect(cssText).toContain("--keep-shadow");
+  expect(cssText).toContain("--keep-success");
+  expect(cssText).toContain("--keep-warning");
+  expect(cssText).toContain("mask: var(--keep-action-icon)");
+  expect(cssText).toContain('[data-keep-action="search"]');
+  expect(cssText).toContain(":focus-visible");
   expect(cssText).toContain(".dark");
+  expect(cssText).toContain("keep-theme--high-contrast");
+  expect(cssText).toContain("keep-theme--ocean");
+  expect(cssText).toContain("keep-theme--forest");
+  expect(cssText).toContain("keep-theme--sunset");
+  expect(cssText).toContain("keep-theme--lavender");
+  expect(cssText).toContain("@media (max-width: 48rem)");
+});
+
+test("selects color presets through the theme parameter", () => {
+  const { rerender } = render(
+    <KeepThemeProvider theme="ocean" data-testid="palette">
+      Ocean
+    </KeepThemeProvider>,
+  );
+
+  const palette = screen.getByTestId("palette");
+  expect(palette.getAttribute("data-keep-theme")).toBe("ocean");
+  expect(palette.className).toContain("keep-theme--ocean");
+
+  rerender(
+    <KeepThemeProvider theme="forest" data-testid="palette">
+      Forest
+    </KeepThemeProvider>,
+  );
+  expect(palette.getAttribute("data-keep-theme")).toBe("forest");
+  expect(palette.className).toContain("keep-theme--forest");
 });
 
 test("debounces note persistence and saves with Ctrl+Enter", async () => {
@@ -238,6 +278,7 @@ test("exposes stable data attributes for CSS styling", async () => {
 
   await screen.findByRole("heading", { name: "Interaction item" });
   expect(screen.getByTestId("button").getAttribute("data-state")).toBe("saved");
+  expect(screen.getByTestId("button").getAttribute("data-keep-action")).toBe("toggle-save");
   expect(screen.getByTestId("disabled-button").getAttribute("data-disabled")).toBe("true");
   expect(screen.getByTestId("card").getAttribute("data-state")).toBe("saved");
   expect(screen.getByTestId("collection").getAttribute("data-state")).toBe("ready");
@@ -253,6 +294,16 @@ test("exposes stable data attributes for CSS styling", async () => {
   expect(screen.getByTestId("status").getAttribute("data-state")).toBe("idle");
   expect(screen.getByTestId("empty").getAttribute("data-state")).toBe("empty");
   expect(screen.getByTestId("announcements").getAttribute("data-state")).toBe("announcing");
+  expect(screen.getByTestId("card").querySelector('[data-keep-action="remove-item"]')).not.toBeNull();
+  expect(screen.getByTestId("tag-filter").querySelector('[data-keep-action="filter-all-tags"]')).not.toBeNull();
+  expect(screen.getByTestId("bulk").querySelector('[data-keep-action="delete-selected"]')).not.toBeNull();
+  expect(screen.getByTestId("checkbox").getAttribute("data-keep-action")).toBe("select-item");
+  expect(screen.getByTestId("note").querySelector('[data-keep-action="save-note"]')).not.toBeNull();
+  expect(screen.getByTestId("tag-editor").querySelector('[data-keep-action="apply-tags"]')).not.toBeNull();
+  expect(screen.getByTestId("search").getAttribute("data-keep-action")).toBe("search");
+  expect(screen.getByTestId("sort").getAttribute("data-keep-action")).toBe("sort");
+  expect(screen.getByTestId("pagination").querySelector('[data-keep-action="previous-page"]')).not.toBeNull();
+  expect(screen.getByTestId("pagination").querySelector('[data-keep-action="next-page"]')).not.toBeNull();
 });
 
 test("links available card titles and blocks unavailable card links", async () => {
@@ -305,9 +356,13 @@ test("offers localized stale-item recovery actions and bulk cleanup", async () =
   );
 
   expect(await screen.findByTestId("status-badge")).not.toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  const retryButton = screen.getByRole("button", { name: "Retry" });
+  expect(retryButton.getAttribute("data-keep-action")).toBe("retry-item");
+  fireEvent.click(retryButton);
   await waitFor(() => expect(onRetry).toHaveBeenCalledWith(staleItem));
-  fireEvent.click(screen.getByRole("button", { name: "Remove unavailable items (1)" }));
+  const pruneButton = screen.getByRole("button", { name: "Remove unavailable items (1)" });
+  expect(pruneButton.getAttribute("data-keep-action")).toBe("prune-stale");
+  fireEvent.click(pruneButton);
   await waitFor(() =>
     expect((screen.getByRole("button", { name: "Remove unavailable items (0)" }) as HTMLButtonElement).disabled).toBe(
       true,
@@ -358,7 +413,9 @@ test("surfaces sync conflicts and delegates server resolution from the recovery 
   expect(screen.getByText("old note")).not.toBeNull();
   expect(screen.getByText("server note")).not.toBeNull();
   expect(screen.getAllByText("1970-01-01")).toHaveLength(2);
-  fireEvent.click(screen.getByRole("button", { name: "Use server" }));
+  const useServerButton = screen.getByRole("button", { name: "Use server" });
+  expect(useServerButton.getAttribute("data-keep-action")).toBe("use-server");
+  fireEvent.click(useServerButton);
   await waitFor(() => expect(screen.queryByText("Some changes need conflict resolution.")).toBeNull());
 });
 
@@ -371,13 +428,30 @@ test("exports and imports JSON backups through the standard UI", async () => {
     </KeepProvider>,
   );
 
-  fireEvent.click(screen.getByRole("button", { name: "Export JSON" }));
+  const exportButton = screen.getByRole("button", { name: "Export JSON" });
+  expect(exportButton.getAttribute("data-keep-action")).toBe("export-backup");
+  fireEvent.click(exportButton);
   await waitFor(() => expect(onExport).toHaveBeenCalledWith(expect.stringContaining("ui-interaction-item")));
   const input = document.querySelector('input[type="file"]');
   if (!(input instanceof HTMLInputElement)) throw new Error("Backup file input was not rendered.");
+  expect(input.getAttribute("data-keep-action")).toBe("select-backup-file");
   const data = JSON.stringify({ format: "keepkit", version: 1, exportedAt: 1, items: [importedItem] });
   fireEvent.change(input, { target: { files: [new File([data], "backup.json", { type: "application/json" })] } });
   expect((await screen.findByRole("status")).textContent).toContain("1 items imported");
+});
+
+test("exposes the undo action without changing its accessible label", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepBulkActions />
+      <KeepUndo />
+    </KeepProvider>,
+  );
+
+  fireEvent.click(await screen.findByRole("checkbox", { name: "Interaction item" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
+  const undoButton = await screen.findByRole("button", { name: "Undo" });
+  expect(undoButton.getAttribute("data-keep-action")).toBe("undo");
 });
 
 test("isolates unexpected provider and collection render errors", async () => {

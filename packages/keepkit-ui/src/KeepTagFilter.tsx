@@ -1,10 +1,9 @@
 "use client";
 
 import type { KeepListQuery } from "@keepkit/core/core";
-import { useKeepList } from "@keepkit/core/react";
-import { type HTMLAttributes, isValidElement, type ReactNode, useCallback, useMemo, useState } from "react";
+import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
+import { useKeepTagFilter } from "./hooks/useKeepTagFilter";
 import { type RenderProp, renderRoot } from "./shared";
-import { useUiLabel } from "./ui-context";
 
 export type KeepTagFilterState = {
   tags: string[];
@@ -46,41 +45,33 @@ export function KeepTagFilter<TMeta = Record<string, unknown>>({
   className,
   ...rootProps
 }: KeepTagFilterProps<TMeta>) {
-  const uiAllLabel = useUiLabel("allTags");
-  const uiAriaLabel = useUiLabel("filterTags");
-  const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue);
-  const resolvedValue = controlledValue ?? uncontrolledValue;
-  const list = useKeepList<TMeta>({
-    ...query,
-    tags: resolvedValue ? [...(query?.tags ?? []), resolvedValue] : query?.tags,
-  });
-  const select = useCallback(
-    (tag?: string) => {
-      if (controlledValue === undefined) setUncontrolledValue(tag);
-      onChange?.(tag);
-      onValueChange?.(tag);
-    },
-    [controlledValue, onChange, onValueChange],
-  );
-  const state = useMemo<KeepTagFilterState>(
-    () => ({ tags: list.tags, tagCounts: list.tagCounts, value: resolvedValue, select }),
-    [list.tagCounts, list.tags, resolvedValue, select],
-  );
+  const view = useKeepTagFilter<TMeta>({ query, controlledValue, defaultValue, onChange, onValueChange });
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
   const body = render
-    ? render(state)
+    ? render(view.state)
     : typeof contentChildren === "function"
-      ? contentChildren(state)
+      ? contentChildren(view.state)
       : (contentChildren ?? (
           <fieldset>
-            <legend>{ariaLabel ?? uiAriaLabel}</legend>
-            <button type="button" aria-pressed={resolvedValue === undefined} onClick={() => select()}>
-              {allLabel ?? uiAllLabel}
+            <legend>{ariaLabel ?? view.labels.aria}</legend>
+            <button
+              type="button"
+              data-keep-action="filter-all-tags"
+              aria-pressed={view.state.value === undefined}
+              onClick={() => view.state.select()}
+            >
+              {allLabel ?? view.labels.all}
             </button>
-            {list.tags.map((tag) => (
-              <button key={tag} type="button" aria-pressed={resolvedValue === tag} onClick={() => select(tag)}>
-                {renderTag ? renderTag(tag, list.tagCounts[tag] ?? 0, resolvedValue === tag) : tag}
-                <span> ({list.tagCounts[tag] ?? 0})</span>
+            {view.state.tags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                data-keep-action="filter-tag"
+                aria-pressed={view.state.value === tag}
+                onClick={() => view.state.select(tag)}
+              >
+                {renderTag ? renderTag(tag, view.state.tagCounts[tag] ?? 0, view.state.value === tag) : tag}
+                <span> ({view.state.tagCounts[tag] ?? 0})</span>
               </button>
             ))}
           </fieldset>
@@ -92,8 +83,8 @@ export function KeepTagFilter<TMeta = Record<string, unknown>>({
       ...rootProps,
       className,
       "data-keepkit": "tag-filter",
-      "data-state": resolvedValue === undefined ? "all" : "filtered",
-      "data-loading": list.isLoading ? "true" : undefined,
+      "data-state": view.state.value === undefined ? "all" : "filtered",
+      "data-loading": view.isLoading ? "true" : undefined,
     },
     body,
     "KeepTagFilter",

@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.14.0では、テーマのレスポンシブ適用、状態表示、外部リンク安全性、同期競合の比較表示を強化しました。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.15.0では、装飾済みの標準テーマ、操作アイコン、複数のカラーテーマと実用的なデモを追加しました。
 
 ### インストール
 
@@ -15,6 +15,7 @@ pnpm add @keepkit/ui
 ### 標準利用
 
 ```tsx
+import "@keepkit/ui/theme.css";
 import { createBrowserStorageAdapter, createKeepKit } from "@keepkit/ui";
 
 type ArticleMeta = { title: string; url: string; image?: string };
@@ -45,6 +46,7 @@ export function App() {
 ### Minimal Starter Recipe
 
 ```tsx
+import "@keepkit/ui/theme.css";
 import { createBrowserStorageAdapter, createKeepKit } from "@keepkit/ui";
 
 type Meta = { title: string; url: string };
@@ -63,6 +65,8 @@ export function SavedArticle({ article }: { article: Meta & { id: string } }) {
 ```
 
 すべてのUIプリミティブは状態を`data-state`に、処理中を`data-loading="true"`に、無効状態を`data-disabled="true"`に公開します。ホストアプリはクラス名の条件分岐なしにCSSやTailwindのdata variantで装飾できます。`KeepCollection` / `KeepList`にも`fallback`、`onBoundaryError`、`boundaryResetKey`を指定でき、Provider全体または一覧単位で予期せぬ描画エラーを隔離できます。
+
+`@keepkit/ui/theme.css`を読み込むと、枠、面色、影、フォーカス表示と、保存・検索・削除・タグ・同期などの標準アイコンが有効になります。アイコンは装飾であり、操作名は引き続きラベルとARIA属性から提供されます。個別に調整する場合は`data-keep-action`を選択し、`--keep-icon-size`、`--keep-control-gap`、`--keep-shadow`、`--keep-success`、`--keep-warning`を上書きできます。CSSを読み込まないheadless利用と、既存の`KeepButton icons`指定は変更されません。
 
 `keep.Collection`は検索、ソート、ページング、タグフィルター、一括操作、loading / empty / error状態、ARIA通知を組み合わせて提供します。検索は既定で300msデバウンスされ、追加機能は`features`で有効化できます。
 
@@ -126,7 +130,7 @@ JSONバックアップUIは`<KeepBackup />`として利用できます。エク�
 
 Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepPruneStaleButton />`、`<KeepSyncStatusBanner />`、`<KeepSyncRecoveryDialog />`として利用できます。テーマを使う場合は`import "@keepkit/ui/theme.css"`を追加してください。
 
-### v0.14.0の一覧連携と導入プリセット
+### v0.15.0の一覧連携と導入プリセット
 
 `<keep.Collection urlSync layout="grid" />`で検索・タグ・ソート・ページをURL、戻る／進む、共有URLと同期できます。Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`に渡してください。`layout`は`list`、`grid`、`compact`に対応し、`itemCardProps`の`getImageProps`、`renderTags`、`href`、`onOpen`でカード表示と遷移を差し替えられます。
 
@@ -134,7 +138,7 @@ Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepP
 
 ユーザー／テナント分離が必要な場合は、`createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })`を使うとstorage、同期キュー、バックアップの構成をまとめられます。ラベルは16個の組み込みlocale（`en`、`ja`、`ko`、`zh-Hans`、`zh-Hant`、`th`、`fr`、`es`、`pt-BR`、`it`、`de`、`ru`、`fil`、`vi`、`id`、`ms`）で切り替えられ、`labels`で上書きできます。`zh-CN`と`zh-TW`も互換aliasとして利用できます。
 
-### v0.14.0 Tailwind／shadcnテーマ
+### v0.15.0 Tailwind／shadcnテーマ
 
 Tailwind CSS v4ではCSSを2行読み込み、必要ならテーマ用Providerを配置します。既存のshadcn/ui変数（`--background`、`--primary`など）があれば`--keep-*`トークンが継承します。
 
@@ -142,18 +146,18 @@ Tailwind CSS v4ではCSSを2行読み込み、必要ならテーマ用Provider�
 import "@keepkit/ui/tailwind.css";
 import { KeepThemeProvider } from "@keepkit/ui";
 
-<KeepThemeProvider theme="compact" mode="system" density="comfortable" radius="medium">
+<KeepThemeProvider theme="ocean" mode="system" density="comfortable" radius="medium">
   <KeepCollection layout="grid" />
 </KeepThemeProvider>;
 ```
 
-`default`、`compact`、`minimal`、`rounded`、`high-contrast`、`dark`を選べます。`KeepKitProvider theme="compact"`でも同じ設定ができ、`mode="light" | "dark" | "system"`、`highContrast`、`reducedMotion`、`variables={{ "--keep-card-gap": "1rem" }}`を指定できます。`keep-theme keep-theme--compact`クラス、`.dark`、`prefers-color-scheme`にも対応します。
+色テーマは`default`、`ocean`、`forest`、`sunset`、`lavender`から選べます。既存の`compact`、`minimal`、`rounded`、`high-contrast`、`dark`も維持されています。`KeepKitProvider theme="forest" mode="dark"`のように、`theme`を`mode="light" | "dark" | "system"`、`density`、`radius`と組み合わせられます。テーマ選択UIにはexport済みの`keepThemeNames`を利用でき、`accentColor`、`highContrast`、`reducedMotion`、`variables={{ "--keep-card-gap": "1rem" }}`による上書きも可能です。
 
 shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keepkit/ui/tailwind"`を使えます。機能別に`@keepkit/ui/styles/base.css`、`button.css`、`collection.css`、`sync.css`だけを読み込むこともできます。`KeepButton`は`icons={{ save, saved, remove }}`、`iconOnly`、render propsで表示を差し替えられます。すべての標準コンポーネントは`data-state`、`data-loading`、`data-disabled`とARIA属性を維持します。
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.14.0, it strengthens responsive theming, status presentation, external-link safety, and sync-conflict previews.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.15.0, it adds a decorated standard theme, action icons, multiple color themes, and a practical component-based demo.
 
 ### Installation
 
@@ -164,6 +168,7 @@ pnpm add @keepkit/ui
 ### Standard usage
 
 ```tsx
+import "@keepkit/ui/theme.css";
 import { createBrowserStorageAdapter, createKeepKit } from "@keepkit/ui";
 
 type ArticleMeta = { title: string; url: string };
@@ -185,6 +190,7 @@ export function App() {
 ### Minimal Starter Recipe
 
 ```tsx
+import "@keepkit/ui/theme.css";
 import { createBrowserStorageAdapter, createKeepKit } from "@keepkit/ui";
 
 type Meta = { title: string; url: string };
@@ -204,6 +210,8 @@ export function SavedArticle({ article }: { article: Meta & { id: string } }) {
 
 Every UI primitive exposes its semantic state through `data-state`, `data-loading="true"` while work is pending, and `data-disabled="true"` when disabled. `KeepCollection` and `KeepList` also accept `fallback`, `onBoundaryError`, and `boundaryResetKey` so unexpected render errors can be isolated at the provider or list level.
 
+Importing `@keepkit/ui/theme.css` enables the standard borders, surfaces, shadows, focus treatment, and decorative icons for save, search, remove, tags, sync, and other common actions. Accessible names still come from visible labels and ARIA attributes. Target individual controls through `data-keep-action`, or override `--keep-icon-size`, `--keep-control-gap`, `--keep-shadow`, `--keep-success`, and `--keep-warning`. Headless use without CSS and existing `KeepButton icons` overrides remain unchanged.
+
 `keep.Collection` combines search, sorting, pagination, optional tag filtering and bulk actions, loading/empty/error states, and accessible live announcements. Search is debounced by 300ms by default; enable optional behavior with `features`.
 
 Saved inputs contain only `id`, `meta`, `targetType`, `note`, and `tags`; persistence timestamps and normalization are handled by KeepKit. Collection queries use the canonical `query` shape with `search`, `sort`, and `pagination`.
@@ -212,7 +220,7 @@ The typed factory returns `Provider`, `Button`, `Collection`, `useItem`, `useLis
 
 See `examples/next-app-router` for the Server Component/client boundary pattern and `examples/next-pages-router` for the Pages Router integration.
 
-### v0.14.0 URL, layouts, and setup presets
+### v0.15.0 URL, layouts, and setup presets
 
 Use `<keep.Collection urlSync layout="grid" />` to synchronize search, tags, sorting, and pagination with shareable URLs and browser history. For Next.js Pages Router, pass `createNextPagesRouterAdapter(router)` as `urlAdapter`. Layouts are `list`, `grid`, and `compact`; customize thumbnails, tags, and detail navigation through `itemCardProps`.
 
@@ -225,7 +233,7 @@ Use `createAuthenticatedSyncKit` when the host supplies authentication. It refre
 Use `KeepItemStatusBadge`, `KeepStaleNotice`, and `KeepPruneStaleButton` for unavailable-item recovery. `KeepSyncStatusBanner` and `KeepSyncRecoveryDialog` expose retry, local/server/manual conflict resolution, and backup restoration guidance. Optionally import `@keepkit/ui/theme.css` for CSS-variable theming, dark mode, and mobile typography.
 External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, while the recovery dialog compares local and remote updated dates and notes side by side.
 
-### v0.14.0 Tailwind and shadcn theme
+### v0.15.0 Tailwind and shadcn theme
 
 Tailwind CSS v4 needs only a CSS import. The theme is scoped by `KeepThemeProvider`, and its `--keep-*` tokens inherit shadcn/ui variables such as `--background`, `--primary`, and `--ring` when present.
 
@@ -233,12 +241,12 @@ Tailwind CSS v4 needs only a CSS import. The theme is scoped by `KeepThemeProvid
 import "@keepkit/ui/tailwind.css";
 import { KeepThemeProvider, KeepCollection } from "@keepkit/ui";
 
-<KeepThemeProvider theme="compact" mode="system" density="comfortable" radius="medium">
+<KeepThemeProvider theme="ocean" mode="system" density="comfortable" radius="medium">
   <KeepCollection layout="grid" />
 </KeepThemeProvider>;
 ```
 
-Presets are `default`, `compact`, `minimal`, `rounded`, `high-contrast`, and `dark`. `KeepKitProvider theme="compact"` is also supported; use `mode`, `highContrast`, `reducedMotion`, and `variables` for overrides. `.dark`, `prefers-color-scheme`, mobile one-column fallbacks, and reduced motion are built in. Import `keepKitTheme` from `@keepkit/ui/tailwind` when a JavaScript theme map is useful, or import only `@keepkit/ui/styles/base.css`, `button.css`, `collection.css`, and `sync.css`. `KeepButton` accepts `icons={{ save, saved, remove }}` and `iconOnly`, while render props remain the full escape hatch.
+Color themes are `default`, `ocean`, `forest`, `sunset`, and `lavender`. Existing `compact`, `minimal`, `rounded`, `high-contrast`, and `dark` presets remain available. `theme` composes with `mode`, `density`, and `radius`; for example, use `KeepKitProvider theme="forest" mode="dark"`. The exported `keepThemeNames` list can populate a theme selector. `accentColor`, `highContrast`, `reducedMotion`, and `variables` remain available for overrides. `.dark`, `prefers-color-scheme`, mobile one-column fallbacks, and reduced motion are built in. Import `keepKitTheme` from `@keepkit/ui/tailwind` when a JavaScript theme map is useful, or import only `@keepkit/ui/styles/base.css`, `button.css`, `collection.css`, and `sync.css`. `KeepButton` accepts `icons={{ save, saved, remove }}` and `iconOnly`, while render props remain the full escape hatch.
 
 The UI includes complete built-in dictionaries for 16 locales: `en`, `ja`, `ko`, `zh-Hans`, `zh-Hant`, `th`, `fr`, `es`, `pt-BR`, `it`, `de`, `ru`, `fil`, `vi`, `id`, and `ms`. `zh-CN` and `zh-TW` remain supported aliases.
 

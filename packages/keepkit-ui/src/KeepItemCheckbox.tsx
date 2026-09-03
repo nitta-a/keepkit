@@ -30,6 +30,7 @@ export function KeepItemCheckbox<TMeta = Record<string, unknown>>({
       type="checkbox"
       checked={checked}
       data-keepkit="item-checkbox"
+      data-keep-action="select-item"
       data-state={checked ? "checked" : "unchecked"}
       data-disabled={props.disabled ? "true" : undefined}
       aria-label={accessibleLabel}

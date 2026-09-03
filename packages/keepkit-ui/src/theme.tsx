@@ -2,7 +2,20 @@
 
 import { type CSSProperties, cloneElement, isValidElement, type ReactNode } from "react";
 
-export type KeepThemeName = "default" | "compact" | "minimal" | "rounded" | "high-contrast" | "dark";
+export const keepThemeNames = [
+  "default",
+  "ocean",
+  "forest",
+  "sunset",
+  "lavender",
+  "compact",
+  "minimal",
+  "rounded",
+  "high-contrast",
+  "dark",
+] as const;
+
+export type KeepThemeName = (typeof keepThemeNames)[number];
 export type KeepThemeMode = "light" | "dark" | "system";
 export type KeepThemeDensity = "compact" | "comfortable" | "spacious";
 export type KeepThemeRadius = "none" | "small" | "medium" | "large" | "full";

@@ -12,6 +12,8 @@
   color: var(--keep-primary-foreground);
   cursor: pointer;
   font: inherit;
+  font-weight: 650;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--keep-primary) 24%, transparent);
   transition:
     background-color 120ms ease,
     border-color 120ms ease,
@@ -40,8 +42,20 @@
   padding: 0.5rem;
 }
 
+:where(.keep-theme, [data-keep-theme])
+  [data-keepkit="button"][data-icon-only="true"]:not([data-has-custom-icon="true"]) {
+  font-size: 0;
+}
+
+:where(.keep-theme, [data-keep-theme])
+  [data-keepkit="button"][data-icon-only="true"]:not([data-has-custom-icon="true"])::before {
+  width: calc(var(--keep-icon-size) * 1.125);
+  height: calc(var(--keep-icon-size) * 1.125);
+}
+
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="button"]:hover:not(:disabled):not([aria-disabled="true"]) {
   filter: brightness(0.94);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--keep-primary) 20%, transparent);
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="button"]:active:not(:disabled):not([aria-disabled="true"]) {
@@ -49,8 +63,11 @@
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="button"][data-state="saved"] {
-  background: var(--keep-card);
-  color: var(--keep-primary);
+  --keep-action-icon: var(--keep-icon-check);
+  border-color: color-mix(in srgb, var(--keep-success) 52%, var(--keep-border));
+  background: color-mix(in srgb, var(--keep-success) 8%, var(--keep-card));
+  color: var(--keep-success);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--keep-success) 12%, transparent);
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="button"][data-state="error"] {
