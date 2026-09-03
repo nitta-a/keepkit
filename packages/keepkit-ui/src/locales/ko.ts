@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const KO_LABELS: KeepUiLocaleLabels = {
+  archive: "보관",
+  unarchive: "보관 해제",
+  archived: "보관됨",
+  pin: "고정",
+  unpin: "고정 해제",
+  pinned: "고정됨",
+  collection: "컬렉션",
+  allCollections: "모든 컬렉션",
+  filterCollections: "컬렉션 필터",
+  uncategorized: "미분류",
+  saveWithNote: "메모와 함께 저장",
   save: "저장",
   saved: "저장됨",
   remove: "삭제",

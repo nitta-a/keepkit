@@ -12,6 +12,12 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
   meta: TMeta;
   /** Optional zero-based position in the user's custom viewing order. */
   order?: number;
+  /** Whether the item is hidden from the default active list. */
+  archived?: boolean;
+  /** Whether the item should be shown before unpinned items. */
+  pinned?: boolean;
+  /** Optional derived collection identifier. */
+  collectionId?: string;
   targetType?: string;
   note?: string;
   tags?: string[];
@@ -36,6 +42,9 @@ export type KeepItemInput<TMeta = Record<string, unknown>> = {
   targetType?: string;
   note?: string;
   tags?: string[];
+  archived?: boolean;
+  pinned?: boolean;
+  collectionId?: string;
 };
 
 export interface StorageAdapter<TMeta = Record<string, unknown>> {
@@ -58,6 +67,9 @@ export type KeepAction =
   | "updateNote"
   | "updateTags"
   | "updateTagsBatch"
+  | "archive"
+  | "pin"
+  | "collection"
   | "revalidate"
   | "remove"
   | "removeBatch"

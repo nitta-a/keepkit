@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const VI_LABELS: KeepUiLocaleLabels = {
+  archive: "Lưu trữ",
+  unarchive: "Bỏ lưu trữ",
+  archived: "Đã lưu trữ",
+  pin: "Ghim",
+  unpin: "Bỏ ghim",
+  pinned: "Đã ghim",
+  collection: "Bộ sưu tập",
+  allCollections: "Tất cả bộ sưu tập",
+  filterCollections: "Lọc theo bộ sưu tập",
+  uncategorized: "Chưa phân loại",
+  saveWithNote: "Lưu kèm ghi chú",
   save: "Lưu",
   saved: "Đã lưu",
   remove: "Xóa",

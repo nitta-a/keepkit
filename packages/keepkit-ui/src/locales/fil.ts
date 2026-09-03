@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const FIL_LABELS: KeepUiLocaleLabels = {
+  archive: "I-archive",
+  unarchive: "Alisin sa archive",
+  archived: "Naka-archive",
+  pin: "I-pin",
+  unpin: "Alisin ang pin",
+  pinned: "Naka-pin",
+  collection: "Koleksyon",
+  allCollections: "Lahat ng koleksyon",
+  filterCollections: "I-filter ayon sa koleksyon",
+  uncategorized: "Walang kategorya",
+  saveWithNote: "I-save na may tala",
   save: "I-save",
   saved: "Nai-save",
   remove: "Alisin",

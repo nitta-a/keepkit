@@ -20,6 +20,11 @@ export type KeepStoreActions<TMeta = Record<string, unknown>> = {
   saveItem: (item: KeepItem<TMeta>) => Promise<void>;
   updateNote: (id: string, note?: string) => Promise<void>;
   updateTags: (id: string, tags?: string[]) => Promise<void>;
+  toggleArchive: (id: string) => Promise<void>;
+  archiveItem: (id: string) => Promise<void>;
+  unarchiveItem: (id: string) => Promise<void>;
+  togglePin: (id: string) => Promise<void>;
+  moveToCollection: (id: string, collectionId?: string) => Promise<void>;
   updateTagsBatch: (ids: string[], tags?: string[]) => Promise<void>;
   addTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;

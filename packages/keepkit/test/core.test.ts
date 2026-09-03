@@ -803,6 +803,69 @@ test("reorders items and derives a previous/current/next tour state", () => {
   );
 });
 
+test("filters archive and collections and stably promotes pinned items", () => {
+  const source = [
+    { ...itemA, savedAt: 30, updatedAt: 5, order: 2, collectionId: "read" },
+    { ...itemB, savedAt: 20, updatedAt: 9, order: 0, pinned: true, collectionId: "work" },
+    { ...itemA, id: "c", savedAt: 10, updatedAt: 9, order: 1, pinned: true, archived: true, collectionId: "read" },
+    { ...itemA, id: "d", savedAt: 40, updatedAt: 1, order: 3, archived: true },
+  ];
+  assert.deepEqual(
+    queryKeepItems(source).items.map((item) => item.id),
+    ["b", "a"],
+  );
+  assert.deepEqual(
+    queryKeepItems(source, { archived: true }).items.map((item) => item.id),
+    ["c", "d"],
+  );
+  assert.deepEqual(
+    queryKeepItems(source, { archived: false, collectionId: "read" }).items.map((item) => item.id),
+    ["a"],
+  );
+  assert.deepEqual(
+    queryKeepItems(source, { pinnedFirst: true, sort: { by: "updatedAt", direction: "desc" } }).items.map(
+      (item) => item.id,
+    ),
+    ["b", "a"],
+  );
+  assert.deepEqual(
+    queryKeepItems(source, { archived: true, pinnedFirst: true }).items.map((item) => item.id),
+    ["c", "d"],
+  );
+});
+
+test("accepts new backup fields and rejects malformed values while preserving legacy backups", async () => {
+  let stored = [] as (typeof itemA)[];
+  const storage = createStorageAdapter({
+    getAll: () => stored,
+    set: (item) => {
+      stored = [...stored.filter((current) => current.id !== item.id), item];
+    },
+    remove: (id) => {
+      stored = stored.filter((item) => item.id !== id);
+    },
+    clear: () => {
+      stored = [];
+    },
+  });
+  const valid = JSON.stringify({
+    format: "keepkit",
+    version: 1,
+    exportedAt: 1,
+    items: [{ ...itemA, archived: true, pinned: false, collectionId: "read" }],
+  });
+  assert.equal((await importItems(storage, valid)).items[0]?.collectionId, "read");
+  const legacy = JSON.stringify({ format: "keepkit", version: 1, exportedAt: 1, items: [itemA] });
+  assert.equal((await importItems(storage, legacy)).items[0]?.id, "a");
+  const malformed = JSON.stringify({
+    format: "keepkit",
+    version: 1,
+    exportedAt: 1,
+    items: [{ ...itemA, pinned: "yes" }],
+  });
+  await assert.rejects(() => importItems(storage, malformed), KeepBackupParseError);
+});
+
 test("rejects unknown and duplicate ids while preserving legacy order", () => {
   assert.deepEqual(
     orderKeepItems([itemB, itemA]).map((item) => item.id),

@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const RU_LABELS: KeepUiLocaleLabels = {
+  archive: "Архивировать",
+  unarchive: "Разархивировать",
+  archived: "В архиве",
+  pin: "Закрепить",
+  unpin: "Открепить",
+  pinned: "Закреплено",
+  collection: "Коллекция",
+  allCollections: "Все коллекции",
+  filterCollections: "Фильтр коллекций",
+  uncategorized: "Без категории",
+  saveWithNote: "Сохранить с заметкой",
   save: "Сохранить",
   saved: "Сохранено",
   remove: "Удалить",

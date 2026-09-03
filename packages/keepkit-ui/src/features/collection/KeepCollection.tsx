@@ -8,12 +8,13 @@ import { type RenderProp, resolveContent } from "../../foundation/shared";
 import { KeepBulkActions } from "../actions/KeepBulkActions";
 import type { KeepItemCardProps } from "../item/KeepItemCard";
 import { KeepActiveFiltersSummary } from "../query/KeepActiveFiltersSummary";
+import { KeepCollectionFilter } from "../query/KeepCollectionFilter";
 import { KeepTagFilter } from "../query/KeepTagFilter";
 import { KeepPagination, KeepSearchInput, KeepSortSelect } from "../query/query-controls";
 import { useKeepCollection } from "./hooks/useKeepCollection";
 import { KeepList, type KeepListState } from "./KeepList";
 
-export type KeepCollectionFeature = "search" | "sort" | "pagination" | "tagFilter" | "bulkActions";
+export type KeepCollectionFeature = "search" | "sort" | "pagination" | "tagFilter" | "collectionFilter" | "bulkActions";
 export type KeepLayoutPreset = "list" | "grid" | "compact" | "auto";
 
 export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
@@ -23,6 +24,7 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   urlSync?: boolean | KeepUrlSyncOptions;
   urlAdapter?: KeepUrlAdapter;
   features?: Partial<Record<KeepCollectionFeature, boolean>>;
+  collectionLabels?: Record<string, string>;
   renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
   loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
@@ -56,6 +58,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   urlSync = false,
   urlAdapter,
   features,
+  collectionLabels,
   renderItem,
   itemCardProps,
   loading,
@@ -84,6 +87,13 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         {view.enabled.sort ? <KeepSortSelect value={view.sortValue} onValueChange={view.setSortValue} /> : null}
         {view.enabled.tagFilter ? (
           <KeepTagFilter<TMeta> query={query} value={view.activeTags[0]} onValueChange={view.setTag} />
+        ) : null}
+        {view.enabled.collectionFilter ? (
+          <KeepCollectionFilter
+            value={view.activeCollection}
+            onValueChange={view.setCollection}
+            collectionLabels={collectionLabels}
+          />
         ) : null}
       </div>
       {activeFilters === undefined ? (

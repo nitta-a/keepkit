@@ -110,6 +110,9 @@ export function toKeepButtonItem<TMeta>(item: KeepItem<TMeta>): KeepItemInput<TM
     targetType: item.targetType,
     note: item.note,
     tags: item.tags,
+    archived: item.archived,
+    pinned: item.pinned,
+    collectionId: item.collectionId,
   };
 }
 

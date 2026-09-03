@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const ID_LABELS: KeepUiLocaleLabels = {
+  archive: "Arsipkan",
+  unarchive: "Batalkan arsip",
+  archived: "Diarsipkan",
+  pin: "Sematkan",
+  unpin: "Lepas sematan",
+  pinned: "Disematkan",
+  collection: "Koleksi",
+  allCollections: "Semua koleksi",
+  filterCollections: "Filter koleksi",
+  uncategorized: "Tanpa kategori",
+  saveWithNote: "Simpan dengan catatan",
   save: "Simpan",
   saved: "Tersimpan",
   remove: "Hapus",

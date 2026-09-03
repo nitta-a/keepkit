@@ -26,12 +26,14 @@ export function useKeepCollection<TMeta>({
     sort: true,
     pagination: true,
     tagFilter: false,
+    collectionFilter: false,
     bulkActions: false,
     ...features,
   };
   const [searchValue, setSearchValue] = useState(query.search?.query ?? "");
   const [sort, setSort] = useState(query.sort ?? { by: "updatedAt" as const, direction: "desc" as const });
   const [activeTags, setActiveTags] = useState<string[]>(query.tags ?? []);
+  const [activeCollection, setActiveCollection] = useState<string | undefined>(query.collectionId);
   const [page, setPage] = useState(query.pagination?.page ?? 1);
   const resolvedPageSize = query.pagination?.pageSize ?? pageSize;
   const resolvedQuery = useMemo<KeepListQuery<TMeta>>(
@@ -40,9 +42,25 @@ export function useKeepCollection<TMeta>({
       search: enabled.search ? { ...query.search, query: searchValue } : query.search,
       sort: enabled.sort ? sort : query.sort,
       tags: activeTags.length > 0 ? activeTags : undefined,
+      collectionId: activeCollection && activeCollection !== "__uncategorized__" ? activeCollection : undefined,
+      filter:
+        activeCollection === "__uncategorized__"
+          ? (item) => item.collectionId === undefined && (query.filter?.(item) ?? true)
+          : query.filter,
       pagination: enabled.pagination ? { ...query.pagination, page, pageSize: resolvedPageSize } : query.pagination,
     }),
-    [activeTags, enabled.pagination, enabled.search, enabled.sort, page, query, resolvedPageSize, searchValue, sort],
+    [
+      activeCollection,
+      activeTags,
+      enabled.pagination,
+      enabled.search,
+      enabled.sort,
+      page,
+      query,
+      resolvedPageSize,
+      searchValue,
+      sort,
+    ],
   );
   useKeepUrlSync({
     enabled: Boolean(urlSync),
@@ -52,6 +70,7 @@ export function useKeepCollection<TMeta>({
       setSearchValue(next.search?.query ?? "");
       setSort(next.sort ?? { by: "updatedAt", direction: "desc" });
       setActiveTags(next.tags ?? []);
+      setActiveCollection(next.collectionId);
       setPage(next.pagination?.page ?? 1);
     },
     options: typeof urlSync === "object" ? urlSync : {},
@@ -65,6 +84,7 @@ export function useKeepCollection<TMeta>({
     searchValue,
     sortValue: sortToValue(sort),
     activeTags,
+    activeCollection,
     resolvedPageSize,
     resolvedQuery,
     list,
@@ -81,6 +101,10 @@ export function useKeepCollection<TMeta>({
       setActiveTags(value ? [value] : []);
       setPage(1);
     },
+    setCollection: (value?: string) => {
+      setActiveCollection(value);
+      setPage(1);
+    },
     removeTag: (tagToRemove: string) => {
       setActiveTags((current) => current.filter((tag) => tag !== tagToRemove));
       setPage(1);
@@ -88,6 +112,7 @@ export function useKeepCollection<TMeta>({
     clearFilters: () => {
       setSearchValue("");
       setActiveTags([]);
+      setActiveCollection(undefined);
       setPage(1);
     },
     setPage,

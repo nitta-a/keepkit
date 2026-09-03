@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const FR_LABELS: KeepUiLocaleLabels = {
+  archive: "Archiver",
+  unarchive: "Désarchiver",
+  archived: "Archivé",
+  pin: "Épingler",
+  unpin: "Désépingler",
+  pinned: "Épinglé",
+  collection: "Collection",
+  allCollections: "Toutes les collections",
+  filterCollections: "Filtrer par collection",
+  uncategorized: "Non classé",
+  saveWithNote: "Enregistrer avec une note",
   save: "Enregistrer",
   saved: "Enregistré",
   remove: "Supprimer",

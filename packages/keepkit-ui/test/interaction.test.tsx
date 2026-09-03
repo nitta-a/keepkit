@@ -13,10 +13,13 @@ import { expect, test, vi } from "vitest";
 import {
   KeepActiveFiltersSummary,
   KeepAnnouncements,
+  KeepArchiveButton,
   KeepBackup,
   KeepBulkActions,
   KeepButton,
   KeepCollection,
+  KeepCollectionFilter,
+  KeepCollectionSelect,
   KeepEmptyState,
   KeepErrorBoundary,
   KeepItemCard,
@@ -28,9 +31,11 @@ import {
   KeepList,
   KeepNoteEditor,
   KeepPagination,
+  KeepPinButton,
   KeepProvider,
   KeepPruneStaleButton,
   KeepReorderableList,
+  KeepSavePopover,
   KeepSearchInput,
   KeepSortSelect,
   KeepStaleNotice,
@@ -98,6 +103,45 @@ test("toggles the UI button from keyboard and propagates asChild state attribute
 
   fireEvent.keyDown(link, { key: " " });
   await waitFor(() => expect(link.textContent).toContain("false"));
+});
+
+test("archives, pins, moves, and filters items through the public UI controls", async () => {
+  const saved = { ...item, collectionId: "reading" };
+  const storage = createStorage([saved, { ...secondItem, collectionId: "work" }]);
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepArchiveButton item={saved} />
+      <KeepPinButton item={saved} />
+      <KeepCollectionSelect item={saved} collectionLabels={{ reading: "Reading" }} />
+      <KeepCollectionFilter collectionLabels={{ reading: "Reading", work: "Work" }} />
+    </KeepProvider>,
+  );
+  const archive = await screen.findByRole("button", { name: "Archive" });
+  fireEvent.click(archive);
+  await waitFor(() => expect(archive.getAttribute("data-archived")).toBe("true"));
+  const pin = screen.getByRole("button", { name: "Pin" });
+  fireEvent.click(pin);
+  await waitFor(() => expect(pin.getAttribute("data-pinned")).toBe("true"));
+  const selects = screen.getAllByRole("combobox");
+  fireEvent.change(selects[0], { target: { value: "work" } });
+  await waitFor(async () =>
+    expect((await storage.getAll()).find((entry) => entry.id === saved.id)?.collectionId).toBe("work"),
+  );
+  expect(screen.getAllByRole("option", { name: "work" }).length).toBeGreaterThan(0);
+});
+
+test("opens save popover after a new save and debounces quick note editing", async () => {
+  const storage = createStorage();
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepSavePopover item={{ id: item.id, meta: item.meta }} editorProps={{ debounceMs: 10 }} />
+    </KeepProvider>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  expect(await screen.findByRole("dialog")).not.toBeNull();
+  const note = screen.getByRole("textbox", { name: "Note" });
+  fireEvent.change(note, { target: { value: "quick note" } });
+  await waitFor(async () => expect((await storage.getAll())[0]?.note).toBe("quick note"));
 });
 
 test("removes individual active filters and clears all filters", () => {

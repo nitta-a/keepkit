@@ -8,10 +8,13 @@ import {
   KeepActiveFiltersSummary,
   KeepAnnouncements,
   KeepAnnouncer,
+  KeepArchiveButton,
   KeepBackup,
   KeepBulkActions,
   KeepButton,
   KeepCollection,
+  KeepCollectionFilter,
+  KeepCollectionSelect,
   KeepEmptyState,
   KeepItemCard,
   KeepItemCardSkeleton,
@@ -23,8 +26,11 @@ import {
   KeepNavigator,
   KeepNoteEditor,
   KeepPagination,
+  KeepPinButton,
   KeepPruneStaleButton,
+  KeepQuickEditor,
   KeepReorderableList,
+  KeepSavePopover,
   KeepSearchInput,
   KeepShortcutHint,
   KeepSortSelect,
@@ -46,6 +52,12 @@ import { keepKitTheme } from "../dist/tailwind.js";
 
 test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepButton, "function");
+  assert.equal(typeof KeepArchiveButton, "function");
+  assert.equal(typeof KeepPinButton, "function");
+  assert.equal(typeof KeepCollectionSelect, "function");
+  assert.equal(typeof KeepCollectionFilter, "function");
+  assert.equal(typeof KeepSavePopover, "function");
+  assert.equal(typeof KeepQuickEditor, "function");
   assert.equal(typeof KeepAnnouncements, "function");
   assert.equal(typeof KeepActiveFiltersSummary, "function");
   assert.equal(typeof KeepBackup, "function");
@@ -59,6 +71,9 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepItemCard.Title, "function");
   assert.equal(typeof KeepItemCard.Tags, "function");
   assert.equal(typeof KeepItemCard.Actions, "function");
+  assert.equal(typeof KeepItemCard.Pin, "function");
+  assert.equal(typeof KeepItemCard.Archive, "function");
+  assert.equal(typeof KeepItemCard.CollectionBadge, "function");
   assert.equal(typeof KeepItemStatusBadge, "function");
   assert.equal(typeof KeepItemCheckbox, "function");
   assert.equal(typeof KeepTagFilter, "function");

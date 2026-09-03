@@ -29,6 +29,13 @@ export type UseKeepListResult<TMeta = Record<string, unknown>> = {
   removeWithUndo: (id: string) => Promise<void>;
   removeBatchWithUndo: (ids: string[]) => Promise<void>;
   updateTagsBatch: (ids: string[], tags?: string[]) => Promise<void>;
+  toggleArchive: (id: string) => Promise<void>;
+  archiveItem: (id: string) => Promise<void>;
+  unarchiveItem: (id: string) => Promise<void>;
+  archive: (id: string) => Promise<void>;
+  unarchive: (id: string) => Promise<void>;
+  togglePin: (id: string) => Promise<void>;
+  moveToCollection: (id: string, collectionId?: string) => Promise<void>;
   addTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   reorder: (orderedIds: string[]) => Promise<void>;
@@ -45,10 +52,11 @@ export function useKeepList<TMeta = Record<string, unknown>>(
   query: KeepListQuery<TMeta> = {},
 ): UseKeepListResult<TMeta> {
   const { store, actions } = useKeepStore<TMeta>();
-  const { filter, pagination, savedBetween, search, sort, tags, targetType } = query;
+  const { archived, collectionId, filter, pagination, pinnedFirst, savedBetween, search, sort, tags, targetType } =
+    query;
   const queryOptions = useMemo<KeepListQuery<TMeta>>(
-    () => ({ filter, pagination, savedBetween, search, sort, tags, targetType }),
-    [filter, pagination, savedBetween, search, sort, tags, targetType],
+    () => ({ archived, collectionId, filter, pagination, pinnedFirst, savedBetween, search, sort, tags, targetType }),
+    [archived, collectionId, filter, pagination, pinnedFirst, savedBetween, search, sort, tags, targetType],
   );
   const selector = useMemo(() => {
     let previousResult: QueryKeepItemsResult<TMeta> | undefined;
@@ -102,6 +110,14 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     (ids: string[], nextTags: string[]) => actions.removeTagsBatch(ids, nextTags),
     [actions],
   );
+  const toggleArchive = useCallback((id: string) => actions.toggleArchive(id), [actions]);
+  const archive = useCallback((id: string) => actions.archiveItem(id), [actions]);
+  const unarchive = useCallback((id: string) => actions.unarchiveItem(id), [actions]);
+  const togglePin = useCallback((id: string) => actions.togglePin(id), [actions]);
+  const moveToCollection = useCallback(
+    (id: string, collectionId?: string) => actions.moveToCollection(id, collectionId),
+    [actions],
+  );
 
   return {
     items: result.items,
@@ -123,6 +139,13 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     updateTagsBatch,
     addTagsBatch,
     removeTagsBatch,
+    toggleArchive,
+    archiveItem: archive,
+    unarchiveItem: unarchive,
+    archive,
+    unarchive,
+    togglePin,
+    moveToCollection,
     reorder: actions.reorderItems,
     move: actions.moveItem,
     clear: actions.clear,

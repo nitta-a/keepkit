@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const MS_LABELS: KeepUiLocaleLabels = {
+  archive: "Arkibkan",
+  unarchive: "Nyaharkib",
+  archived: "Diarkibkan",
+  pin: "Pin",
+  unpin: "Nyahpin",
+  pinned: "Dipinkan",
+  collection: "Koleksi",
+  allCollections: "Semua koleksi",
+  filterCollections: "Tapis koleksi",
+  uncategorized: "Tiada kategori",
+  saveWithNote: "Simpan dengan nota",
   save: "Simpan",
   saved: "Disimpan",
   remove: "Buang",

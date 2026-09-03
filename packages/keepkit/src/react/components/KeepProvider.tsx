@@ -56,6 +56,11 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   saveItem: (item: KeepItem<TMeta>) => Promise<void>;
   updateNote: (id: string, note?: string) => Promise<void>;
   updateTags: (id: string, tags?: string[]) => Promise<void>;
+  toggleArchive: (id: string) => Promise<void>;
+  archiveItem: (id: string) => Promise<void>;
+  unarchiveItem: (id: string) => Promise<void>;
+  togglePin: (id: string) => Promise<void>;
+  moveToCollection: (id: string, collectionId?: string) => Promise<void>;
   updateTagsBatch: (ids: string[], tags?: string[]) => Promise<void>;
   addTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
@@ -551,6 +556,70 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     [runMutation, storage],
   );
 
+  const setArchive = useCallback(
+    async (id: string, archived: boolean) => {
+      await runMutation("archive", id, (previous) => {
+        const current = previous.find((item) => item.id === id);
+        if (!current) return undefined;
+        const next = { ...current, archived, updatedAt: Date.now() };
+        return {
+          next: previous.map((item) => (item.id === id ? next : item)),
+          persist: () => storage.set(next),
+          pluginContext: { action: "archive", id, item: next },
+        };
+      });
+    },
+    [runMutation, storage],
+  );
+
+  const toggleArchive = useCallback(
+    (id: string) => {
+      const item = itemsRef.current.find((current) => current.id === id);
+      return setArchive(id, item?.archived !== true);
+    },
+    [setArchive],
+  );
+  const archiveItem = useCallback((id: string) => setArchive(id, true), [setArchive]);
+  const unarchiveItem = useCallback((id: string) => setArchive(id, false), [setArchive]);
+
+  const togglePin = useCallback(
+    async (id: string) => {
+      await runMutation("pin", id, (previous) => {
+        const current = previous.find((item) => item.id === id);
+        if (!current) return undefined;
+        const next = { ...current, pinned: current.pinned !== true, updatedAt: Date.now() };
+        return {
+          next: previous.map((item) => (item.id === id ? next : item)),
+          persist: () => storage.set(next),
+          pluginContext: { action: "pin", id, item: next },
+        };
+      });
+    },
+    [runMutation, storage],
+  );
+
+  const moveToCollection = useCallback(
+    async (id: string, collectionId?: string) => {
+      const nextCollectionId = collectionId?.trim() || undefined;
+      await runMutation("collection", id, (previous) => {
+        const current = previous.find((item) => item.id === id);
+        if (!current) return undefined;
+        const { collectionId: _oldCollectionId, ...withoutCollection } = current;
+        const next = {
+          ...withoutCollection,
+          ...(nextCollectionId ? { collectionId: nextCollectionId } : {}),
+          updatedAt: Date.now(),
+        };
+        return {
+          next: previous.map((item) => (item.id === id ? next : item)),
+          persist: () => storage.set(next),
+          pluginContext: { action: "collection", id, item: next },
+        };
+      });
+    },
+    [runMutation, storage],
+  );
+
   const updateTagsBatch = useCallback(
     async (ids: string[], tags?: string[]) => {
       const idSet = new Set(ids);
@@ -913,6 +982,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       saveItem,
       updateNote,
       updateTags,
+      toggleArchive,
+      archiveItem,
+      unarchiveItem,
+      togglePin,
+      moveToCollection,
       updateTagsBatch,
       addTagsBatch,
       removeTagsBatch,
@@ -952,6 +1026,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       undoLastRemoval,
       updateNote,
       updateTags,
+      toggleArchive,
+      archiveItem,
+      unarchiveItem,
+      togglePin,
+      moveToCollection,
       updateTagsBatch,
       addTagsBatch,
       removeTagsBatch,
@@ -970,6 +1049,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       saveItem,
       updateNote,
       updateTags,
+      toggleArchive,
+      archiveItem,
+      unarchiveItem,
+      togglePin,
+      moveToCollection,
       updateTagsBatch,
       addTagsBatch,
       removeTagsBatch,
@@ -995,6 +1079,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       saveItem,
       updateNote,
       updateTags,
+      toggleArchive,
+      archiveItem,
+      unarchiveItem,
+      togglePin,
+      moveToCollection,
       updateTagsBatch,
       refreshItemMetadata,
       revalidateItems,

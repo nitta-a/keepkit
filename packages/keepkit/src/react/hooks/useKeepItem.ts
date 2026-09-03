@@ -17,6 +17,13 @@ export type UseKeepItemResult<TMeta = Record<string, unknown>> = {
   toggle: () => Promise<void>;
   updateNote: (note?: string) => Promise<void>;
   updateTags: (tags?: string[]) => Promise<void>;
+  toggleArchive: () => Promise<void>;
+  archiveItem: () => Promise<void>;
+  unarchiveItem: () => Promise<void>;
+  archive: () => Promise<void>;
+  unarchive: () => Promise<void>;
+  togglePin: () => Promise<void>;
+  moveToCollection: (collectionId?: string) => Promise<void>;
   refreshMetadata: (refresh: KeepItemMetadataRefresher<TMeta>) => Promise<void>;
 };
 
@@ -58,6 +65,14 @@ export function useKeepItem<TMeta = Record<string, unknown>>(input?: KeepItemInp
   const toggle = useCallback(() => (item ? remove() : save()), [item, remove, save]);
   const updateNote = useCallback((note?: string) => actions.updateNote(id, note), [actions, id]);
   const updateTags = useCallback((tags?: string[]) => actions.updateTags(id, tags), [actions, id]);
+  const toggleArchive = useCallback(() => actions.toggleArchive(id), [actions, id]);
+  const archive = useCallback(() => actions.archiveItem(id), [actions, id]);
+  const unarchive = useCallback(() => actions.unarchiveItem(id), [actions, id]);
+  const togglePin = useCallback(() => actions.togglePin(id), [actions, id]);
+  const moveToCollection = useCallback(
+    (collectionId?: string) => actions.moveToCollection(id, collectionId),
+    [actions, id],
+  );
   const refreshMetadata = useCallback(
     (refresh: KeepItemMetadataRefresher<TMeta>) => actions.refreshItemMetadata(id, refresh),
     [actions, id],
@@ -76,6 +91,13 @@ export function useKeepItem<TMeta = Record<string, unknown>>(input?: KeepItemInp
     toggle,
     updateNote,
     updateTags,
+    toggleArchive,
+    archiveItem: archive,
+    unarchiveItem: unarchive,
+    archive,
+    unarchive,
+    togglePin,
+    moveToCollection,
     refreshMetadata,
   };
 }

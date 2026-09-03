@@ -24,6 +24,12 @@ import {
   toKeepButtonItem,
   useKeepSearchQuery,
 } from "../../foundation/shared";
+import {
+  KeepArchiveButton,
+  type KeepArchiveButtonProps,
+  KeepPinButton,
+  type KeepPinButtonProps,
+} from "../actions/KeepArchiveButton";
 import { KeepButton, type KeepButtonLabels } from "../actions/KeepButton";
 import type { KeepLayoutPreset } from "../collection/KeepCollection";
 import { KeepStaleNotice } from "../status/KeepStaleNotice";
@@ -62,6 +68,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   renderTags?: (tags: string[], item: KeepItem<TMeta>) => ReactNode;
   showTags?: boolean;
   showSavedAt?: boolean;
+  collectionLabels?: Record<string, string>;
   imageAlt?: string;
   render?: RenderProp<KeepItemCardState<TMeta>>;
   children?: ReactNode | RenderProp<KeepItemCardState<TMeta>>;
@@ -96,6 +103,8 @@ export type KeepItemCardSkeletonProps = Omit<HTMLAttributes<HTMLElement>, "child
 };
 
 type KeepItemCardCompoundContext = {
+  item: KeepItem<unknown>;
+  collectionLabel?: string;
   resolvedTitle: ReactNode;
   renderTitle: (content: ReactNode) => ReactNode;
   image: ReactNode | null;
@@ -129,6 +138,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   renderTags,
   showTags = true,
   showSavedAt = true,
+  collectionLabels,
   imageAlt,
   render,
   children,
@@ -252,6 +262,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     </>
   );
   const compoundValue: KeepItemCardCompoundContext = {
+    item,
+    collectionLabel: item.collectionId ? (collectionLabels?.[item.collectionId] ?? item.collectionId) : undefined,
     resolvedTitle: view.resolvedTitle,
     renderTitle,
     image: imageStatus === "error" ? null : image,
@@ -372,12 +384,51 @@ function KeepItemCardActions({ children, ...props }: KeepItemCardActionsProps) {
   );
 }
 
+export type KeepItemCardActionSlotProps = Omit<KeepPinButtonProps<unknown>, "item" | "children"> & {
+  children?: ReactNode;
+};
+export type KeepItemCardBadgeProps = HTMLAttributes<HTMLSpanElement>;
+
+function KeepItemCardPin({ children, ...props }: KeepItemCardActionSlotProps) {
+  const context = useKeepItemCardCompound("Pin");
+  return (
+    <KeepPinButton<unknown> {...props} item={context.item}>
+      {children}
+    </KeepPinButton>
+  );
+}
+
+function KeepItemCardArchive({
+  children,
+  ...props
+}: Omit<KeepArchiveButtonProps<unknown>, "item" | "children"> & { children?: ReactNode }) {
+  const context = useKeepItemCardCompound("Archive");
+  return (
+    <KeepArchiveButton<unknown> {...props} item={context.item}>
+      {children}
+    </KeepArchiveButton>
+  );
+}
+
+function KeepItemCardCollectionBadge({ children, ...props }: KeepItemCardBadgeProps) {
+  const context = useKeepItemCardCompound("CollectionBadge");
+  if (!context.item.collectionId) return null;
+  return (
+    <span {...props} data-keep-card-part="collection-badge">
+      {children ?? context.collectionLabel}
+    </span>
+  );
+}
+
 export const KeepItemCard = Object.assign(KeepItemCardRoot, {
   Media: KeepItemCardMedia,
   Content: KeepItemCardContent,
   Title: KeepItemCardTitle,
   Tags: KeepItemCardTags,
   Actions: KeepItemCardActions,
+  Pin: KeepItemCardPin,
+  Archive: KeepItemCardArchive,
+  CollectionBadge: KeepItemCardCollectionBadge,
 });
 
 /** A non-interactive placeholder that preserves the selected card layout while data loads. */

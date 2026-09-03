@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const TH_LABELS: KeepUiLocaleLabels = {
+  archive: "เก็บถาวร",
+  unarchive: "ยกเลิกการเก็บถาวร",
+  archived: "เก็บถาวรแล้ว",
+  pin: "ปักหมุด",
+  unpin: "เลิกปักหมุด",
+  pinned: "ปักหมุดแล้ว",
+  collection: "คอลเลกชัน",
+  allCollections: "คอลเลกชันทั้งหมด",
+  filterCollections: "กรองคอลเลกชัน",
+  uncategorized: "ไม่มีหมวดหมู่",
+  saveWithNote: "บันทึกพร้อมโน้ต",
   save: "บันทึก",
   saved: "บันทึกแล้ว",
   remove: "ลบ",

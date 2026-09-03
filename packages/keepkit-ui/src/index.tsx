@@ -27,6 +27,14 @@ import {
   type KeepUrlAdapter,
   useKeepUrlSync,
 } from "./adapters/url-sync";
+import {
+  KeepArchiveButton,
+  type KeepArchiveButtonProps,
+  type KeepArchiveButtonState,
+  KeepPinButton,
+  type KeepPinButtonProps,
+  type KeepPinButtonState,
+} from "./features/actions/KeepArchiveButton";
 import { KeepBackup, type KeepBackupProps } from "./features/actions/KeepBackup";
 import {
   KeepBulkActions,
@@ -42,6 +50,7 @@ import {
   type KeepButtonProps,
 } from "./features/actions/KeepButton";
 import { KeepItemCheckbox, type KeepItemCheckboxProps } from "./features/actions/KeepItemCheckbox";
+import { KeepSavePopover, type KeepSavePopoverProps } from "./features/actions/KeepSavePopover";
 import { KeepUndo, type KeepUndoProps } from "./features/actions/KeepUndo";
 import {
   KeepCollection,
@@ -57,6 +66,12 @@ import {
   type KeepReorderableListProps,
 } from "./features/collection/KeepReorderableList";
 import { KeepNoteEditor, type KeepNoteEditorProps, type KeepNoteEditorState } from "./features/editor/KeepNoteEditor";
+import {
+  KeepQuickEditor,
+  type KeepQuickEditorProps,
+  type KeepQuickEditorState,
+  useKeepQuickEditor,
+} from "./features/editor/KeepQuickEditor";
 import { KeepTagEditor, type KeepTagEditorProps, type KeepTagEditorState } from "./features/editor/KeepTagEditor";
 import {
   type KeepToastFeedbackOptions,
@@ -66,7 +81,9 @@ import {
 import {
   type KeepImageProps,
   KeepItemCard,
+  type KeepItemCardActionSlotProps,
   type KeepItemCardActionsProps,
+  type KeepItemCardBadgeProps,
   type KeepItemCardContentProps,
   type KeepItemCardLinkProps,
   type KeepItemCardMediaProps,
@@ -89,6 +106,12 @@ import {
   type KeepActiveFiltersSummaryProps,
   type KeepActiveFiltersSummaryState,
 } from "./features/query/KeepActiveFiltersSummary";
+import {
+  type KeepCollectionControlProps,
+  KeepCollectionFilter,
+  type KeepCollectionOption,
+  KeepCollectionSelect,
+} from "./features/query/KeepCollectionFilter";
 import { KeepTagFilter, type KeepTagFilterProps, type KeepTagFilterState } from "./features/query/KeepTagFilter";
 import {
   KeepPagination,
@@ -253,6 +276,8 @@ export type {
   KeepActiveFiltersSummaryProps,
   KeepActiveFiltersSummaryState,
   KeepAnnouncementsProps,
+  KeepArchiveButtonProps,
+  KeepArchiveButtonState,
   KeepBackupProps,
   KeepBulkActionsProps,
   KeepBulkActionsState,
@@ -261,12 +286,16 @@ export type {
   KeepButtonIcons,
   KeepButtonLabels,
   KeepButtonProps,
+  KeepCollectionControlProps,
   KeepCollectionFeature,
+  KeepCollectionOption,
   KeepCollectionProps,
   KeepDisplayStatus,
   KeepEmptyStateProps,
   KeepImageProps,
+  KeepItemCardActionSlotProps,
   KeepItemCardActionsProps,
+  KeepItemCardBadgeProps,
   KeepItemCardContentProps,
   KeepItemCardLinkProps,
   KeepItemCardMediaProps,
@@ -286,9 +315,14 @@ export type {
   KeepPagesRouterLike,
   KeepPaginationProps,
   KeepPaginationState,
+  KeepPinButtonProps,
+  KeepPinButtonState,
   KeepPruneStaleButtonProps,
+  KeepQuickEditorProps,
+  KeepQuickEditorState,
   KeepReorderableItemState,
   KeepReorderableListProps,
+  KeepSavePopoverProps,
   KeepScope,
   KeepSearchInputProps,
   KeepShortcutHintProps,
@@ -332,10 +366,13 @@ export {
   KeepActiveFiltersSummary,
   KeepAnnouncements,
   KeepAnnouncer,
+  KeepArchiveButton,
   KeepBackup,
   KeepBulkActions,
   KeepButton,
   KeepCollection,
+  KeepCollectionFilter,
+  KeepCollectionSelect,
   KeepEmptyState,
   KeepItemCard,
   KeepItemCardSkeleton,
@@ -346,8 +383,11 @@ export {
   KeepNavigator,
   KeepNoteEditor,
   KeepPagination,
+  KeepPinButton,
   KeepPruneStaleButton,
+  KeepQuickEditor,
   KeepReorderableList,
+  KeepSavePopover,
   KeepSearchInput,
   KeepShortcutHint,
   KeepSortSelect,
@@ -362,6 +402,7 @@ export {
   KeepUiProvider,
   KeepUndo,
   keepThemeNames,
+  useKeepQuickEditor,
   useKeepToastFeedback,
   useKeepUiLabels,
   useKeepUrlSync,

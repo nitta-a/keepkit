@@ -88,7 +88,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.20.0では`KeepTourBar` / `KeepNavigator`、`KeepReorderableList`、`useKeepTourShortcuts`を利用できます。`KeepCollection urlSync layout="list" | "grid" | "compact"`、`KeepBulkActions selectionScope="page" | "query" | "all"`、`KeepUndo`も利用できます。`createNextPagesRouterAdapter`はNext.js Pages Router用の注入adapterです。`locale`は16言語に対応し、`labels`で上書きできます。認証付き同期は`createAuthenticatedSyncKit`から利用できます。
+v0.21.0では`KeepTourBar` / `KeepNavigator`、`KeepReorderableList`、`useKeepTourShortcuts`を利用できます。`KeepCollection urlSync layout="list" | "grid" | "compact"`、`KeepBulkActions selectionScope="page" | "query" | "all"`、`KeepUndo`も利用できます。`createNextPagesRouterAdapter`はNext.js Pages Router用の注入adapterです。`locale`は16言語に対応し、`labels`で上書きできます。認証付き同期は`createAuthenticatedSyncKit`から利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -207,7 +207,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-In v0.20.0, use `KeepTourBar` / `KeepNavigator`, `KeepReorderableList`, and `useKeepTourShortcuts` for continuous saved-item tours. `KeepCollection urlSync` with `layout="list" | "grid" | "compact"`, `KeepBulkActions selectionScope="page" | "query" | "all"`, and `KeepUndo` remain available. `createNextPagesRouterAdapter` is the injected adapter for Next.js Pages Router. `locale` includes 16 built-in dictionaries, and `labels` overrides individual entries. Authenticated sync is available through `createAuthenticatedSyncKit`.
+In v0.21.0, use `KeepTourBar` / `KeepNavigator`, `KeepReorderableList`, and `useKeepTourShortcuts` for continuous saved-item tours. `KeepCollection urlSync` with `layout="list" | "grid" | "compact"`, `KeepBulkActions selectionScope="page" | "query" | "all"`, and `KeepUndo` remain available. `createNextPagesRouterAdapter` is the injected adapter for Next.js Pages Router. `locale` includes 16 built-in dictionaries, and `labels` overrides individual entries. Authenticated sync is available through `createAuthenticatedSyncKit`.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme
@@ -248,3 +248,11 @@ Use `[data-state="saved"]`, `[data-state="unsaved"]`, `[data-loading="true"]`, `
 Collection queries use one canonical shape: `targetType`, `tags`, `search`, `sort`, `pagination`, `filter`, and `savedBetween`. Saved item inputs contain only `id`, `meta`, `targetType`, `note`, and `tags`; KeepKit owns persistence timestamps.
 
 Framework-neutral APIs remain available from `@keepkit/core/core`, low-level React bindings from `@keepkit/core/react`, and storage adapters from `@keepkit/core/storage`.
+
+## Archive, pin, collections, and quick save editing
+
+The UI package exports `KeepArchiveButton`, `KeepPinButton`, `KeepCollectionSelect`, `KeepCollectionFilter`, `KeepSavePopover`, `KeepQuickEditor`, and `useKeepQuickEditor`. Buttons expose `aria-pressed`, `data-archived`/`data-pinned`, and `data-keep-action`. Collection labels default to IDs and can be overridden with `collectionLabels`. Enable `features={{ collectionFilter: true }}` on `KeepCollection` to include the collection filter. `KeepSavePopover` wraps `KeepButton` and opens after a new save; its quick editor debounces note, tags, and collection updates by 300ms by default.
+
+## アーカイブ・ピン留め・コレクション・保存直後編集
+
+UI パッケージは `KeepArchiveButton`、`KeepPinButton`、`KeepCollectionSelect`、`KeepCollectionFilter`、`KeepSavePopover`、`KeepQuickEditor`、`useKeepQuickEditor` を公開します。ボタンは `aria-pressed`、`data-archived` / `data-pinned`、`data-keep-action` を出力します。コレクション名は既定で ID を表示し、`collectionLabels` で置換できます。`KeepCollection` に `features={{ collectionFilter: true }}` を指定するとフィルターを統合できます。`KeepSavePopover` は `KeepButton` を内部 trigger とし、新規保存後に開きます。クイックエディターはメモ・タグ・コレクションを一時状態として扱い、既定 300ms で保存します。

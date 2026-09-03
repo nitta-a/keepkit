@@ -166,6 +166,9 @@ function isKeepItem(value: unknown): value is KeepItem {
     Number.isFinite(value.updatedAt) &&
     "meta" in value &&
     (value.order === undefined || (typeof value.order === "number" && Number.isFinite(value.order))) &&
+    (value.archived === undefined || typeof value.archived === "boolean") &&
+    (value.pinned === undefined || typeof value.pinned === "boolean") &&
+    (value.collectionId === undefined || typeof value.collectionId === "string") &&
     (value.targetType === undefined || typeof value.targetType === "string") &&
     (value.note === undefined || typeof value.note === "string") &&
     (value.schemaVersion === undefined ||

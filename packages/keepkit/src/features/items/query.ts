@@ -4,6 +4,10 @@ import type { KeepItem } from "./types";
 export type KeepListQuery<TMeta = Record<string, unknown>> = {
   targetType?: string;
   tags?: string[];
+  /** Defaults to active (not archived) items; true selects archived items. */
+  archived?: boolean;
+  collectionId?: string;
+  pinnedFirst?: boolean;
   sort?: {
     by: "savedAt" | "updatedAt";
     direction?: "asc" | "desc";
@@ -45,6 +49,8 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
     return (
       (query.targetType === undefined || item.targetType === query.targetType) &&
       (query.tags === undefined || query.tags.every((tag) => item.tags?.includes(tag))) &&
+      (query.archived === true ? item.archived === true : item.archived !== true) &&
+      (query.collectionId === undefined || item.collectionId === query.collectionId) &&
       (lowerBound === undefined || savedAt >= lowerBound) &&
       (upperBound === undefined || savedAt <= upperBound) &&
       matchesSearch(item, query.search) &&
@@ -54,7 +60,15 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
   const tagCounts = getTagCounts(filtered);
   const sortBy = query.sort?.by;
   const direction = query.sort?.direction === "asc" ? 1 : -1;
-  const sorted = sortBy ? [...filtered].sort((a, b) => (a[sortBy] - b[sortBy]) * direction) : orderKeepItems(filtered);
+  const sortedBase = sortBy
+    ? filtered
+        .map((item, index) => ({ item, index }))
+        .sort((a, b) => (a.item[sortBy] - b.item[sortBy]) * direction || a.index - b.index)
+        .map(({ item }) => item)
+    : orderKeepItems(filtered);
+  const sorted = query.pinnedFirst
+    ? [...sortedBase.filter((item) => item.pinned === true), ...sortedBase.filter((item) => item.pinned !== true)]
+    : sortedBase;
   const pageSize = Math.max(1, query.pagination?.pageSize ?? (sorted.length || 1));
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
   const page = Math.min(Math.max(1, query.pagination?.page ?? 1), pageCount);

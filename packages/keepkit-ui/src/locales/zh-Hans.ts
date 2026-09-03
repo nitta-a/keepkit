@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const ZH_HANS_LABELS: KeepUiLocaleLabels = {
+  archive: "归档",
+  unarchive: "取消归档",
+  archived: "已归档",
+  pin: "置顶",
+  unpin: "取消置顶",
+  pinned: "已置顶",
+  collection: "集合",
+  allCollections: "所有集合",
+  filterCollections: "按集合筛选",
+  uncategorized: "未分类",
+  saveWithNote: "保存并添加备注",
   save: "保存",
   saved: "已保存",
   remove: "删除",

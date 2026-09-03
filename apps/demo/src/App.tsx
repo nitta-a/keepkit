@@ -1,14 +1,15 @@
 import type { KeepItem } from "@keepkit/core/core";
 import {
-  KeepButton,
   KeepCollection,
   KeepEmptyState,
   KeepItemCard,
   KeepItemStatusBadge,
   KeepNoteEditor,
+  KeepSavePopover,
   KeepTourBar,
   KeepUndo,
 } from "@keepkit/ui";
+import { useState } from "react";
 import type { DemoMeta } from "./main";
 import { useAppView } from "./useAppView";
 
@@ -75,6 +76,7 @@ const content: Content[] = [
 
 export function App() {
   const { isOnline, savedItemCount, syncLabel, clearAll } = useAppView(content[0]);
+  const [showArchived, setShowArchived] = useState(false);
 
   return (
     <main className="shell">
@@ -117,16 +119,18 @@ export function App() {
                     {entry.meta.company} · {entry.meta.location} · {entry.meta.salary}
                   </span>
                 )}
-                <KeepButton
+                <KeepSavePopover
                   className="favorite-button"
                   item={{
                     id: entry.id,
                     meta: entry.meta,
                     tags: [entry.kindLabel],
+                    collectionId:
+                      entry.targetType === "article" ? "reading" : entry.targetType === "product" ? "shopping" : "work",
                     ...(entry.targetType === undefined ? {} : { targetType: entry.targetType }),
                   }}
-                  savedLabel="Saved ✓"
-                  unsavedLabel="Save for later"
+                  editorProps={{ collectionIds: ["reading", "shopping", "work"] }}
+                  buttonProps={{ savedLabel: "Saved ✓", unsavedLabel: "Save for later" }}
                 />
               </div>
             </article>
@@ -142,6 +146,9 @@ export function App() {
           </div>
           <div className="collection-actions">
             <span className="count">{savedItemCount} saved</span>
+            <button className="text-button" onClick={() => setShowArchived((current) => !current)} type="button">
+              {showArchived ? "Show active" : "Show archived"}
+            </button>
             <button className="text-button" onClick={clearAll} type="button">
               Clear all
             </button>
@@ -153,7 +160,8 @@ export function App() {
           layout="auto"
           loadingCount={6}
           pageSize={6}
-          features={{ tagFilter: true }}
+          query={{ archived: showArchived, pinnedFirst: true }}
+          features={{ tagFilter: true, collectionFilter: true }}
           empty={
             <KeepEmptyState
               title="Nothing here yet"
@@ -175,6 +183,9 @@ export function App() {
                   <KeepItemCard.Tags />
                 </KeepItemCard.Content>
                 <KeepItemCard.Actions />
+                <KeepItemCard.Pin />
+                <KeepItemCard.Archive />
+                <KeepItemCard.CollectionBadge />
               </KeepItemCard>
               <KeepNoteEditor item={item} placeholder="Why is this worth returning to?" showShortcutHint />
             </li>

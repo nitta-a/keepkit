@@ -38,7 +38,7 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.20.0では、保存順プレイリストと`useKeepNavigator`による連続閲覧、`reorderKeepItems` / `moveKeepItem`による順序管理を追加しました。`encodeKeepListQuery` / `decodeKeepListQuery`によるURL状態codec、`createScopedStorageAdapter`によるユーザー／テナント分離、`createKeepKitPreset({ mode: "local" | "sync" | "backup" })`も利用できます。`createAuthenticatedSyncKit`で認証付き同期とscope切り替えを構成できます。
+v0.21.0では、保存順プレイリストと`useKeepNavigator`による連続閲覧、`reorderKeepItems` / `moveKeepItem`による順序管理を追加しました。`encodeKeepListQuery` / `decodeKeepListQuery`によるURL状態codec、`createScopedStorageAdapter`によるユーザー／テナント分離、`createKeepKitPreset({ mode: "local" | "sync" | "backup" })`も利用できます。`createAuthenticatedSyncKit`で認証付き同期とscope切り替えを構成できます。
 
 `createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
@@ -83,8 +83,16 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-In v0.20.0, use persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem` for continuous saved-item tours. `encodeKeepListQuery` / `decodeKeepListQuery` provide URL state, `createScopedStorageAdapter` provides user/tenant isolation, and `createKeepKitPreset({ mode: "local" | "sync" | "backup" })` provides the standard setup. `createAuthenticatedSyncKit` composes token-aware sync and scope switching.
+In v0.21.0, use persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem` for continuous saved-item tours. `encodeKeepListQuery` / `decodeKeepListQuery` provide URL state, `createScopedStorageAdapter` provides user/tenant isolation, and `createKeepKitPreset({ mode: "local" | "sync" | "backup" })` provides the standard setup. `createAuthenticatedSyncKit` composes token-aware sync and scope switching.
 
 `createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 
 The v0.5 factory returns `Provider`, `Button`, `useContext`, `useItem`, `useList`, and `useShortcut`. Existing v0.4 applications should follow the migration guide in the repository root.
+
+## Archive, pin, and collections
+
+`KeepItem` and `KeepItemInput` accept optional `archived`, `pinned`, and `collectionId` fields. `useKeepList` defaults to unarchived items; pass `archived: true` for the archive, `collectionId` for an exact collection filter, and `pinnedFirst: true` to stably promote pinned items without changing the existing order inside either group. `useKeepItem` and the provider expose `toggleArchive`, `archiveItem`, `unarchiveItem`, `togglePin`, and `moveToCollection` operations. Each operation updates `updatedAt`, removes an empty collection ID, and uses the normal persistence, rollback, plugin, and `onChange` pipeline.
+
+## アーカイブ・ピン留め・コレクション
+
+`KeepItem` と `KeepItemInput` は `archived`、`pinned`、`collectionId` を任意で受け取れます。`useKeepList` は未アーカイブを既定とし、`archived: true` でアーカイブを、`collectionId` で完全一致のコレクションを取得できます。`pinnedFirst: true` は既存の順序を保ったままピン留め項目を先頭へ安定移動します。`useKeepItem` と Provider には `toggleArchive`、`archiveItem`、`unarchiveItem`、`togglePin`、`moveToCollection` を追加しました。各操作は `updatedAt` を更新し、空のコレクション ID はプロパティを削除して、既存の永続化・rollback・plugin・`onChange` 経路を利用します。

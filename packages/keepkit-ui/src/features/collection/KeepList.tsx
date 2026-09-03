@@ -190,6 +190,8 @@ function hasActiveQueryFilters<TMeta>(query: KeepListQuery<TMeta> | undefined): 
       query.tags?.some((tag) => tag.trim()) ||
       query.targetType ||
       query.savedBetween ||
+      query.archived !== undefined ||
+      query.collectionId ||
       query.filter,
   );
 }

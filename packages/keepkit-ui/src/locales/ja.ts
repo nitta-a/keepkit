@@ -1,6 +1,17 @@
 import type { KeepUiLocaleLabels } from "./types";
 
 export const JA_LABELS: KeepUiLocaleLabels = {
+  archive: "アーカイブ",
+  unarchive: "アーカイブを解除",
+  archived: "アーカイブ済み",
+  pin: "ピン留め",
+  unpin: "ピン留めを解除",
+  pinned: "ピン留め済み",
+  collection: "コレクション",
+  allCollections: "すべてのコレクション",
+  filterCollections: "コレクションで絞り込む",
+  uncategorized: "未分類",
+  saveWithNote: "メモ付きで保存",
   save: "保存",
   saved: "保存済み",
   remove: "削除",
