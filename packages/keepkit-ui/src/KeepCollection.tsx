@@ -13,7 +13,7 @@ import type { RenderProp } from "./shared";
 import type { KeepUrlAdapter } from "./url-sync";
 
 export type KeepCollectionFeature = "search" | "sort" | "pagination" | "tagFilter" | "bulkActions";
-export type KeepLayoutPreset = "list" | "grid" | "compact";
+export type KeepLayoutPreset = "list" | "grid" | "compact" | "auto";
 
 export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   query?: KeepListQuery<TMeta>;
@@ -25,6 +25,9 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
   loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  /** Alias for `loading`. When neither is provided, KeepList renders skeleton cards. */
+  renderLoading?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  loadingCount?: number;
   empty?: ReactNode | RenderProp<KeepListState<TMeta>>;
   error?: ReactNode | RenderProp<KeepListState<TMeta>>;
   fallback?: KeepErrorBoundaryProps["fallback"];
@@ -54,6 +57,8 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   renderItem,
   itemCardProps,
   loading,
+  renderLoading,
+  loadingCount,
   empty,
   error,
   className,
@@ -84,6 +89,8 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         itemCardProps={itemCardProps}
         layout={layout}
         loading={loading}
+        renderLoading={renderLoading}
+        loadingCount={loadingCount}
         empty={empty}
         error={error}
       />

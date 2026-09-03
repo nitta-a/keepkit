@@ -57,7 +57,7 @@ function toSavedItem(item: typeof firstArticle | typeof product, timestamps = 1)
 
 async function findCollectionList() {
   return waitFor(() => {
-    const list = document.querySelector('[data-keepkit="list"] > ul');
+    const list = document.querySelector('[data-keepkit="list"][data-state="ready"] > ul:not([data-keepkit])');
     if (!(list instanceof HTMLUListElement)) throw new Error("The KeepCollection list was not rendered.");
     return list;
   });

@@ -239,6 +239,32 @@ h3 {
   text-decoration: underline;
 }
 
+.demo-toast {
+  position: fixed;
+  z-index: 20;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(28rem, calc(100% - 40px));
+  border: 1px solid var(--keep-border);
+  border-radius: var(--keep-radius);
+  padding: 12px 14px;
+  background: var(--keep-card);
+  color: var(--keep-card-foreground);
+  box-shadow: var(--keep-shadow);
+}
+
+.demo-toast button {
+  border: 0;
+  padding: 4px;
+  background: transparent;
+  color: var(--keep-primary);
+  font: inherit;
+  font-weight: 700;
+}
+
 @media (max-width: 800px) {
   .content-grid {
     grid-template-columns: 1fr;

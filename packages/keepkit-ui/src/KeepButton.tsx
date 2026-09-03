@@ -5,7 +5,7 @@ import {
   type KeepButtonProps as CoreKeepButtonProps,
   type KeepButtonState,
 } from "@keepkit/core/react";
-import { createElement, type ReactNode } from "react";
+import { createElement, type MouseEvent, type ReactNode, useEffect, useRef } from "react";
 import { useKeepButton } from "./hooks/useKeepButton";
 import type { KeepButtonIcon, KeepButtonIcons, KeepButtonLabels } from "./shared";
 
@@ -26,9 +26,38 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   iconOnly = false,
   showLabel = true,
   iconClassName,
+  onClick,
+  onToggleError,
   ...props
 }: KeepButtonProps<TMeta>) {
   const view = useKeepButton<TMeta>({ item: props.item, labels, icons, children: props.children });
+  const pendingToggle = useRef<{ wasSaved: boolean; item: KeepButtonState<TMeta>["item"] } | null>(null);
+  useEffect(() => {
+    const pending = pendingToggle.current;
+    if (!pending || view.buttonState.isMutating || pending.wasSaved === view.buttonState.isSaved) return;
+    pendingToggle.current = null;
+    if (view.buttonState.isSaved && view.buttonState.item) {
+      view.emitFeedback({ type: "item-saved", item: view.buttonState.item, message: view.labels.savedMessage });
+      return;
+    }
+    if (!pending.item) return;
+    const removedItem = pending.item;
+    view.emitFeedback({
+      type: "item-removed",
+      item: removedItem,
+      message: view.labels.removedMessage,
+      undoLabel: view.labels.undo,
+      undo: async () => {
+        await view.buttonState.save();
+        view.emitFeedback({
+          type: "item-restored",
+          item: removedItem,
+          items: [removedItem],
+          message: view.labels.restoredMessage,
+        });
+      },
+    });
+  }, [view]);
   const getStateContent = (state: KeepButtonState<TMeta>): ReactNode => {
     if (typeof props.children === "function") return props.children(state);
     if (props.children !== undefined) return props.children;
@@ -56,6 +85,16 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   };
   const sharedProps = {
     ...props,
+    onClick: (event: MouseEvent<HTMLElement>) => {
+      onClick?.(event as MouseEvent<HTMLButtonElement> & MouseEvent<HTMLElement>);
+      if (!event.defaultPrevented) {
+        pendingToggle.current = { wasSaved: view.buttonState.isSaved, item: view.buttonState.item };
+      }
+    },
+    onToggleError: (error: unknown) => {
+      pendingToggle.current = null;
+      onToggleError?.(error);
+    },
     "data-keepkit": "button",
     "data-keep-action": "toggle-save",
     "data-has-custom-icon": icons ? "true" : undefined,

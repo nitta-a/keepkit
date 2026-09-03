@@ -141,7 +141,8 @@ export function App() {
 
         <KeepCollection<DemoMeta>
           className="demo-collection"
-          layout="grid"
+          layout="auto"
+          loadingCount={6}
           pageSize={6}
           features={{ tagFilter: true }}
           empty={
@@ -157,7 +158,15 @@ export function App() {
                 href={item.meta.url}
                 showSaveButton={false}
                 getImageProps={(entry) => ({ src: entry.meta.image, alt: entry.meta.title })}
-              />
+              >
+                <KeepItemCard.Media />
+                <KeepItemCard.Content>
+                  <span className="type-badge">{item.targetType ?? "Item"}</span>
+                  <KeepItemCard.Title />
+                  <KeepItemCard.Tags />
+                </KeepItemCard.Content>
+                <KeepItemCard.Actions />
+              </KeepItemCard>
               <KeepNoteEditor item={item} placeholder="Why is this worth returning to?" />
             </li>
           )}

@@ -3,7 +3,7 @@ import { useKeepItem } from "@keepkit/core/react";
 import type { ReactNode } from "react";
 import type { KeepImageProps, KeepItemCardState } from "../KeepItemCard";
 import { getMetaTitle } from "../shared";
-import { useUiLabel } from "../ui-context";
+import { useKeepUiFeedback, useUiLabel } from "../ui-context";
 
 type KeepItemCardOptions<TMeta> = {
   item: KeepItem<TMeta>;
@@ -30,6 +30,10 @@ export function useKeepItemCard<TMeta>(options: KeepItemCardOptions<TMeta>) {
     onRemoved,
   } = options;
   const itemState = useKeepItem<TMeta>(item);
+  const emitFeedback = useKeepUiFeedback<TMeta>();
+  const removedMessage = useUiLabel("removedMessage");
+  const restoredMessage = useUiLabel("restoredMessage");
+  const undoLabel = useUiLabel("undo");
   const resolvedTitle =
     typeof title === "function" ? title(item) : (title ?? getTitle?.(item) ?? getMetaTitle(item.meta) ?? item.id);
   const imageProps = getImageProps?.(item, resolvedTitle);
@@ -38,12 +42,32 @@ export function useKeepItemCard<TMeta>(options: KeepItemCardOptions<TMeta>) {
   const isExternalLink = href ? /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href) : false;
   const statusLabelKey = item.status && item.status !== "available" ? getStatusLabelKey(item.status) : "statusUnknown";
   const unavailableLabel = useUiLabel(statusLabelKey);
+  const remove = async () => {
+    const wasSaved = itemState.isSaved;
+    try {
+      await itemState.removeWithUndo();
+      onRemoved?.(item);
+      if (!wasSaved) return;
+      emitFeedback({
+        type: "item-removed",
+        item,
+        message: removedMessage,
+        undoLabel,
+        undo: async () => {
+          await itemState.undo();
+          emitFeedback({ type: "item-restored", item, items: [item], message: restoredMessage });
+        },
+      });
+    } catch (cause) {
+      onRemoveError?.(cause);
+    }
+  };
   const state: KeepItemCardState<TMeta> = {
     item,
     isSaved: itemState.isSaved,
     isMutating: itemState.isMutating,
     error: itemState.error,
-    remove: itemState.remove,
+    remove,
     status: item.status,
   };
 
@@ -58,14 +82,7 @@ export function useKeepItemCard<TMeta>(options: KeepItemCardOptions<TMeta>) {
     resolvedLinkTarget: linkTargetAttribute ?? (isExternalLink ? "_blank" : undefined),
     resolvedLinkRel: linkRel ?? (isExternalLink ? "noreferrer" : undefined),
     statusLabel: item.status && item.status !== "available" ? unavailableLabel : undefined,
-    remove: async () => {
-      try {
-        await itemState.remove();
-        onRemoved?.(item);
-      } catch (cause) {
-        onRemoveError?.(cause);
-      }
-    },
+    remove,
     labels: {
       save: useUiLabel("save"),
       savedAt: useUiLabel("saved"),

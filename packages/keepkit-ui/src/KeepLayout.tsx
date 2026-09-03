@@ -8,7 +8,7 @@ export type KeepLayoutProps = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   children?: ReactNode;
 };
 
-/** A style-free layout wrapper with a stable preset attribute for host or theme CSS. */
+/** A container-aware layout wrapper with a stable preset attribute for host or theme CSS. */
 export function KeepLayout({ layout = "list", children, ...props }: KeepLayoutProps) {
   return (
     <div {...props} data-keepkit="layout" data-layout={layout}>

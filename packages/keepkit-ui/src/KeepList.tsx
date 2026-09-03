@@ -5,7 +5,7 @@ import { KeepErrorBoundary, type KeepErrorBoundaryProps, type UseKeepListResult 
 import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
 import { useKeepListView } from "./hooks/useKeepListView";
 import type { KeepLayoutPreset } from "./KeepCollection";
-import { KeepItemCard, type KeepItemCardProps } from "./KeepItemCard";
+import { KeepItemCard, type KeepItemCardProps, KeepItemCardSkeleton } from "./KeepItemCard";
 import { type RenderProp, renderRoot, resolveContent } from "./shared";
 
 export type KeepListState<TMeta = Record<string, unknown>> = UseKeepListResult<TMeta>;
@@ -15,6 +15,9 @@ export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes
   children?: ReactNode | RenderProp<KeepListState<TMeta>>;
   renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
   loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  /** Alias for `loading`. When neither is provided, layout-matched skeletons are rendered. */
+  renderLoading?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  loadingCount?: number;
   empty?: ReactNode | RenderProp<KeepListState<TMeta>>;
   error?: ReactNode | RenderProp<KeepListState<TMeta>>;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
@@ -42,6 +45,8 @@ function KeepListContent<TMeta = Record<string, unknown>>({
   children,
   renderItem,
   loading,
+  renderLoading,
+  loadingCount = 6,
   empty,
   error: errorContent,
   itemCardProps,
@@ -55,7 +60,9 @@ function KeepListContent<TMeta = Record<string, unknown>>({
   const body = getListBody(state, {
     children,
     renderItem,
-    loading: loading ?? view.labels.loading,
+    loading: renderLoading !== undefined ? renderLoading : loading,
+    loadingCount,
+    loadingLabel: view.labels.loading,
     empty: empty ?? view.labels.empty,
     error: errorContent ?? view.labels.error,
     itemCardProps,
@@ -90,7 +97,9 @@ function getListBody<TMeta>(
   options: {
     children?: ReactNode | RenderProp<KeepListState<TMeta>>;
     renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
-    loading: ReactNode | RenderProp<KeepListState<TMeta>>;
+    loading: ReactNode | RenderProp<KeepListState<TMeta>> | undefined;
+    loadingCount: number;
+    loadingLabel: string;
     empty: ReactNode | RenderProp<KeepListState<TMeta>>;
     error: ReactNode | RenderProp<KeepListState<TMeta>>;
     itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
@@ -98,7 +107,25 @@ function getListBody<TMeta>(
   },
 ): ReactNode {
   if (state.error && state.items.length === 0) return resolveContent(options.error, state);
-  if (state.isLoading && !state.isHydrated) return resolveContent(options.loading, state);
+  if (state.isLoading && !state.isHydrated) {
+    if (options.loading !== undefined) return resolveContent(options.loading, state);
+    const count = Number.isFinite(options.loadingCount) ? Math.max(0, Math.floor(options.loadingCount)) : 6;
+    return (
+      <>
+        <span role="status" data-keepkit="loading-label">
+          {options.loadingLabel}
+        </span>
+        <ul data-keepkit="skeleton-list" data-layout={options.layout}>
+          {Array.from({ length: count }, (_, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: Static loading placeholders never reorder.
+            <li key={index}>
+              <KeepItemCardSkeleton layout={options.layout} />
+            </li>
+          ))}
+        </ul>
+      </>
+    );
+  }
   if (state.isHydrated && state.items.length === 0) return resolveContent(options.empty, state);
   if (typeof options.children === "function") return options.children(state);
   if (options.children !== undefined && !isValidElement(options.children)) return options.children;

@@ -1,7 +1,7 @@
 import type { RemoteSyncDriver } from "@keepkit/core/core";
 import { createBrowserStorageAdapter, SyncStorageAdapter } from "@keepkit/core/storage";
-import { KeepKitProvider, type KeepThemeName } from "@keepkit/ui";
-import { StrictMode, useState } from "react";
+import { KeepKitProvider, type KeepThemeName, type KeepToastFeedbackOptions, useKeepToastFeedback } from "@keepkit/ui";
+import { StrictMode, useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "@keepkit/ui/theme.css";
@@ -42,9 +42,14 @@ function isDemoTheme(value: string): value is (typeof demoThemes)[number] {
 
 function Demo() {
   const [theme, setTheme] = useState<(typeof demoThemes)[number]>("default");
+  const [toast, setToast] = useState<{ message: string; options?: KeepToastFeedbackOptions }>();
+  const showToast = useCallback((message: string, options?: KeepToastFeedbackOptions) => {
+    setToast({ message, ...(options ? { options } : {}) });
+  }, []);
+  const onFeedback = useKeepToastFeedback<DemoMeta>(showToast);
 
   return (
-    <KeepKitProvider<DemoMeta> storage={storage} theme={theme} mode="light" radius="large">
+    <KeepKitProvider<DemoMeta> storage={storage} theme={theme} mode="light" radius="large" onFeedback={onFeedback}>
       <label className="theme-switcher">
         Theme
         <select
@@ -63,6 +68,19 @@ function Demo() {
         </select>
       </label>
       <App />
+      {toast ? (
+        <aside className="demo-toast" role="status" aria-live="polite">
+          <span>{toast.message}</span>
+          {toast.options?.action ? (
+            <button type="button" onClick={toast.options.action.onClick}>
+              {toast.options.action.label}
+            </button>
+          ) : null}
+          <button type="button" aria-label="Dismiss notification" onClick={() => setToast(undefined)}>
+            ×
+          </button>
+        </aside>
+      ) : null}
     </KeepKitProvider>
   );
 }

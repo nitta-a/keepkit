@@ -17,8 +17,10 @@ import {
   KeepEmptyState,
   KeepErrorBoundary,
   KeepItemCard,
+  KeepItemCardSkeleton,
   KeepItemCheckbox,
   KeepItemStatusBadge,
+  KeepKitProvider,
   KeepLayout,
   KeepList,
   KeepNoteEditor,
@@ -34,7 +36,9 @@ import {
   KeepTagEditor,
   KeepTagFilter,
   KeepThemeProvider,
+  KeepUiProvider,
   KeepUndo,
+  useKeepToastFeedback,
 } from "../src/index";
 
 type Meta = { title: string };
@@ -133,12 +137,145 @@ test("publishes all layout presets through stable data attributes", async () => 
       <KeepLayout layout="list" data-testid="layout-list" />
       <KeepLayout layout="grid" data-testid="layout-grid" />
       <KeepLayout layout="compact" data-testid="layout-compact" />
+      <KeepLayout layout="auto" data-testid="layout-auto" />
     </>,
   );
 
   expect(screen.getByTestId("layout-list").getAttribute("data-layout")).toBe("list");
   expect(screen.getByTestId("layout-grid").getAttribute("data-layout")).toBe("grid");
   expect(screen.getByTestId("layout-compact").getAttribute("data-layout")).toBe("compact");
+  expect(screen.getByTestId("layout-auto").getAttribute("data-layout")).toBe("auto");
+});
+
+test("renders the requested number of layout-matched skeleton cards while loading", () => {
+  const storage: StorageAdapter<Meta> = {
+    ...createStorage(),
+    getAll: () => new Promise(() => undefined),
+  };
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepList layout="grid" loadingCount={4} data-testid="loading-list" />
+    </KeepProvider>,
+  );
+
+  expect(screen.getByTestId("loading-list").getAttribute("aria-busy")).toBe("true");
+  const skeletons = document.querySelectorAll('[data-keepkit="card-skeleton"]');
+  expect(skeletons).toHaveLength(4);
+  expect(Array.from(skeletons).every((skeleton) => skeleton.getAttribute("data-layout") === "grid")).toBe(true);
+  expect(screen.getByRole("status").textContent).toBe("Loading saved items…");
+});
+
+test("renders six skeleton cards by default", () => {
+  const storage: StorageAdapter<Meta> = {
+    ...createStorage(),
+    getAll: () => new Promise(() => undefined),
+  };
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepList layout="compact" data-testid="default-loading-list" />
+    </KeepProvider>,
+  );
+
+  expect(screen.getByTestId("default-loading-list").querySelectorAll('[data-keepkit="card-skeleton"]')).toHaveLength(6);
+});
+
+test("publishes the standalone skeleton primitive", () => {
+  render(<KeepItemCardSkeleton layout="compact" data-testid="skeleton" />);
+  expect(screen.getByTestId("skeleton").getAttribute("aria-hidden")).toBe("true");
+  expect(screen.getByTestId("skeleton").querySelectorAll("[data-skeleton-part]")).toHaveLength(5);
+});
+
+test("emits localized feedback payloads when an item is saved and removed", async () => {
+  const onFeedback = vi.fn();
+  render(
+    <KeepUiProvider<Meta> locale="ja" onFeedback={onFeedback}>
+      <KeepProvider<Meta> storage={createStorage([secondItem])}>
+        <KeepButton item={{ id: item.id, targetType: item.targetType, meta: item.meta }} />
+        <KeepItemCard item={secondItem} showSaveButton={false} />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  await waitFor(() =>
+    expect(onFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "item-saved",
+        item: expect.objectContaining({ id: item.id }),
+        message: "アイテムを保存しました。",
+      }),
+    ),
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "削除" }));
+  await waitFor(() =>
+    expect(onFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "item-removed",
+        item: expect.objectContaining({ id: secondItem.id }),
+        message: "アイテムを削除しました。",
+        undo: expect.any(Function),
+      }),
+    ),
+  );
+  const removedEvent = onFeedback.mock.calls.map(([event]) => event).find((event) => event.type === "item-removed");
+  if (!removedEvent || !("undo" in removedEvent)) throw new Error("The removal feedback did not expose undo.");
+  await removedEvent.undo();
+  expect(onFeedback).toHaveBeenCalledWith(
+    expect.objectContaining({ type: "item-restored", item: expect.objectContaining({ id: secondItem.id }) }),
+  );
+});
+
+test("adapts removal feedback to a toast action", async () => {
+  const showToast = vi.fn();
+
+  function ToastExample() {
+    const onFeedback = useKeepToastFeedback<Meta>(showToast);
+    return (
+      <KeepUiProvider<Meta> onFeedback={onFeedback}>
+        <KeepProvider<Meta> storage={createStorage([item])}>
+          <KeepItemCard item={item} showSaveButton={false} />
+        </KeepProvider>
+      </KeepUiProvider>
+    );
+  }
+
+  render(<ToastExample />);
+  fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+  await waitFor(() =>
+    expect(showToast).toHaveBeenCalledWith(
+      "Item removed.",
+      expect.objectContaining({ action: expect.objectContaining({ label: "Undo", onClick: expect.any(Function) }) }),
+    ),
+  );
+});
+
+test("keeps compound card parts complete and accessible", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepItemCard
+        item={{ ...item, tags: ["read"] }}
+        href="/items/compound"
+        getImageProps={() => ({ src: "/compound.png", alt: "Compound preview" })}
+      >
+        <KeepItemCard.Media data-testid="compound-media" />
+        <KeepItemCard.Content data-testid="compound-content">
+          <KeepItemCard.Title />
+          <KeepItemCard.Tags />
+        </KeepItemCard.Content>
+        <KeepItemCard.Actions data-testid="compound-actions" />
+      </KeepItemCard>
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("img", { name: "Compound preview" })).not.toBeNull();
+  expect(screen.getByRole("heading", { name: "Interaction item" }).tagName).toBe("H3");
+  expect(screen.getByRole("link", { name: "Interaction item" }).getAttribute("href")).toBe("/items/compound");
+  expect(screen.getByRole("list", { name: "Tags" }).textContent).toContain("read");
+  expect(screen.getByRole("button", { name: "Remove Interaction item" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByTestId("compound-media").getAttribute("data-keep-card-part")).toBe("media");
+  expect(screen.getByTestId("compound-content").getAttribute("data-keep-card-part")).toBe("content");
+  expect(screen.getByTestId("compound-actions").getAttribute("data-keep-card-part")).toBe("actions");
 });
 
 test("ships dark-mode and reduced-motion CSS contracts", async () => {
@@ -171,6 +308,10 @@ test("ships dark-mode and reduced-motion CSS contracts", async () => {
   expect(cssText).toContain("keep-theme--sunset");
   expect(cssText).toContain("keep-theme--lavender");
   expect(cssText).toContain("@media (max-width: 48rem)");
+  expect(cssText).toContain("container-type: inline-size");
+  expect(cssText).toContain("container-name: keepkit-layout");
+  expect(cssText).toContain("@container keepkit-layout");
+  expect(cssText).toContain("keepkit-skeleton-pulse");
 });
 
 test("selects color presets through the theme parameter", () => {
@@ -347,12 +488,15 @@ test("adds safe defaults for external detail links and exposes removed status", 
 test("offers localized stale-item recovery actions and bulk cleanup", async () => {
   const staleItem = { ...item, id: "stale-item", status: "expired" as const, statusReason: "Source expired" };
   const onRetry = vi.fn().mockResolvedValue(undefined);
+  const onFeedback = vi.fn();
   render(
-    <KeepProvider<Meta> storage={createStorage([staleItem])}>
-      <KeepItemStatusBadge status="expired" data-testid="status-badge" />
-      <KeepStaleNotice item={staleItem} onRetry={onRetry} />
-      <KeepPruneStaleButton />
-    </KeepProvider>,
+    <KeepUiProvider<Meta> onFeedback={onFeedback}>
+      <KeepProvider<Meta> storage={createStorage([staleItem])}>
+        <KeepItemStatusBadge status="expired" data-testid="status-badge" />
+        <KeepStaleNotice item={staleItem} onRetry={onRetry} />
+        <KeepPruneStaleButton />
+      </KeepProvider>
+    </KeepUiProvider>,
   );
 
   expect(await screen.findByTestId("status-badge")).not.toBeNull();
@@ -368,9 +512,17 @@ test("offers localized stale-item recovery actions and bulk cleanup", async () =
       true,
     ),
   );
+  expect(onFeedback).toHaveBeenCalledWith(
+    expect.objectContaining({
+      type: "stale-pruned",
+      items: [expect.objectContaining({ id: staleItem.id })],
+      undo: expect.any(Function),
+    }),
+  );
 });
 
 test("surfaces sync conflicts and delegates server resolution from the recovery dialog", async () => {
+  const onFeedback = vi.fn();
   const notifications = new Set<() => void>();
   const conflict: KeepSyncConflict<Meta> = {
     id: item.id,
@@ -401,10 +553,10 @@ test("surfaces sync conflicts and delegates server resolution from the recovery 
   };
 
   render(
-    <KeepProvider<Meta> storage={storage}>
+    <KeepKitProvider<Meta> storage={storage} onFeedback={onFeedback}>
       <KeepSyncStatusBanner onResolveConflicts={() => undefined} />
       <KeepSyncRecoveryDialog open />
-    </KeepProvider>,
+    </KeepKitProvider>,
   );
 
   expect((await screen.findAllByText("Some changes need conflict resolution.")).length).toBe(2);
@@ -417,6 +569,30 @@ test("surfaces sync conflicts and delegates server resolution from the recovery 
   expect(useServerButton.getAttribute("data-keep-action")).toBe("use-server");
   fireEvent.click(useServerButton);
   await waitFor(() => expect(screen.queryByText("Some changes need conflict resolution.")).toBeNull());
+  expect(onFeedback).toHaveBeenCalledWith(
+    expect.objectContaining({ type: "sync-completed", message: "All changes are synced." }),
+  );
+});
+
+test("emits sync failure feedback from the combined provider", async () => {
+  const syncError = new Error("offline");
+  const syncState: KeepSyncState<Meta> = { status: "error", pendingCount: 1, conflictIds: [], error: syncError };
+  const storage: SyncCapableStorageAdapter<Meta> = {
+    ...createStorage(),
+    getSyncState: () => syncState,
+    subscribeSync: () => () => undefined,
+    flushSync: async () => undefined,
+  };
+  const onFeedback = vi.fn();
+  render(
+    <KeepKitProvider<Meta> storage={storage} onFeedback={onFeedback}>
+      <span>child</span>
+    </KeepKitProvider>,
+  );
+
+  await waitFor(() =>
+    expect(onFeedback).toHaveBeenCalledWith({ type: "sync-failed", error: syncError, message: "Sync failed." }),
+  );
 });
 
 test("exports and imports JSON backups through the standard UI", async () => {

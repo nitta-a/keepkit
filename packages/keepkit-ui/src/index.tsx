@@ -19,6 +19,11 @@ import {
   type useKeepList,
 } from "@keepkit/core/react";
 import type { ComponentType, ReactNode } from "react";
+import {
+  type KeepToastFeedbackOptions,
+  type KeepToastHandler,
+  useKeepToastFeedback,
+} from "./hooks/useKeepToastFeedback";
 import { KeepBackup, type KeepBackupProps } from "./KeepBackup";
 import { KeepBulkActions, type KeepBulkActionsProps, type KeepBulkActionsState } from "./KeepBulkActions";
 import {
@@ -38,9 +43,16 @@ import {
 import {
   type KeepImageProps,
   KeepItemCard,
+  type KeepItemCardActionsProps,
+  type KeepItemCardContentProps,
   type KeepItemCardLinkProps,
+  type KeepItemCardMediaProps,
   type KeepItemCardProps,
+  KeepItemCardSkeleton,
+  type KeepItemCardSkeletonProps,
   type KeepItemCardState,
+  type KeepItemCardTagsProps,
+  type KeepItemCardTitleProps,
 } from "./KeepItemCard";
 import { KeepItemCheckbox, type KeepItemCheckboxProps } from "./KeepItemCheckbox";
 import { type KeepDisplayStatus, KeepItemStatusBadge, type KeepItemStatusBadgeProps } from "./KeepItemStatusBadge";
@@ -53,6 +65,7 @@ import {
   KeepStaleNotice,
   type KeepStaleNoticeProps,
 } from "./KeepStaleNotice";
+import { KeepSyncFeedbackObserver } from "./KeepSyncFeedbackObserver";
 import { KeepSyncRecoveryDialog, type KeepSyncRecoveryDialogProps } from "./KeepSyncRecoveryDialog";
 import { KeepSyncStatusBanner, type KeepSyncStatusBannerProps } from "./KeepSyncStatusBanner";
 import { KeepTagEditor, type KeepTagEditorProps, type KeepTagEditorState } from "./KeepTagEditor";
@@ -92,6 +105,7 @@ import {
 } from "./theme";
 import {
   getKeepLocaleLabels,
+  type KeepUiFeedbackEvent,
   type KeepUiLabelContext,
   type KeepUiLabelKey,
   type KeepUiLabels,
@@ -109,7 +123,7 @@ import {
 } from "./url-sync";
 
 export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children"> &
-  Omit<KeepUiProviderProps, "children"> &
+  Omit<KeepUiProviderProps<TMeta>, "children"> &
   Omit<KeepThemeProviderProps, "children"> & { children?: ReactNode };
 
 /** Combines the core store, UI labels, and the global live announcer. */
@@ -117,6 +131,7 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
   labels,
   locale,
   labelResolver,
+  onFeedback,
   theme,
   mode,
   density,
@@ -132,7 +147,7 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
   ...providerProps
 }: KeepKitProviderProps<TMeta>) {
   return (
-    <KeepUiProvider labels={labels} locale={locale} labelResolver={labelResolver}>
+    <KeepUiProvider<TMeta> labels={labels} locale={locale} labelResolver={labelResolver} onFeedback={onFeedback}>
       <KeepThemeProvider
         theme={theme}
         mode={mode}
@@ -147,6 +162,7 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
         asChild={themeAsChild}
       >
         <CoreKeepProvider<TMeta> {...providerProps}>
+          <KeepSyncFeedbackObserver />
           {children}
           <KeepAnnouncements />
         </CoreKeepProvider>
@@ -213,9 +229,15 @@ export type {
   KeepDisplayStatus,
   KeepEmptyStateProps,
   KeepImageProps,
+  KeepItemCardActionsProps,
+  KeepItemCardContentProps,
   KeepItemCardLinkProps,
+  KeepItemCardMediaProps,
   KeepItemCardProps,
+  KeepItemCardSkeletonProps,
   KeepItemCardState,
+  KeepItemCardTagsProps,
+  KeepItemCardTitleProps,
   KeepItemCheckboxProps,
   KeepItemStatusBadgeProps,
   KeepLayoutPreset,
@@ -249,6 +271,9 @@ export type {
   KeepThemeProviderProps,
   KeepThemeRadius,
   KeepThemeVariables,
+  KeepToastFeedbackOptions,
+  KeepToastHandler,
+  KeepUiFeedbackEvent,
   KeepUiLabelContext,
   KeepUiLabelKey,
   KeepUiLabels,
@@ -271,6 +296,7 @@ export {
   KeepCollection,
   KeepEmptyState,
   KeepItemCard,
+  KeepItemCardSkeleton,
   KeepItemCheckbox,
   KeepItemStatusBadge,
   KeepLayout,
@@ -290,12 +316,13 @@ export {
   KeepUiProvider,
   KeepUndo,
   keepThemeNames,
+  useKeepToastFeedback,
   useKeepUiLabels,
   useKeepUrlSync,
 };
 
 export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = CoreCreateKeepKitOptions<TMeta> &
-  Omit<KeepUiProviderProps, "children"> & {
+  Omit<KeepUiProviderProps<TMeta>, "children"> & {
     theme?: KeepThemeName;
     mode?: KeepThemeMode;
     density?: KeepThemeDensity;
@@ -329,6 +356,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     labels,
     locale,
     labelResolver,
+    onFeedback,
     theme,
     mode,
     density,
@@ -351,6 +379,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
         labels={labels}
         locale={locale}
         labelResolver={labelResolver}
+        onFeedback={onFeedback}
         theme={theme}
         mode={mode}
         density={density}

@@ -3,15 +3,19 @@
 import type { KeepItem } from "@keepkit/core/core";
 import {
   type ComponentType,
+  createContext,
+  createElement,
   type HTMLAttributeAnchorTarget,
   type HTMLAttributes,
   type ImgHTMLAttributes,
   isValidElement,
   type MouseEvent,
   type ReactNode,
+  useContext,
 } from "react";
 import { useKeepItemCard } from "./hooks/useKeepItemCard";
 import { KeepButton, type KeepButtonLabels } from "./KeepButton";
+import type { KeepLayoutPreset } from "./KeepCollection";
 import { KeepStaleNotice } from "./KeepStaleNotice";
 import { type RenderProp, renderRoot, toKeepButtonItem } from "./shared";
 
@@ -32,10 +36,7 @@ export type KeepItemCardLinkProps = {
   onClick?: (event: MouseEvent<HTMLElement>) => void;
 };
 
-export type KeepImageProps = ImgHTMLAttributes<HTMLImageElement> & {
-  src: string;
-  alt: string;
-};
+export type KeepImageProps = ImgHTMLAttributes<HTMLImageElement> & { src: string; alt: string };
 
 export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   HTMLAttributes<HTMLElement>,
@@ -68,8 +69,43 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   linkRel?: string;
 };
 
-/** A low-dependency item presentation primitive. The default markup can be replaced with render props. */
-export function KeepItemCard<TMeta = Record<string, unknown>>({
+export type KeepItemCardMediaProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
+  children?: ReactNode;
+  fallback?: ReactNode;
+};
+export type KeepItemCardContentProps = HTMLAttributes<HTMLDivElement>;
+export type KeepItemCardTitleProps = Omit<HTMLAttributes<HTMLHeadingElement>, "title"> & {
+  as?: "h2" | "h3" | "h4" | "h5" | "h6";
+};
+export type KeepItemCardTagsProps = HTMLAttributes<HTMLUListElement>;
+export type KeepItemCardActionsProps = HTMLAttributes<HTMLDivElement>;
+export type KeepItemCardSkeletonProps = Omit<HTMLAttributes<HTMLElement>, "children"> & {
+  layout?: KeepLayoutPreset;
+};
+
+type KeepItemCardCompoundContext = {
+  resolvedTitle: ReactNode;
+  renderTitle: (content: ReactNode) => ReactNode;
+  image: ReactNode | null;
+  fallbackLabel: string;
+  tags: string[];
+  tagsLabel: string;
+  renderedTags: ReactNode | null;
+  meta: ReactNode | null;
+  error: ReactNode | null;
+  actions: ReactNode;
+};
+
+const KeepItemCardContext = createContext<KeepItemCardCompoundContext | null>(null);
+
+function useKeepItemCardCompound(part: string): KeepItemCardCompoundContext {
+  const context = useContext(KeepItemCardContext);
+  if (!context) throw new Error(`KeepItemCard.${part} must be rendered inside KeepItemCard.`);
+  return context;
+}
+
+/** A low-dependency item presentation primitive with composable card parts. */
+function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   item,
   title,
   getTitle,
@@ -123,80 +159,87 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
     return LinkComponent ? <LinkComponent {...linkProps} /> : <a {...linkProps} />;
   }
 
+  function renderTitle(content: ReactNode): ReactNode {
+    if (linkTarget !== "title") return content;
+    if (view.isAvailable) return renderLink(content);
+    return view.href ? (
+      <span aria-disabled="true" data-link-disabled="true">
+        {content}
+      </span>
+    ) : (
+      content
+    );
+  }
+
+  const resolvedImageProps = view.imageProps ? { ...view.imageProps, alt: imageAlt ?? view.imageProps.alt } : undefined;
+  const image = resolvedImageProps
+    ? (renderImage?.(resolvedImageProps, item) ??
+      (ImageComponent ? (
+        <ImageComponent {...resolvedImageProps} />
+      ) : (
+        <img {...resolvedImageProps} alt={resolvedImageProps.alt} />
+      )))
+    : null;
+  const tags = showTags ? (item.tags ?? []) : [];
+  const renderedTags = showTags && tags.length > 0 ? (renderTags?.(tags, item) ?? null) : null;
+  const meta = showSavedAt ? (
+    <div data-card-meta>
+      <span>{view.labels.savedAt}:</span>{" "}
+      <time dateTime={new Date(item.savedAt).toISOString()}>{formatSavedAt(item.savedAt)}</time>
+    </div>
+  ) : null;
+  const error = view.itemState.error ? (
+    <p role="alert">{getErrorMessage(view.itemState.error, view.labels.error)}</p>
+  ) : null;
+  const actions = view.statusLabel ? (
+    <KeepStaleNotice item={item} onRetry={onRetry} onRemoved={onRemoved} />
+  ) : (
+    <>
+      {showSaveButton ? (
+        <KeepButton
+          item={toKeepButtonItem(item)}
+          labels={saveButtonLabels}
+          getAriaLabel={(buttonState) =>
+            `${buttonState.isSaved ? view.labels.remove : view.labels.save} ${String(view.resolvedTitle)}`
+          }
+        />
+      ) : null}
+      <button
+        type="button"
+        data-keep-action="remove-item"
+        onClick={() => void view.remove()}
+        disabled={view.itemState.isMutating}
+      >
+        {removeLabel ?? view.labels.remove}
+      </button>
+    </>
+  );
+  const compoundValue: KeepItemCardCompoundContext = {
+    resolvedTitle: view.resolvedTitle,
+    renderTitle,
+    image,
+    fallbackLabel: String(view.resolvedTitle),
+    tags,
+    tagsLabel: view.labels.tags,
+    renderedTags,
+    meta,
+    error,
+    actions,
+  };
+  const defaultBody = (
+    <>
+      <KeepItemCardMedia />
+      <KeepItemCardContent />
+      <KeepItemCardActions />
+    </>
+  );
   const body = render
     ? render(view.state)
     : typeof contentChildren === "function"
       ? contentChildren(view.state)
-      : (contentChildren ?? (
-          <>
-            {view.imageProps
-              ? (renderImage?.({ ...view.imageProps, alt: imageAlt ?? view.imageProps.alt }, item) ??
-                (ImageComponent ? (
-                  <ImageComponent {...view.imageProps} alt={imageAlt ?? view.imageProps.alt} />
-                ) : (
-                  <img {...view.imageProps} alt={imageAlt ?? view.imageProps.alt} />
-                )))
-              : null}
-            <h3>
-              {linkTarget === "title" ? (
-                view.isAvailable ? (
-                  renderLink(view.resolvedTitle)
-                ) : view.href ? (
-                  <span aria-disabled="true" data-link-disabled="true">
-                    {view.resolvedTitle}
-                  </span>
-                ) : (
-                  view.resolvedTitle
-                )
-              ) : (
-                view.resolvedTitle
-              )}
-            </h3>
-            {showSavedAt ? (
-              <div data-card-meta>
-                <span>{view.labels.savedAt}:</span>{" "}
-                <time dateTime={new Date(item.savedAt).toISOString()}>{formatSavedAt(item.savedAt)}</time>
-              </div>
-            ) : null}
-            {showTags && (item.tags?.length ?? 0) > 0 ? (
-              renderTags ? (
-                renderTags(item.tags ?? [], item)
-              ) : (
-                <ul aria-label={view.labels.tags}>
-                  {item.tags?.map((tag) => (
-                    <li key={tag}>{tag}</li>
-                  ))}
-                </ul>
-              )
-            ) : null}
-            {view.itemState.error ? (
-              <p role="alert">{getErrorMessage(view.itemState.error, view.labels.error)}</p>
-            ) : null}
-            {view.statusLabel ? <KeepStaleNotice item={item} onRetry={onRetry} onRemoved={onRemoved} /> : null}
-            {showSaveButton && !view.statusLabel ? (
-              <KeepButton
-                item={toKeepButtonItem(item)}
-                labels={saveButtonLabels}
-                getAriaLabel={(buttonState) =>
-                  `${buttonState.isSaved ? view.labels.remove : view.labels.save} ${String(view.resolvedTitle)}`
-                }
-              />
-            ) : null}
-            {!view.statusLabel ? (
-              <button
-                type="button"
-                data-keep-action="remove-item"
-                onClick={() => void view.remove()}
-                disabled={view.itemState.isMutating}
-              >
-                {removeLabel ?? view.labels.remove}
-              </button>
-            ) : null}
-          </>
-        ));
-
+      : (contentChildren ?? defaultBody);
   const linkedBody = linkTarget === "card" && view.isAvailable ? renderLink(body) : body;
-  return renderRoot(
+  const root = renderRoot(
     asChild,
     isValidElement(children) ? children : undefined,
     {
@@ -212,6 +255,86 @@ export function KeepItemCard<TMeta = Record<string, unknown>>({
     },
     linkedBody,
     "KeepItemCard",
+  );
+  return <KeepItemCardContext.Provider value={compoundValue}>{root}</KeepItemCardContext.Provider>;
+}
+
+function KeepItemCardMedia({ children, fallback, ...props }: KeepItemCardMediaProps) {
+  const context = useKeepItemCardCompound("Media");
+  return (
+    <div {...props} data-keep-card-part="media">
+      {children ?? context.image ?? (
+        <span role="img" aria-label={context.fallbackLabel} data-keep-card-fallback="true">
+          {fallback ?? context.fallbackLabel.slice(0, 1)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function KeepItemCardContent({ children, ...props }: KeepItemCardContentProps) {
+  const context = useKeepItemCardCompound("Content");
+  return (
+    <div {...props} data-keep-card-part="content">
+      {children ?? (
+        <>
+          <KeepItemCardTitle />
+          {context.meta}
+          <KeepItemCardTags />
+          {context.error}
+        </>
+      )}
+    </div>
+  );
+}
+
+function KeepItemCardTitle({ as = "h3", children, ...props }: KeepItemCardTitleProps) {
+  const context = useKeepItemCardCompound("Title");
+  return createElement(
+    as,
+    { ...props, "data-keep-card-part": "title" },
+    context.renderTitle(children ?? context.resolvedTitle),
+  );
+}
+
+function KeepItemCardTags({ children, ...props }: KeepItemCardTagsProps) {
+  const context = useKeepItemCardCompound("Tags");
+  if (children === undefined && context.renderedTags) return context.renderedTags;
+  if (children === undefined && context.tags.length === 0) return null;
+  return (
+    <ul {...props} aria-label={props["aria-label"] ?? context.tagsLabel} data-keep-card-part="tags">
+      {children ?? context.tags.map((tag) => <li key={tag}>{tag}</li>)}
+    </ul>
+  );
+}
+
+function KeepItemCardActions({ children, ...props }: KeepItemCardActionsProps) {
+  const context = useKeepItemCardCompound("Actions");
+  return (
+    <div {...props} data-keep-card-part="actions">
+      {children ?? context.actions}
+    </div>
+  );
+}
+
+export const KeepItemCard = Object.assign(KeepItemCardRoot, {
+  Media: KeepItemCardMedia,
+  Content: KeepItemCardContent,
+  Title: KeepItemCardTitle,
+  Tags: KeepItemCardTags,
+  Actions: KeepItemCardActions,
+});
+
+/** A non-interactive placeholder that preserves the selected card layout while data loads. */
+export function KeepItemCardSkeleton({ layout = "list", ...props }: KeepItemCardSkeletonProps) {
+  return (
+    <article {...props} aria-hidden="true" data-keepkit="card-skeleton" data-layout={layout} data-state="loading">
+      <span data-skeleton-part="media" />
+      <span data-skeleton-part="title" />
+      <span data-skeleton-part="meta" />
+      <span data-skeleton-part="tag" />
+      <span data-skeleton-part="tag" />
+    </article>
   );
 }
 

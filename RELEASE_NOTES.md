@@ -1,5 +1,27 @@
 # Release notes
 
+## [0.16.0] - 2026-09-04
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepItemCardSkeleton`と`KeepList loadingCount`を追加し、初回ロード時のレイアウトシフトを抑制しました。`prefers-reduced-motion`にも対応します。
+- `KeepUiProvider onFeedback`と`useKeepToastFeedback`を追加し、保存、削除、Undo復元、同期成功／失敗、stale pruneを外部通知へ接続できるようにしました。
+- `KeepItemCard.Media / Content / Title / Tags / Actions`のCompound APIを追加し、既存のprops形式も維持しました。
+- `layout="auto"`とコンテナクエリにより、サイドバーやモーダルなど配置領域の幅に応じて一覧列数を切り替えられるようにしました。
+- demoとUIテストを更新し、`@keepkit/core`と`@keepkit/ui`を`0.16.0`へ更新しました。
+
+### English
+
+#### Added and changed
+
+- Added `KeepItemCardSkeleton` and `KeepList loadingCount` to reduce initial layout shift, with `prefers-reduced-motion` support.
+- Added `KeepUiProvider onFeedback` and `useKeepToastFeedback` for save, remove, undo restoration, sync success/failure, and stale-prune notifications.
+- Added composable `KeepItemCard.Media / Content / Title / Tags / Actions` parts while preserving the existing props-based card API.
+- Added `layout="auto"` and container queries so list columns respond to the placement container, including sidebars and modals.
+- Updated the demo and UI tests, and bumped `@keepkit/core` and `@keepkit/ui` to `0.16.0`.
+
 ## [0.15.0] - 2026-09-03
 
 ### 日本語
