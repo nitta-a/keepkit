@@ -1,5 +1,14 @@
 import type { KeepItem } from "@keepkit/core/core";
-import { KeepButton, KeepCollection, KeepEmptyState, KeepItemCard, KeepNoteEditor } from "@keepkit/ui";
+import {
+  KeepButton,
+  KeepCollection,
+  KeepEmptyState,
+  KeepItemCard,
+  KeepItemStatusBadge,
+  KeepNoteEditor,
+  KeepTourBar,
+  KeepUndo,
+} from "@keepkit/ui";
 import type { DemoMeta } from "./main";
 import { useAppView } from "./useAppView";
 
@@ -171,6 +180,27 @@ export function App() {
             </li>
           )}
         />
+        <KeepUndo />
+        <KeepTourBar<DemoMeta>
+          currentId={content[0].id}
+          backHref="#collection-heading"
+          getItemTitle={(entry) => entry.meta.title}
+        />
+      </section>
+      <section className="section" aria-labelledby="feedback-heading">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Perception</p>
+            <h2 id="feedback-heading">Status at a glance</h2>
+          </div>
+        </div>
+        <fieldset className="status-preview">
+          <legend className="visually-hidden">Status examples</legend>
+          <KeepItemStatusBadge status="available" />
+          <KeepItemStatusBadge status="expired" />
+          <KeepItemStatusBadge status="removed" />
+          <KeepItemStatusBadge status="restricted" />
+        </fieldset>
       </section>
     </main>
   );

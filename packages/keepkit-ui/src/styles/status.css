@@ -1,0 +1,44 @@
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="status-badge"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--keep-border) 72%, transparent);
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  background: var(--keep-muted);
+  color: var(--keep-card-foreground);
+  font-size: var(--keep-tag-size);
+  font-weight: 600;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="status-badge"] [data-status-icon] {
+  flex: 0 0 auto;
+  width: var(--keep-icon-size);
+  height: var(--keep-icon-size);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="status-badge"][data-item-status="available"] {
+  border-color: color-mix(in srgb, var(--keep-success) 55%, var(--keep-border));
+  color: var(--keep-success);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="status-badge"][data-item-status="expired"] {
+  border-style: dashed;
+  border-color: var(--keep-destructive);
+  color: var(--keep-destructive);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="status-badge"][data-item-status="removed"] {
+  border-color: var(--keep-muted-foreground);
+  border-radius: var(--keep-radius);
+  background: color-mix(in srgb, var(--keep-muted-foreground) 12%, var(--keep-card));
+  color: var(--keep-muted-foreground);
+  filter: grayscale(1);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="status-badge"][data-item-status="restricted"] {
+  border-color: var(--keep-destructive);
+  border-radius: var(--keep-radius);
+  background: var(--keep-destructive);
+  color: var(--keep-destructive-foreground);
+}

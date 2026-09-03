@@ -22,12 +22,17 @@ import {
 } from "@keepkit/core/react";
 import type { ComponentType, ReactNode } from "react";
 import {
-  type KeepToastFeedbackOptions,
-  type KeepToastHandler,
-  useKeepToastFeedback,
-} from "./hooks/useKeepToastFeedback";
-import { KeepBackup, type KeepBackupProps } from "./KeepBackup";
-import { KeepBulkActions, type KeepBulkActionsProps, type KeepBulkActionsState } from "./KeepBulkActions";
+  createNextPagesRouterAdapter,
+  type KeepPagesRouterLike,
+  type KeepUrlAdapter,
+  useKeepUrlSync,
+} from "./adapters/url-sync";
+import { KeepBackup, type KeepBackupProps } from "./features/actions/KeepBackup";
+import {
+  KeepBulkActions,
+  type KeepBulkActionsProps,
+  type KeepBulkActionsState,
+} from "./features/actions/KeepBulkActions";
 import {
   KeepButton,
   type KeepButtonIcon,
@@ -35,13 +40,29 @@ import {
   type KeepButtonIcons,
   type KeepButtonLabels,
   type KeepButtonProps,
-} from "./KeepButton";
+} from "./features/actions/KeepButton";
+import { KeepItemCheckbox, type KeepItemCheckboxProps } from "./features/actions/KeepItemCheckbox";
+import { KeepUndo, type KeepUndoProps } from "./features/actions/KeepUndo";
 import {
   KeepCollection,
   type KeepCollectionFeature,
   type KeepCollectionProps,
   type KeepLayoutPreset,
-} from "./KeepCollection";
+} from "./features/collection/KeepCollection";
+import { KeepLayout, type KeepLayoutProps } from "./features/collection/KeepLayout";
+import { KeepList, type KeepListProps, type KeepListState } from "./features/collection/KeepList";
+import {
+  type KeepReorderableItemState,
+  KeepReorderableList,
+  type KeepReorderableListProps,
+} from "./features/collection/KeepReorderableList";
+import { KeepNoteEditor, type KeepNoteEditorProps, type KeepNoteEditorState } from "./features/editor/KeepNoteEditor";
+import { KeepTagEditor, type KeepTagEditorProps, type KeepTagEditorState } from "./features/editor/KeepTagEditor";
+import {
+  type KeepToastFeedbackOptions,
+  type KeepToastHandler,
+  useKeepToastFeedback,
+} from "./features/feedback/useKeepToastFeedback";
 import {
   type KeepImageProps,
   KeepItemCard,
@@ -55,30 +76,14 @@ import {
   type KeepItemCardState,
   type KeepItemCardTagsProps,
   type KeepItemCardTitleProps,
-} from "./KeepItemCard";
-import { KeepItemCheckbox, type KeepItemCheckboxProps } from "./KeepItemCheckbox";
-import { type KeepDisplayStatus, KeepItemStatusBadge, type KeepItemStatusBadgeProps } from "./KeepItemStatusBadge";
-import { KeepLayout, type KeepLayoutProps } from "./KeepLayout";
-import { KeepList, type KeepListProps, type KeepListState } from "./KeepList";
-import { KeepNoteEditor, type KeepNoteEditorProps, type KeepNoteEditorState } from "./KeepNoteEditor";
+} from "./features/item/KeepItemCard";
 import {
-  type KeepReorderableItemState,
-  KeepReorderableList,
-  type KeepReorderableListProps,
-} from "./KeepReorderableList";
-import {
-  KeepPruneStaleButton,
-  type KeepPruneStaleButtonProps,
-  KeepStaleNotice,
-  type KeepStaleNoticeProps,
-} from "./KeepStaleNotice";
-import { KeepSyncFeedbackObserver } from "./KeepSyncFeedbackObserver";
-import { KeepSyncRecoveryDialog, type KeepSyncRecoveryDialogProps } from "./KeepSyncRecoveryDialog";
-import { KeepSyncStatusBanner, type KeepSyncStatusBannerProps } from "./KeepSyncStatusBanner";
-import { KeepTagEditor, type KeepTagEditorProps, type KeepTagEditorState } from "./KeepTagEditor";
-import { KeepTagFilter, type KeepTagFilterProps, type KeepTagFilterState } from "./KeepTagFilter";
-import { KeepNavigator, KeepTourBar, type KeepTourBarProps } from "./KeepTourBar";
-import { KeepUndo, type KeepUndoProps } from "./KeepUndo";
+  type KeepDisplayStatus,
+  KeepItemStatusBadge,
+  type KeepItemStatusBadgeProps,
+} from "./features/item/KeepItemStatusBadge";
+import { KeepNavigator, KeepTourBar, type KeepTourBarProps } from "./features/navigation/KeepTourBar";
+import { KeepTagFilter, type KeepTagFilterProps, type KeepTagFilterState } from "./features/query/KeepTagFilter";
 import {
   KeepPagination,
   type KeepPaginationProps,
@@ -88,7 +93,13 @@ import {
   KeepSortSelect,
   type KeepSortSelectProps,
   type KeepSortValue,
-} from "./query-controls";
+} from "./features/query/query-controls";
+import {
+  KeepPruneStaleButton,
+  type KeepPruneStaleButtonProps,
+  KeepStaleNotice,
+  type KeepStaleNoticeProps,
+} from "./features/status/KeepStaleNotice";
 import {
   KeepAnnouncements,
   type KeepAnnouncementsProps,
@@ -100,7 +111,10 @@ import {
   type KeepStatusProps,
   type KeepStatusState,
   type KeepStatusValue,
-} from "./status";
+} from "./features/status/status";
+import { KeepSyncFeedbackObserver } from "./features/sync/KeepSyncFeedbackObserver";
+import { KeepSyncRecoveryDialog, type KeepSyncRecoveryDialogProps } from "./features/sync/KeepSyncRecoveryDialog";
+import { KeepSyncStatusBanner, type KeepSyncStatusBannerProps } from "./features/sync/KeepSyncStatusBanner";
 import {
   type KeepThemeDensity,
   type KeepThemeMode,
@@ -110,7 +124,7 @@ import {
   type KeepThemeRadius,
   type KeepThemeVariables,
   keepThemeNames,
-} from "./theme";
+} from "./foundation/theme";
 import {
   getKeepLocaleLabels,
   type KeepUiFeedbackEvent,
@@ -122,16 +136,10 @@ import {
   KeepUiProvider,
   type KeepUiProviderProps,
   useKeepUiLabels,
-} from "./ui-context";
-import {
-  createNextPagesRouterAdapter,
-  type KeepPagesRouterLike,
-  type KeepUrlAdapter,
-  useKeepUrlSync,
-} from "./url-sync";
+} from "./foundation/ui-context";
 
-export type { KeepTourShortcutsOptions } from "./hooks/useKeepTourShortcuts";
-export { useKeepTourShortcuts } from "./hooks/useKeepTourShortcuts";
+export type { KeepTourShortcutsOptions } from "./features/navigation/hooks/useKeepTourShortcuts";
+export { useKeepTourShortcuts } from "./features/navigation/hooks/useKeepTourShortcuts";
 
 export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children"> &
   Omit<KeepUiProviderProps<TMeta>, "children"> &
@@ -223,10 +231,10 @@ export {
   LocalStorageSyncQueueAdapter,
   SyncStorageAdapter,
 } from "@keepkit/core/storage";
-export type { KeepSelectionScope } from "./KeepBulkActions";
-export { isAllSelected, toggleSelectAll } from "./KeepBulkActions";
-export type { KeepHighlightProps, RenderProp } from "./shared";
-export { highlightText, KeepHighlight } from "./shared";
+export type { KeepSelectionScope } from "./features/actions/KeepBulkActions";
+export { isAllSelected, toggleSelectAll } from "./features/actions/KeepBulkActions";
+export type { KeepHighlightProps, RenderProp } from "./foundation/shared";
+export { highlightText, KeepHighlight } from "./foundation/shared";
 export type {
   KeepAnnouncementsProps,
   KeepBackupProps,

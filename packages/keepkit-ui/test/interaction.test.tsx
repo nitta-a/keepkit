@@ -202,6 +202,20 @@ test("navigates a saved tour with progress, links, and keyboard shortcuts", asyn
   await waitFor(() => expect(screen.getByText("2 / 2")).not.toBeNull());
 });
 
+test("previews the adjacent item title without changing navigation labels", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, secondItem])}>
+      <KeepTourBar initialIndex={0} />
+    </KeepProvider>,
+  );
+
+  await waitFor(() => expect(screen.getByText("1 / 2")).not.toBeNull());
+  const nextButton = screen.getByRole("button", { name: "Next page" });
+  expect(nextButton.getAttribute("aria-describedby")).not.toBeNull();
+  expect(screen.getByText("Next page: Second interaction item")).not.toBeNull();
+  expect(screen.queryByText("Previous page:")).toBeNull();
+});
+
 test("renders a tour URL action for router or link integration", async () => {
   render(
     <KeepProvider<Meta> storage={createStorage([item, secondItem])}>
@@ -225,6 +239,23 @@ test("reorders items with keyboard handles and reports the new id order", () => 
 
   fireEvent.keyDown(screen.getByRole("button", { name: "Move item 2" }), { key: "ArrowUp" });
   expect(onReorder).toHaveBeenCalledWith([secondItem.id, item.id]);
+});
+
+test("shows the active drop insertion line while dragging", () => {
+  const onReorder = vi.fn();
+  render(
+    <KeepReorderableList
+      items={[item, secondItem]}
+      onReorder={onReorder}
+      renderItem={(entry, state) => <span {...state.dragHandleProps}>{entry.meta.title}</span>}
+    />,
+  );
+
+  fireEvent.dragStart(screen.getByRole("button", { name: "Move item 1" }));
+  const target = screen.getAllByRole("listitem")[1];
+  fireEvent.dragOver(target, { clientY: 1 });
+  expect(target.getAttribute("data-drop-target")).toBe("before");
+  expect(onReorder).not.toHaveBeenCalled();
 });
 
 test("persists provider reorder actions and exposes the custom order in list state", async () => {
@@ -363,6 +394,19 @@ test("highlights literal, case-insensitive search matches in card titles and con
   const highlight = heading.querySelector('mark.keep-highlight[data-highlight="true"]');
   expect(highlight?.textContent).toBe("Interaction");
   expect(highlight?.className).toBe("keep-highlight");
+});
+
+test("publishes stable card contracts for clamped titles and reserved media space", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepItemCard item={item} showSaveButton={false} />
+    </KeepProvider>,
+  );
+
+  const title = await screen.findByRole("heading", { name: "Interaction item" });
+  expect(title.getAttribute("data-line-clamp")).toBe("2");
+  expect(title.closest('[data-keep-card-part="media"]')).toBeNull();
+  expect(document.querySelector('[data-keep-card-part="media"]')?.getAttribute("data-aspect-ratio")).toBe("1/1");
 });
 
 test("replaces failed card media with a custom fallback and exposes media status", async () => {
@@ -641,6 +685,25 @@ test("adds safe defaults for external detail links and exposes removed status", 
   expect(removedCard?.querySelector('[data-link-disabled="true"]')?.textContent).toBe("Interaction item");
 });
 
+test("double-encodes item status with an icon and accessible label", () => {
+  render(
+    <>
+      <KeepItemStatusBadge status="expired" data-testid="expired-status" />
+      <KeepItemStatusBadge status="removed" data-testid="removed-status" />
+      <KeepItemStatusBadge status="restricted" data-testid="restricted-status" />
+    </>,
+  );
+
+  expect(screen.getByTestId("expired-status").querySelector('[data-status-icon="clock"]')).not.toBeNull();
+  expect(screen.getByTestId("expired-status").textContent).toContain("Expired");
+  expect(screen.getByTestId("expired-status").getAttribute("aria-label")).toBe("Expired");
+  expect(screen.getByTestId("removed-status").querySelector('[data-status-icon="ban"]')).not.toBeNull();
+  expect(screen.getByTestId("removed-status").textContent).toContain("Removed");
+  expect(screen.getByTestId("restricted-status").querySelector('[data-status-icon="lock"]')).not.toBeNull();
+  expect(screen.getByTestId("restricted-status").textContent).toContain("Private");
+  expect(screen.getByTestId("restricted-status").querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+});
+
 test("offers localized stale-item recovery actions and bulk cleanup", async () => {
   const staleItem = { ...item, id: "stale-item", status: "expired" as const, statusReason: "Source expired" };
   const onRetry = vi.fn().mockResolvedValue(undefined);
@@ -784,6 +847,11 @@ test("exposes the undo action without changing its accessible label", async () =
   fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
   const undoButton = await screen.findByRole("button", { name: "Undo" });
   expect(undoButton.getAttribute("data-keep-action")).toBe("undo");
+  const progress = screen.getByRole("progressbar");
+  expect(progress.getAttribute("max")).toBe("1");
+  expect(Number(progress.getAttribute("value"))).toBeGreaterThan(0);
+  expect(progress.getAttribute("aria-valuetext")).toMatch(/5s/);
+  expect(document.querySelector('[data-keepkit="undo-countdown"]')?.textContent).toBe("5s");
 });
 
 test("isolates unexpected provider and collection render errors", async () => {

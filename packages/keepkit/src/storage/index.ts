@@ -1,4 +1,3 @@
-import { createScopedStorageAdapter, getKeepScopeKey, type KeepScope } from "../scope";
 import {
   type KeepItem,
   KeepStorageAccessError,
@@ -7,7 +6,8 @@ import {
   KeepStorageParseError,
   KeepStorageQuotaError,
   type StorageAdapter,
-} from "../types";
+} from "../features/items/types";
+import { createScopedStorageAdapter, getKeepScopeKey, type KeepScope } from "../features/persistence/scope";
 
 export const DEFAULT_STORAGE_KEY = "keepkit:items";
 
@@ -262,8 +262,8 @@ export function createStorageAdapter<TMeta = Record<string, unknown>>(
   };
 }
 
-export type { KeepScope } from "../scope";
-export { createScopedStorageAdapter, ScopedStorageAdapter } from "../scope";
+export type { KeepScope } from "../features/persistence/scope";
+export { createScopedStorageAdapter, ScopedStorageAdapter } from "../features/persistence/scope";
 
 async function mergeItems<TMeta>(
   adapter: StorageAdapter<TMeta>,
@@ -646,7 +646,7 @@ function isQuotaExceededError(cause: unknown): boolean {
   );
 }
 
-export { ScopedSyncQueueAdapter } from "../scope";
+export { ScopedSyncQueueAdapter } from "../features/persistence/scope";
 export {
   DEFAULT_SYNC_QUEUE_DATABASE,
   DEFAULT_SYNC_QUEUE_KEY,

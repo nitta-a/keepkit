@@ -1,6 +1,6 @@
 {
   "name": "@keepkit/ui",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Headless, accessible React UI components for KeepKit.",
   "type": "module",
   "license": "MIT",
@@ -39,6 +39,9 @@
     },
     "./styles/collection.css": {
       "default": "./dist/styles/collection.css"
+    },
+    "./styles/status.css": {
+      "default": "./dist/styles/status.css"
     },
     "./styles/sync.css": {
       "default": "./dist/styles/sync.css"

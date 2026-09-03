@@ -11,8 +11,8 @@ import type {
   SyncOperation,
   SyncQueueAdapter,
   SyncScope,
-} from "../types";
-import { isKeepSyncAuthError } from "../types";
+} from "../features/items/types";
+import { isKeepSyncAuthError } from "../features/items/types";
 
 export type LocalStorageSyncQueueOptions = {
   key?: string;

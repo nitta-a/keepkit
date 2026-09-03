@@ -1,0 +1,160 @@
+"use client";
+
+import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
+import { KeepErrorBoundary, type KeepErrorBoundaryProps, type UseKeepListResult } from "@keepkit/core/react";
+import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
+import { KeepSearchQueryProvider, type RenderProp, renderRoot, resolveContent } from "../../foundation/shared";
+import { KeepItemCard, type KeepItemCardProps, KeepItemCardSkeleton } from "../item/KeepItemCard";
+import { useKeepListView } from "./hooks/useKeepListView";
+import { useRovingTabIndex } from "./hooks/useRovingTabIndex";
+import type { KeepLayoutPreset } from "./KeepCollection";
+
+export type KeepListState<TMeta = Record<string, unknown>> = UseKeepListResult<TMeta>;
+
+export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
+  query?: KeepListQuery<TMeta>;
+  children?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
+  loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  /** Alias for `loading`. When neither is provided, layout-matched skeletons are rendered. */
+  renderLoading?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  loadingCount?: number;
+  empty?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  error?: ReactNode | RenderProp<KeepListState<TMeta>>;
+  itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
+  layout?: KeepLayoutPreset;
+  asChild?: boolean;
+  fallback?: KeepErrorBoundaryProps["fallback"];
+  onBoundaryError?: KeepErrorBoundaryProps["onError"];
+  boundaryResetKey?: unknown;
+};
+
+/** A list primitive with built-in loading, empty, error, and removal states. */
+export function KeepList<TMeta = Record<string, unknown>>(props: KeepListProps<TMeta>) {
+  const { fallback, onBoundaryError, boundaryResetKey, ...listProps } = props;
+  const content = <KeepListContent<TMeta> {...listProps} />;
+  if (fallback === undefined && onBoundaryError === undefined) return content;
+  return (
+    <KeepErrorBoundary fallback={fallback} onError={onBoundaryError} resetKey={boundaryResetKey}>
+      {content}
+    </KeepErrorBoundary>
+  );
+}
+
+function KeepListContent<TMeta = Record<string, unknown>>({
+  query,
+  children,
+  renderItem,
+  loading,
+  renderLoading,
+  loadingCount = 6,
+  empty,
+  error: errorContent,
+  itemCardProps,
+  layout = "list",
+  asChild = false,
+  onKeyDown,
+  onFocusCapture,
+  className,
+  ...rootProps
+}: KeepListProps<TMeta>) {
+  const view = useKeepListView<TMeta>(query);
+  const roving = useRovingTabIndex<HTMLDivElement>();
+  const { state } = view;
+  const body = getListBody(state, {
+    children,
+    renderItem,
+    loading: renderLoading !== undefined ? renderLoading : loading,
+    loadingCount,
+    loadingLabel: view.labels.loading,
+    empty: empty ?? view.labels.empty,
+    error: errorContent ?? view.labels.error,
+    itemCardProps,
+    layout,
+  });
+  return renderRoot(
+    asChild,
+    asChild && isValidElement(children) ? children : undefined,
+    {
+      ...rootProps,
+      className,
+      "data-keepkit": "list",
+      "data-layout": layout,
+      "aria-busy": state.isLoading || rootProps["aria-busy"],
+      "data-state": getListState(state),
+      "data-loading": state.isLoading ? "true" : undefined,
+      "data-roving-tabindex": "true",
+      role: rootProps.role ?? "group",
+      ref: roving.ref,
+      onKeyDown: (event) => {
+        onKeyDown?.(event);
+        if (!event.defaultPrevented) roving.onKeyDown(event);
+      },
+      onFocusCapture: (event) => {
+        onFocusCapture?.(event);
+        if (!event.defaultPrevented) roving.onFocusCapture(event);
+      },
+    },
+    <KeepSearchQueryProvider query={query?.search?.query}>{body}</KeepSearchQueryProvider>,
+    "KeepList",
+  );
+}
+
+function getListState<TMeta>(state: KeepListState<TMeta>): "loading" | "error" | "empty" | "ready" {
+  if (state.error && state.items.length === 0) return "error";
+  if (state.isLoading && !state.isHydrated) return "loading";
+  if (state.isHydrated && state.items.length === 0) return "empty";
+  return "ready";
+}
+
+function getListBody<TMeta>(
+  state: KeepListState<TMeta>,
+  options: {
+    children?: ReactNode | RenderProp<KeepListState<TMeta>>;
+    renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
+    loading: ReactNode | RenderProp<KeepListState<TMeta>> | undefined;
+    loadingCount: number;
+    loadingLabel: string;
+    empty: ReactNode | RenderProp<KeepListState<TMeta>>;
+    error: ReactNode | RenderProp<KeepListState<TMeta>>;
+    itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
+    layout: KeepLayoutPreset;
+  },
+): ReactNode {
+  if (state.error && state.items.length === 0) return resolveContent(options.error, state);
+  if (state.isLoading && !state.isHydrated) {
+    if (options.loading !== undefined) return resolveContent(options.loading, state);
+    const count = Number.isFinite(options.loadingCount) ? Math.max(0, Math.floor(options.loadingCount)) : 6;
+    return (
+      <>
+        <span role="status" data-keepkit="loading-label">
+          {options.loadingLabel}
+        </span>
+        <ul data-keepkit="skeleton-list" data-layout={options.layout}>
+          {Array.from({ length: count }, (_, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: Static loading placeholders never reorder.
+            <li key={index}>
+              <KeepItemCardSkeleton layout={options.layout} />
+            </li>
+          ))}
+        </ul>
+      </>
+    );
+  }
+  if (state.isHydrated && state.items.length === 0) return resolveContent(options.empty, state);
+  if (typeof options.children === "function") return options.children(state);
+  if (options.children !== undefined && !isValidElement(options.children)) return options.children;
+  return (
+    <ul data-layout={options.layout}>
+      {state.items.map((item) =>
+        options.renderItem ? (
+          options.renderItem(item, state)
+        ) : (
+          <li key={item.id}>
+            <KeepItemCard item={item} {...options.itemCardProps} />
+          </li>
+        ),
+      )}
+    </ul>
+  );
+}
