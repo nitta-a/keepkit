@@ -1,24 +1,49 @@
-@import "./theme.css";
+@import "./theme.css" layer(components);
 
+/*
+ * Tailwind v4 exposes semantic colors as complete values through --color-*.
+ * Bridge those values into the scoped KeepKit tokens without replacing the
+ * host application's generic --color-background / --color-primary aliases.
+ * The explicit fallbacks also keep a plain Tailwind installation usable when
+ * no shadcn semantic colors are configured.
+ */
 @custom-variant dark (&:where(.dark, .dark *));
 
+@layer components {
+  :where(.keep-theme, [data-keep-theme]) {
+    --keep-background: var(--color-background, #ffffff);
+    --keep-foreground: var(--color-foreground, #0f172a);
+    --keep-card: var(--color-card, var(--color-background, #ffffff));
+    --keep-card-foreground: var(--color-card-foreground, var(--color-foreground, #0f172a));
+    --keep-muted: var(--color-muted, #f1f5f9);
+    --keep-muted-foreground: var(--color-muted-foreground, #64748b);
+    --keep-border: var(--color-border, #d7dee8);
+    --keep-input: var(--color-input, var(--color-border, #d7dee8));
+    --keep-primary: var(--color-primary, #2563eb);
+    --keep-primary-foreground: var(--color-primary-foreground, #ffffff);
+    --keep-destructive: var(--color-destructive, #b91c1c);
+    --keep-destructive-foreground: var(--color-destructive-foreground, #ffffff);
+    --keep-ring: var(--color-ring, var(--color-primary, #2563eb));
+  }
+}
+
 @theme inline {
-  --color-background: var(--keep-background);
-  --color-foreground: var(--keep-foreground);
-  --color-card: var(--keep-card);
-  --color-card-foreground: var(--keep-card-foreground);
-  --color-muted: var(--keep-muted);
-  --color-muted-foreground: var(--keep-muted-foreground);
-  --color-border: var(--keep-border);
-  --color-input: var(--keep-input);
-  --color-primary: var(--keep-primary);
-  --color-primary-foreground: var(--keep-primary-foreground);
-  --color-destructive: var(--keep-destructive);
-  --color-destructive-foreground: var(--keep-destructive-foreground);
-  --color-success: var(--keep-success);
-  --color-warning: var(--keep-warning);
-  --color-ring: var(--keep-ring);
-  --radius-sm: calc(var(--keep-radius) - 4px);
-  --radius-md: calc(var(--keep-radius) - 2px);
-  --radius-lg: var(--keep-radius);
+  --color-keep-background: var(--keep-background);
+  --color-keep-foreground: var(--keep-foreground);
+  --color-keep-card: var(--keep-card);
+  --color-keep-card-foreground: var(--keep-card-foreground);
+  --color-keep-muted: var(--keep-muted);
+  --color-keep-muted-foreground: var(--keep-muted-foreground);
+  --color-keep-border: var(--keep-border);
+  --color-keep-input: var(--keep-input);
+  --color-keep-primary: var(--keep-primary);
+  --color-keep-primary-foreground: var(--keep-primary-foreground);
+  --color-keep-destructive: var(--keep-destructive);
+  --color-keep-destructive-foreground: var(--keep-destructive-foreground);
+  --color-keep-success: var(--keep-success);
+  --color-keep-warning: var(--keep-warning);
+  --color-keep-ring: var(--keep-ring);
+  --radius-keep-sm: calc(var(--keep-radius) - 4px);
+  --radius-keep-md: calc(var(--keep-radius) - 2px);
+  --radius-keep-lg: var(--keep-radius);
 }

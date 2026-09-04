@@ -925,6 +925,18 @@ test("ships dark-mode and reduced-motion CSS contracts", async () => {
   expect(cssText).toContain("keepkit-skeleton-pulse");
 });
 
+test("keeps the Tailwind v4 bridge scoped and composable", async () => {
+  const path = "../src/tailwind.css";
+  const cssText = await readFile(new URL(path, import.meta.url), "utf8");
+
+  expect(cssText).toContain('@import "./theme.css" layer(components);');
+  expect(cssText).toContain("--keep-border: var(--color-border, #d7dee8);");
+  expect(cssText).toContain("--keep-primary: var(--color-primary, #2563eb);");
+  expect(cssText).toContain("--color-keep-background: var(--keep-background);");
+  expect(cssText).not.toContain("--color-background: var(--keep-background)");
+  expect(cssText).toContain("@custom-variant dark");
+});
+
 test("selects color presets through the theme parameter", () => {
   const { rerender } = render(
     <KeepThemeProvider theme="ocean" data-testid="palette">

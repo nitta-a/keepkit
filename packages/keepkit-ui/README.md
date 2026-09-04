@@ -93,13 +93,18 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.22.0では保存直後の`KeepSavePopover`自動編集、`KeepQuickEditorState.saveStatus`、`KeepItemCard.Save` / `KeepItemCard.Remove`、管理モード向け`KeepBulkActions`、通知からのコレクション再訪導線を追加しました。`KeepTourBar` / `KeepNavigator`、`KeepReorderableList`、`useKeepTourShortcuts`、16言語の`locale`／`labels`上書きも引き続き利用できます。
+v0.23.0ではTailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応を追加しました。保存直後の`KeepSavePopover`自動編集、`KeepQuickEditorState.saveStatus`、`KeepItemCard.Save` / `KeepItemCard.Remove`、管理モード向け`KeepBulkActions`、通知からのコレクション再訪導線も引き続き利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
 
+```css
+/* globals.css */
+@import "tailwindcss";
+@import "@keepkit/ui/tailwind.css";
+```
+
 ```tsx
-import "@keepkit/ui/tailwind.css";
 import { KeepThemeProvider, KeepCollection } from "@keepkit/ui";
 
 <KeepThemeProvider theme="ocean" mode="system" density="comfortable" radius="medium">
@@ -109,7 +114,7 @@ import { KeepThemeProvider, KeepCollection } from "@keepkit/ui";
 
 色テーマは`default`、`ocean`、`forest`、`sunset`、`lavender`から選べます。既存の`compact`、`minimal`、`rounded`、`high-contrast`、`dark`も引き続き利用できます。`theme`は`mode`、`density`、`radius`と独立しており、`KeepKitProvider theme="forest" mode="dark"`のように組み合わせられます。選択肢をUIへ表示する場合は`keepThemeNames`を利用できます。
 
-shadcn/uiの`--background`、`--foreground`、`--card`、`--muted`、`--border`、`--primary`、`--destructive`、`--ring`を継承し、KeepKit固有の値は`--keep-*`に分離されます。`variables`、`accentColor`、`highContrast`、`reducedMotion`による上書きも維持されます。`keepKitTheme`は`@keepkit/ui/tailwind`から、分割CSSは`@keepkit/ui/styles/base.css`、`button.css`、`collection.css`、`sync.css`から読み込めます。`KeepButton icons={{ save, saved, remove }}`と`iconOnly`でLucide等へ差し替えられます。
+Tailwind v4の`--color-background`、`--color-foreground`、`--color-card`、`--color-muted`、`--color-border`、`--color-primary`、`--color-destructive`、`--color-ring`をKeepKitのスコープ内へ継承します。KeepKitはホストの`--color-*`変数を上書きせず、`--color-keep-*`としてTailwindへ公開します。`variables`、`accentColor`、`highContrast`、`reducedMotion`による上書きも維持されます。`keepKitTheme`は`@keepkit/ui/tailwind`から、分割CSSは`@keepkit/ui/styles/base.css`、`button.css`、`collection.css`、`sync.css`から読み込めます。`KeepButton icons={{ save, saved, remove }}`と`iconOnly`でLucide等へ差し替えられます。
 
 Viewer向け保存カードとカスタムテーマは次のように構成できます。`savedAt`、タイトル、タグ、詳細リンク、保存解除ボタン、期限切れ表示は`KeepItemCard`の標準markupに含まれます。
 
@@ -212,13 +217,18 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-In v0.22.0, `KeepSavePopover` supports post-save editing, `KeepQuickEditorState.saveStatus`, `KeepItemCard.Save` / `KeepItemCard.Remove`, management-mode `KeepBulkActions`, and notification-driven return to the collection. `KeepTourBar` / `KeepNavigator`, `KeepReorderableList`, `useKeepTourShortcuts`, 16 built-in locales, and `labels` overrides remain available.
+In v0.23.0, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support are included. `KeepSavePopover` post-save editing, `KeepQuickEditorState.saveStatus`, `KeepItemCard.Save` / `KeepItemCard.Remove`, management-mode `KeepBulkActions`, and notification-driven return to the collection remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme
 
+```css
+/* globals.css */
+@import "tailwindcss";
+@import "@keepkit/ui/tailwind.css";
+```
+
 ```tsx
-import "@keepkit/ui/tailwind.css";
 import { KeepThemeProvider, KeepCollection } from "@keepkit/ui";
 
 <KeepThemeProvider theme="ocean" mode="system" density="comfortable" radius="medium">
@@ -228,7 +238,7 @@ import { KeepThemeProvider, KeepCollection } from "@keepkit/ui";
 
 Color themes include `default`, `ocean`, `forest`, `sunset`, and `lavender`. Existing `compact`, `minimal`, `rounded`, `high-contrast`, and `dark` presets remain available. `theme` composes independently with `mode`, `density`, and `radius`, so `theme="forest" mode="dark"` is supported. Use the exported `keepThemeNames` list when building a selector.
 
-The scoped `--keep-*` tokens inherit shadcn/ui variables, and the provider supports `.dark`, system preference, `variables`, `accentColor`, `highContrast`, and `reducedMotion`. Use `keepKitTheme` from `@keepkit/ui/tailwind`, feature CSS from `@keepkit/ui/styles/*`, and `icons={{ save, saved, remove }}` / `iconOnly` on `KeepButton` for Lucide or shadcn replacements. The existing Next.js Pages Router recipe remains unchanged: inject `createNextPagesRouterAdapter(router)` into `urlAdapter`.
+The scoped `--keep-*` tokens inherit complete Tailwind v4 `--color-*` values from shadcn/ui when present. KeepKit does not replace the host's generic color aliases; its Tailwind aliases are namespaced as `--color-keep-*`. The provider supports `.dark`, system preference, `variables`, `accentColor`, `highContrast`, and `reducedMotion`. Use `keepKitTheme` from `@keepkit/ui/tailwind`, feature CSS from `@keepkit/ui/styles/*`, and `icons={{ save, saved, remove }}` / `iconOnly` on `KeepButton` for Lucide or shadcn replacements. The existing Next.js Pages Router recipe remains unchanged: inject `createNextPagesRouterAdapter(router)` into `urlAdapter`.
 
 For a Viewer card, the default `KeepItemCard` markup includes the title, tags, saved date, detail link, remove action, thumbnail, and expired-item notice. Override tokens without replacing the markup, or use render props for a complete replacement:
 
