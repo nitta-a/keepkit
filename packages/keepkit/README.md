@@ -38,7 +38,7 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.23.0では、UI層のTailwind CSS v4統合とホストテーマ変数との衝突回避を追加しました。coreでは既存の保存順プレイリスト、`useKeepNavigator`、`reorderKeepItems` / `moveKeepItem`、URL状態codec、ユーザー／テナント分離、`createKeepKitPreset`、認証付き同期を引き続き利用できます。
+v0.23.1では、UI層のTailwind CSS v4統合とホストテーマ変数との衝突回避を追加しました。coreでは既存の保存順プレイリスト、`useKeepNavigator`、`reorderKeepItems` / `moveKeepItem`、URL状態codec、ユーザー／テナント分離、`createKeepKitPreset`、認証付き同期を引き続き利用できます。
 
 `createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
@@ -83,7 +83,7 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-In v0.23.0, the UI layer adds Tailwind CSS v4 integration and host-theme isolation. Core continues to provide persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem`, URL state codecs, user/tenant isolation, `createKeepKitPreset({ mode: "local" | "sync" | "backup" })`, and token-aware authenticated sync.
+In v0.23.1, the UI layer adds Tailwind CSS v4 integration and host-theme isolation. Core continues to provide persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem`, URL state codecs, user/tenant isolation, `createKeepKitPreset({ mode: "local" | "sync" | "backup" })`, and token-aware authenticated sync.
 
 `createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 
