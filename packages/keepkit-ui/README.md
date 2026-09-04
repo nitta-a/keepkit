@@ -77,7 +77,12 @@ function SavedArticles() {
     <KeepItemCard.Title />
     <KeepItemCard.Tags />
   </KeepItemCard.Content>
-  <KeepItemCard.Actions />
+  <KeepItemCard.Actions>
+    <KeepItemCard.Save />
+    <KeepItemCard.Pin />
+    <KeepItemCard.Archive />
+    <KeepItemCard.Remove />
+  </KeepItemCard.Actions>
 </KeepItemCard>
 ```
 
@@ -88,7 +93,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.21.0では`KeepTourBar` / `KeepNavigator`、`KeepReorderableList`、`useKeepTourShortcuts`を利用できます。`KeepCollection urlSync layout="list" | "grid" | "compact"`、`KeepBulkActions selectionScope="page" | "query" | "all"`、`KeepUndo`も利用できます。`createNextPagesRouterAdapter`はNext.js Pages Router用の注入adapterです。`locale`は16言語に対応し、`labels`で上書きできます。認証付き同期は`createAuthenticatedSyncKit`から利用できます。
+v0.22.0では保存直後の`KeepSavePopover`自動編集、`KeepQuickEditorState.saveStatus`、`KeepItemCard.Save` / `KeepItemCard.Remove`、管理モード向け`KeepBulkActions`、通知からのコレクション再訪導線を追加しました。`KeepTourBar` / `KeepNavigator`、`KeepReorderableList`、`useKeepTourShortcuts`、16言語の`locale`／`labels`上書きも引き続き利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -207,7 +212,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-In v0.21.0, use `KeepTourBar` / `KeepNavigator`, `KeepReorderableList`, and `useKeepTourShortcuts` for continuous saved-item tours. `KeepCollection urlSync` with `layout="list" | "grid" | "compact"`, `KeepBulkActions selectionScope="page" | "query" | "all"`, and `KeepUndo` remain available. `createNextPagesRouterAdapter` is the injected adapter for Next.js Pages Router. `locale` includes 16 built-in dictionaries, and `labels` overrides individual entries. Authenticated sync is available through `createAuthenticatedSyncKit`.
+In v0.22.0, `KeepSavePopover` supports post-save editing, `KeepQuickEditorState.saveStatus`, `KeepItemCard.Save` / `KeepItemCard.Remove`, management-mode `KeepBulkActions`, and notification-driven return to the collection. `KeepTourBar` / `KeepNavigator`, `KeepReorderableList`, `useKeepTourShortcuts`, 16 built-in locales, and `labels` overrides remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme
@@ -251,8 +256,8 @@ Framework-neutral APIs remain available from `@keepkit/core/core`, low-level Rea
 
 ## Archive, pin, collections, and quick save editing
 
-The UI package exports `KeepArchiveButton`, `KeepPinButton`, `KeepCollectionSelect`, `KeepCollectionFilter`, `KeepSavePopover`, `KeepQuickEditor`, and `useKeepQuickEditor`. Buttons expose `aria-pressed`, `data-archived`/`data-pinned`, and `data-keep-action`. Collection labels default to IDs and can be overridden with `collectionLabels`. Enable `features={{ collectionFilter: true }}` on `KeepCollection` to include the collection filter. `KeepSavePopover` wraps `KeepButton` and opens after a new save; its quick editor debounces note, tags, and collection updates by 300ms by default.
+The UI package exports `KeepArchiveButton`, `KeepPinButton`, `KeepCollectionSelect`, `KeepCollectionFilter`, `KeepSavePopover`, `KeepQuickEditor`, and `useKeepQuickEditor`. Buttons expose `aria-pressed`, `data-archived`/`data-pinned`, and `data-keep-action`. Collection labels default to IDs and can be overridden with `collectionLabels`. Enable `features={{ collectionFilter: true }}` on `KeepCollection` to include the collection filter. `KeepSavePopover` wraps `KeepButton`, opens after a new save, labels and focuses its dialog, flushes pending edits before closing, and restores focus to the trigger. Its quick editor debounces note, tags, and collection updates by 300ms and exposes `saveStatus`. Set `showSaveButton={false}` when visible save status should replace the submit button. `KeepItemCard.Save` and `KeepItemCard.Remove` let compound cards place those actions alongside `Pin` and `Archive` without replacing the default card API.
 
 ## アーカイブ・ピン留め・コレクション・保存直後編集
 
-UI パッケージは `KeepArchiveButton`、`KeepPinButton`、`KeepCollectionSelect`、`KeepCollectionFilter`、`KeepSavePopover`、`KeepQuickEditor`、`useKeepQuickEditor` を公開します。ボタンは `aria-pressed`、`data-archived` / `data-pinned`、`data-keep-action` を出力します。コレクション名は既定で ID を表示し、`collectionLabels` で置換できます。`KeepCollection` に `features={{ collectionFilter: true }}` を指定するとフィルターを統合できます。`KeepSavePopover` は `KeepButton` を内部 trigger とし、新規保存後に開きます。クイックエディターはメモ・タグ・コレクションを一時状態として扱い、既定 300ms で保存します。
+UI パッケージは `KeepArchiveButton`、`KeepPinButton`、`KeepCollectionSelect`、`KeepCollectionFilter`、`KeepSavePopover`、`KeepQuickEditor`、`useKeepQuickEditor` を公開します。ボタンは `aria-pressed`、`data-archived` / `data-pinned`、`data-keep-action` を出力します。コレクション名は既定で ID を表示し、`collectionLabels` で置換できます。`KeepCollection` に `features={{ collectionFilter: true }}` を指定するとフィルターを統合できます。`KeepSavePopover` は `KeepButton` を内部 trigger とし、新規保存後にdialogへフォーカスし、閉じる前に未保存編集をflushしてtriggerへフォーカスを戻します。クイックエディターはメモ・タグ・コレクションを一時状態として扱い、既定300msで保存し、`saveStatus`で状態を公開します。自動保存だけを表示する場合は`showSaveButton={false}`を指定します。compound cardでは`KeepItemCard.Save` / `Remove`を`Pin` / `Archive`と同じ操作領域に配置できます。

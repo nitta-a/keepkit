@@ -12,6 +12,8 @@ export const VI_LABELS: KeepUiLocaleLabels = {
   filterCollections: "Lọc theo bộ sưu tập",
   uncategorized: "Chưa phân loại",
   saveWithNote: "Lưu kèm ghi chú",
+  editSavedItem: "Chỉnh sửa mục đã lưu",
+  unsavedChanges: "Thay đổi chưa được lưu",
   save: "Lưu",
   saved: "Đã lưu",
   remove: "Xóa",

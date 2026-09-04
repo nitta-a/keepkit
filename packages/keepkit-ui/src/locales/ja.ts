@@ -12,6 +12,8 @@ export const JA_LABELS: KeepUiLocaleLabels = {
   filterCollections: "コレクションで絞り込む",
   uncategorized: "未分類",
   saveWithNote: "メモ付きで保存",
+  editSavedItem: "保存したアイテムを編集",
+  unsavedChanges: "未保存の変更があります",
   save: "保存",
   saved: "保存済み",
   remove: "削除",

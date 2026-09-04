@@ -12,6 +12,8 @@ export const RU_LABELS: KeepUiLocaleLabels = {
   filterCollections: "Фильтр коллекций",
   uncategorized: "Без категории",
   saveWithNote: "Сохранить с заметкой",
+  editSavedItem: "Редактировать сохранённый элемент",
+  unsavedChanges: "Несохранённые изменения",
   save: "Сохранить",
   saved: "Сохранено",
   remove: "Удалить",

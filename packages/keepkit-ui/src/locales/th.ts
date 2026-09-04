@@ -12,6 +12,8 @@ export const TH_LABELS: KeepUiLocaleLabels = {
   filterCollections: "กรองคอลเลกชัน",
   uncategorized: "ไม่มีหมวดหมู่",
   saveWithNote: "บันทึกพร้อมโน้ต",
+  editSavedItem: "แก้ไขรายการที่บันทึกไว้",
+  unsavedChanges: "มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก",
   save: "บันทึก",
   saved: "บันทึกแล้ว",
   remove: "ลบ",

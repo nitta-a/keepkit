@@ -12,6 +12,8 @@ export const FIL_LABELS: KeepUiLocaleLabels = {
   filterCollections: "I-filter ayon sa koleksyon",
   uncategorized: "Walang kategorya",
   saveWithNote: "I-save na may tala",
+  editSavedItem: "I-edit ang naka-save na item",
+  unsavedChanges: "Mga hindi pa nai-save na pagbabago",
   save: "I-save",
   saved: "Nai-save",
   remove: "Alisin",

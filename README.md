@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.21.0では、フィルターチップのフォーカス復元、asChild ref合成、CJK・特殊記号検索ハイライトの耐性を強化しました。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.22.0では、保存直後の自動編集、カード操作の整理、管理モード、通知からの再訪導線を強化しました。
 
 ### インストール
 
@@ -65,7 +65,7 @@ export function SavedArticle({ article }: { article: Meta & { id: string } }) {
 ```
 
 すべてのUIプリミティブは状態を`data-state`に、処理中を`data-loading="true"`に、無効状態を`data-disabled="true"`に公開します。ホストアプリはクラス名の条件分岐なしにCSSやTailwindのdata variantで装飾できます。`KeepCollection` / `KeepList`にも`fallback`、`onBoundaryError`、`boundaryResetKey`を指定でき、Provider全体または一覧単位で予期せぬ描画エラーを隔離できます。
-`@keepkit/ui`は`KeepItemCardSkeleton`、`KeepList loadingCount`、コンテナ幅対応の`layout="auto"`、`KeepItemCard.Media / Content / Title / Tags / Actions`、および`onFeedback` / `useKeepToastFeedback`による外部トースト連携も提供します。
+`@keepkit/ui`は`KeepItemCardSkeleton`、`KeepList loadingCount`、コンテナ幅対応の`layout="auto"`、`KeepItemCard.Media / Content / Title / Tags / Actions / Save / Remove`、および`onFeedback` / `useKeepToastFeedback`による外部トースト連携も提供します。`KeepSavePopover`はtriggerとdialogをARIAで関連付け、`KeepQuickEditor`の`saveStatus`は未保存・保存中・保存済み・失敗を公開します。自動保存だけを表示する場合は`showSaveButton={false}`を指定できます。
 `KeepList` / `KeepCollection`内のカードタイトルとテキストは検索語を大文字小文字を区別せず`<mark class="keep-highlight" data-highlight="true">`でハイライトします。単体カードでは`highlightQuery`、再利用可能な表示では`KeepHighlight`を指定できます。画像は`data-media-status="loading" | "loaded" | "error"`を公開し、失敗時は`KeepItemCard.Media fallback`または標準SVGへ切り替わります。カード一覧はRoving Tabindexにより矢印キー、Home、Endで移動できます。
 `KeepCollection`は検索語と選択タグを`KeepActiveFiltersSummary`のチップとして表示し、個別解除と一括クリアを提供します。標準の空状態は全件0件の`empty-storage`と絞り込み結果0件の`empty-filtered`を区別し、後者では`onClearFilters`で復帰できます。`KeepShortcutHint`、`KeepTourBar showShortcutHint`、`KeepNoteEditor showShortcutHint`で`<kbd>`の操作ヒントを表示でき、`mergeProps` / `createSlot`は`asChild`のclassName、style、ARIA、イベント合成に利用できます。
 保存順を巡回ルートとして使う場合は、`useKeepNavigator()` と`useKeepList().reorder()` / `.move()` を利用できます。`KeepItem.order` は既存アイテムにも追加でき、`KeepTourBar` は進行度・前後移動・一覧戻りをURLまたはコールバックで接続し、前後アイテム名のプレビュー（`getItemTitle`でカスタマイズ可能）を表示します。`KeepReorderableList` はドラッグ中の挿入位置ガイドと矢印キーによる並び替えを提供します。キーボード巡回は`keyboardShortcuts`または`useKeepTourShortcuts`で明示的に有効化します。
@@ -135,7 +135,7 @@ JSONバックアップUIは`<KeepBackup />`として利用できます。エク�
 
 Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepPruneStaleButton />`、`<KeepSyncStatusBanner />`、`<KeepSyncRecoveryDialog />`として利用できます。テーマを使う場合は`import "@keepkit/ui/theme.css"`を追加してください。
 
-### v0.21.0のフィルター操作性と連続閲覧
+### v0.22.0の保存後編集と再訪導線
 
 `<keep.Collection urlSync layout="grid" />`で検索・タグ・ソート・ページをURL、戻る／進む、共有URLと同期できます。Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`に渡してください。`layout`は`list`、`grid`、`compact`に対応し、`itemCardProps`の`getImageProps`、`renderTags`、`href`、`onOpen`でカード表示と遷移を差し替えられます。
 
@@ -143,7 +143,7 @@ Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepP
 
 ユーザー／テナント分離が必要な場合は、`createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })`を使うとstorage、同期キュー、バックアップの構成をまとめられます。ラベルは16個の組み込みlocale（`en`、`ja`、`ko`、`zh-Hans`、`zh-Hant`、`th`、`fr`、`es`、`pt-BR`、`it`、`de`、`ru`、`fil`、`vi`、`id`、`ms`）で切り替えられ、`labels`で上書きできます。`zh-CN`と`zh-TW`も互換aliasとして利用できます。
 
-### v0.21.0 Tailwind／shadcnテーマ
+### v0.22.0 Tailwind／shadcnテーマ
 
 Tailwind CSS v4ではCSSを2行読み込み、必要ならテーマ用Providerを配置します。既存のshadcn/ui変数（`--background`、`--primary`など）があれば`--keep-*`トークンが継承します。
 
@@ -162,7 +162,7 @@ shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keep
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.21.0, it strengthens filter-chip focus recovery, asChild ref composition, and CJK/special-character search highlighting.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.22.0, it strengthens post-save editing, card action hierarchy, management mode, and notification-driven return paths.
 
 ### Installation
 
@@ -214,7 +214,7 @@ export function SavedArticle({ article }: { article: Meta & { id: string } }) {
 ```
 
 Every UI primitive exposes its semantic state through `data-state`, `data-loading="true"` while work is pending, and `data-disabled="true"` when disabled. `KeepCollection` and `KeepList` also accept `fallback`, `onBoundaryError`, and `boundaryResetKey` so unexpected render errors can be isolated at the provider or list level.
-`@keepkit/ui` also provides `KeepItemCardSkeleton`, `KeepList loadingCount`, container-aware `layout="auto"`, `KeepItemCard.Media / Content / Title / Tags / Actions`, and external toast integration through `onFeedback` / `useKeepToastFeedback`.
+`@keepkit/ui` also provides `KeepItemCardSkeleton`, `KeepList loadingCount`, container-aware `layout="auto"`, `KeepItemCard.Media / Content / Title / Tags / Actions / Save / Remove`, and external toast integration through `onFeedback` / `useKeepToastFeedback`. `KeepSavePopover` connects its trigger and dialog with ARIA, while `KeepQuickEditorState.saveStatus` exposes dirty, saving, saved, and error states. Set `showSaveButton={false}` for an auto-save-only presentation.
 Cards rendered by `KeepList` / `KeepCollection` highlight case-insensitive search matches with `<mark class="keep-highlight" data-highlight="true">`; use `highlightQuery` on a standalone card or `KeepHighlight` for reusable text. Media exposes `data-media-status="loading" | "loaded" | "error"` and swaps failed images for `KeepItemCard.Media fallback` or a built-in SVG placeholder. Card groups support Roving Tabindex navigation with arrow keys, Home, and End.
 `KeepCollection` renders search and selected tags as `KeepActiveFiltersSummary` chips with individual removal and clear-all actions. The default empty state distinguishes `empty-storage` from `empty-filtered`; the filtered state can recover through `onClearFilters`. `KeepShortcutHint`, `KeepTourBar showShortcutHint`, and `KeepNoteEditor showShortcutHint` expose `<kbd>` operation hints, while `mergeProps` / `createSlot` compose className, style, ARIA, and events for `asChild` slots.
 Use `useKeepNavigator()` with `useKeepList().reorder()` / `.move()` to turn saved order into a tour route. `KeepItem.order` is additive and persisted by existing adapters. `KeepTourBar` provides progress, previous/next, and return-to-list actions through URLs or callbacks, with adjacent item title previews customizable through `getItemTitle`; `KeepReorderableList` shows the active drop insertion position and supports keyboard reordering. Enable tour keyboard shortcuts explicitly with `keyboardShortcuts` or `useKeepTourShortcuts`.
@@ -230,7 +230,7 @@ The typed factory returns `Provider`, `Button`, `Collection`, `useItem`, `useLis
 
 See `examples/next-app-router` for the Server Component/client boundary pattern and `examples/next-pages-router` for the Pages Router integration.
 
-### v0.21.0 URL, layouts, and setup presets
+### v0.22.0 URL, layouts, and setup presets
 
 Use `<keep.Collection urlSync layout="grid" />` to synchronize search, tags, sorting, and pagination with shareable URLs and browser history. For Next.js Pages Router, pass `createNextPagesRouterAdapter(router)` as `urlAdapter`. Layouts are `list`, `grid`, and `compact`; customize thumbnails, tags, and detail navigation through `itemCardProps`.
 
@@ -243,7 +243,7 @@ Use `createAuthenticatedSyncKit` when the host supplies authentication. It refre
 Use `KeepItemStatusBadge`, `KeepStaleNotice`, and `KeepPruneStaleButton` for unavailable-item recovery. `KeepSyncStatusBanner` and `KeepSyncRecoveryDialog` expose retry, local/server/manual conflict resolution, and backup restoration guidance. Optionally import `@keepkit/ui/theme.css` for CSS-variable theming, dark mode, and mobile typography.
 External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, while the recovery dialog compares local and remote updated dates and notes side by side.
 
-### v0.21.0 Tailwind and shadcn theme
+### v0.22.0 Tailwind and shadcn theme
 
 Tailwind CSS v4 needs only a CSS import. The theme is scoped by `KeepThemeProvider`, and its `--keep-*` tokens inherit shadcn/ui variables such as `--background`, `--primary`, and `--ring` when present.
 

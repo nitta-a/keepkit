@@ -49,6 +49,8 @@
   --keep-icon-upload: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 17V5m0 0 4 4m-4-4L8 9M5 21h14'/%3E%3C/svg%3E");
   --keep-icon-undo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 14-5-5 5-5M4 9h9a7 7 0 0 1 7 7v4'/%3E%3C/svg%3E");
   --keep-icon-warning: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.6 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01'/%3E%3C/svg%3E");
+  --keep-icon-pin: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m14 4 6 6-3 1-4 4-1 4-7-7 4-1 4-4Z'/%3E%3Cpath d='m9 15-5 5'/%3E%3C/svg%3E");
+  --keep-icon-archive: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18M5 6v14h14V6M9 10h6'/%3E%3Cpath d='M4 3h16v3H4z'/%3E%3C/svg%3E");
 }
 
 :where(.keep-theme, [data-keep-theme]) {
@@ -426,7 +428,11 @@
     [data-keep-action="close-dialog"],
     [data-keep-action="keep-local"],
     [data-keep-action="use-server"],
-    [data-keep-action="manual-merge"]
+    [data-keep-action="manual-merge"],
+    [data-keep-action="toggle-pin"],
+    [data-keep-action="toggle-archive"],
+    [data-keep-action="save-quick-edit"],
+    [data-keep-action="close-save-popover"]
   )::before {
   content: "";
   display: inline-block;
@@ -479,6 +485,18 @@
 }
 :where(.keep-theme, [data-keep-theme]) [data-keep-action="undo"] {
   --keep-action-icon: var(--keep-icon-undo);
+}
+:where(.keep-theme, [data-keep-theme]) [data-keep-action="toggle-pin"] {
+  --keep-action-icon: var(--keep-icon-pin);
+}
+:where(.keep-theme, [data-keep-theme]) [data-keep-action="toggle-archive"] {
+  --keep-action-icon: var(--keep-icon-archive);
+}
+:where(.keep-theme, [data-keep-theme]) [data-keep-action="save-quick-edit"] {
+  --keep-action-icon: var(--keep-icon-check);
+}
+:where(.keep-theme, [data-keep-theme]) [data-keep-action="close-save-popover"] {
+  --keep-action-icon: var(--keep-icon-close);
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-has-custom-icon="true"]::before {

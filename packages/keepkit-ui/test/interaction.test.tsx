@@ -34,6 +34,7 @@ import {
   KeepPinButton,
   KeepProvider,
   KeepPruneStaleButton,
+  KeepQuickEditor,
   KeepReorderableList,
   KeepSavePopover,
   KeepSearchInput,
@@ -142,6 +143,148 @@ test("opens save popover after a new save and debounces quick note editing", asy
   const note = screen.getByRole("textbox", { name: "Note" });
   fireEvent.change(note, { target: { value: "quick note" } });
   await waitFor(async () => expect((await storage.getAll())[0]?.note).toBe("quick note"));
+});
+
+test("labels the save popover, focuses its editor, flushes on Escape, and restores trigger focus", async () => {
+  const storage = createStorage();
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepSavePopover item={{ id: item.id, meta: item.meta }} editorProps={{ debounceMs: 0 }} />
+    </KeepProvider>,
+  );
+
+  const trigger = await screen.findByRole("button", { name: "Save item" });
+  expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(trigger);
+
+  const dialog = await screen.findByRole("dialog", { name: "Edit saved item" });
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  expect(trigger.getAttribute("aria-controls")).toBe(dialog.id);
+  const note = screen.getByRole("textbox", { name: "Note" });
+  await waitFor(() => expect(document.activeElement).toBe(note));
+  const saveButton = dialog.querySelector<HTMLElement>('[data-keep-action="save-quick-edit"]');
+  expect(saveButton).not.toBeNull();
+  if (!saveButton) throw new Error("Expected the quick editor save button");
+  saveButton.focus();
+  expect(fireEvent.keyDown(saveButton, { key: "Tab" })).toBe(true);
+  fireEvent.change(note, { target: { value: "saved before close" } });
+  expect(note.closest("form")?.getAttribute("data-save-status")).toBe("dirty");
+  fireEvent.keyDown(dialog, { key: "Escape" });
+
+  await waitFor(async () => expect((await storage.getAll())[0]?.note).toBe("saved before close"));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
+});
+
+test("flushes a controlled save popover when focus moves outside", async () => {
+  const storage = createStorage();
+  const onOpenChange = vi.fn();
+
+  function ControlledPopover() {
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <KeepSavePopover
+          item={{ id: item.id, meta: item.meta }}
+          open={open}
+          onOpenChange={(next) => {
+            onOpenChange(next);
+            setOpen(next);
+          }}
+          editorProps={{ debounceMs: 0 }}
+        />
+        <button type="button">Outside</button>
+      </>
+    );
+  }
+
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <ControlledPopover />
+    </KeepProvider>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  const note = await screen.findByRole("textbox", { name: "Note" });
+  fireEvent.change(note, { target: { value: "outside save" } });
+  fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(onOpenChange).toHaveBeenCalledWith(true);
+  expect(onOpenChange).toHaveBeenCalledWith(false);
+  expect((await storage.getAll())[0]?.note).toBe("outside save");
+});
+
+test("keeps the save popover open and announces an editor failure", async () => {
+  let items: KeepItem<Meta>[] = [];
+  const storage: StorageAdapter<Meta> = {
+    getAll: async () => [...items],
+    set: async (nextItem) => {
+      if (nextItem.note) throw new Error("Could not save the note");
+      items = [nextItem];
+    },
+    remove: async () => undefined,
+    clear: async () => undefined,
+  };
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepSavePopover item={{ id: item.id, meta: item.meta }} editorProps={{ debounceMs: 0 }} />
+    </KeepProvider>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  const note = await screen.findByRole("textbox", { name: "Note" });
+  fireEvent.change(note, { target: { value: "will fail" } });
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+  expect((await screen.findByRole("alert")).textContent).toContain("Could not save the note");
+  expect(screen.getByRole("dialog")).not.toBeNull();
+  expect(note.closest("form")?.getAttribute("data-save-status")).toBe("error");
+});
+
+test("serializes quick editor flushes and persists the latest draft", async () => {
+  let storedItem = item;
+  let releaseFirstSave: (() => void) | undefined;
+  let saveCount = 0;
+  const storage: StorageAdapter<Meta> = {
+    getAll: async () => [storedItem],
+    set: async (nextItem) => {
+      saveCount += 1;
+      if (saveCount === 1) await new Promise<void>((resolve) => (releaseFirstSave = resolve));
+      storedItem = nextItem;
+    },
+    remove: async () => undefined,
+    clear: async () => undefined,
+  };
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepQuickEditor item={item} debounceMs={0}>
+        {(state) => (
+          <>
+            <label>
+              Draft
+              <input value={state.note} onChange={(event) => state.setNote(event.currentTarget.value)} />
+            </label>
+            <button type="button" onClick={() => void state.flush()}>
+              Flush
+            </button>
+            <output data-testid="quick-save-status">{state.saveStatus}</output>
+          </>
+        )}
+      </KeepQuickEditor>
+    </KeepProvider>,
+  );
+
+  const draft = await screen.findByRole("textbox", { name: "Draft" });
+  fireEvent.change(draft, { target: { value: "first draft" } });
+  fireEvent.click(screen.getByRole("button", { name: "Flush" }));
+  await waitFor(() => expect(screen.getByTestId("quick-save-status").textContent).toBe("saving"));
+  fireEvent.change(draft, { target: { value: "latest draft" } });
+  fireEvent.click(screen.getByRole("button", { name: "Flush" }));
+  releaseFirstSave?.();
+
+  await waitFor(() => expect(storedItem.note).toBe("latest draft"));
+  expect(screen.getByTestId("quick-save-status").textContent).toBe("saved");
+  expect(saveCount).toBe(2);
 });
 
 test("removes individual active filters and clears all filters", () => {
@@ -595,9 +738,38 @@ test("keeps compound card parts complete and accessible", async () => {
   expect(screen.getByRole("link", { name: "Interaction item" }).getAttribute("href")).toBe("/items/compound");
   expect(screen.getByRole("list", { name: "Tags" }).textContent).toContain("read");
   expect(screen.getByRole("button", { name: "Remove Interaction item" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "Remove" }).getAttribute("data-keep-action")).toBe("remove-item");
   expect(screen.getByTestId("compound-media").getAttribute("data-keep-card-part")).toBe("media");
   expect(screen.getByTestId("compound-content").getAttribute("data-keep-card-part")).toBe("content");
   expect(screen.getByTestId("compound-actions").getAttribute("data-keep-card-part")).toBe("actions");
+});
+
+test("composes save, pin, archive, and remove card action slots without changing default actions", async () => {
+  const storage = createStorage([item]);
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepItemCard item={item}>
+        <KeepItemCard.Content />
+        <KeepItemCard.Actions>
+          <KeepItemCard.Save data-testid="card-save-slot" />
+          <KeepItemCard.Pin />
+          <KeepItemCard.Archive />
+          <KeepItemCard.Remove data-testid="card-remove-slot">Remove now</KeepItemCard.Remove>
+        </KeepItemCard.Actions>
+      </KeepItemCard>
+    </KeepProvider>,
+  );
+
+  expect((await screen.findByTestId("card-save-slot")).getAttribute("data-keep-action")).toBe("toggle-save");
+  expect(screen.getByTestId("card-remove-slot").getAttribute("data-keep-action")).toBe("remove-item");
+  const pin = screen.getByRole("button", { name: "Pin" });
+  fireEvent.click(pin);
+  await waitFor(() => expect(pin.getAttribute("aria-pressed")).toBe("true"));
+  const archive = screen.getByRole("button", { name: "Archive" });
+  fireEvent.click(archive);
+  await waitFor(() => expect(archive.getAttribute("aria-pressed")).toBe("true"));
+  fireEvent.click(screen.getByRole("button", { name: "Remove now" }));
+  await waitFor(async () => expect(await storage.getAll()).toEqual([]));
 });
 
 test("highlights literal, case-insensitive search matches in card titles and content", async () => {
@@ -733,6 +905,11 @@ test("ships dark-mode and reduced-motion CSS contracts", async () => {
   expect(cssText).toContain("--keep-warning");
   expect(cssText).toContain("mask: var(--keep-action-icon)");
   expect(cssText).toContain('[data-keep-action="search"]');
+  expect(cssText).toContain('[data-keep-action="toggle-pin"]');
+  expect(cssText).toContain('[data-keep-action="toggle-archive"]');
+  expect(cssText).toContain('[data-keepkit="quick-editor"]');
+  expect(cssText).toContain('[data-keep-popover-panel="true"]');
+  expect(cssText).toContain('[data-keep-card-part="collection-badge"]');
   expect(cssText).toContain(":focus-visible");
   expect(cssText).toContain(".dark");
   expect(cssText).toContain("keep-theme--high-contrast");
@@ -741,6 +918,7 @@ test("ships dark-mode and reduced-motion CSS contracts", async () => {
   expect(cssText).toContain("keep-theme--sunset");
   expect(cssText).toContain("keep-theme--lavender");
   expect(cssText).toContain("@media (max-width: 48rem)");
+  expect(cssText).toContain("flex: 0 0 auto;");
   expect(cssText).toContain("container-type: inline-size");
   expect(cssText).toContain("container-name: keepkit-layout");
   expect(cssText).toContain("@container keepkit-layout");

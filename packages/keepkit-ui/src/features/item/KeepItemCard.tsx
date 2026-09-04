@@ -2,6 +2,7 @@
 
 import type { KeepItem } from "@keepkit/core/core";
 import {
+  type ButtonHTMLAttributes,
   type ComponentType,
   createContext,
   createElement,
@@ -30,7 +31,7 @@ import {
   KeepPinButton,
   type KeepPinButtonProps,
 } from "../actions/KeepArchiveButton";
-import { KeepButton, type KeepButtonLabels } from "../actions/KeepButton";
+import { KeepButton, type KeepButtonLabels, type KeepButtonProps } from "../actions/KeepButton";
 import type { KeepLayoutPreset } from "../collection/KeepCollection";
 import { KeepStaleNotice } from "../status/KeepStaleNotice";
 import { useKeepItemCard } from "./hooks/useKeepItemCard";
@@ -116,6 +117,11 @@ type KeepItemCardCompoundContext = {
   meta: ReactNode | null;
   error: ReactNode | null;
   actions: ReactNode;
+  saveButtonLabels?: KeepButtonLabels;
+  removeLabel: string;
+  remove: () => Promise<void>;
+  isMutating: boolean;
+  saveAriaLabel: string;
   renderText: (content: ReactNode) => ReactNode;
 };
 
@@ -242,23 +248,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     <KeepStaleNotice item={item} onRetry={onRetry} onRemoved={onRemoved} />
   ) : (
     <>
-      {showSaveButton ? (
-        <KeepButton
-          item={toKeepButtonItem(item)}
-          labels={saveButtonLabels}
-          getAriaLabel={(buttonState) =>
-            `${buttonState.isSaved ? view.labels.remove : view.labels.save} ${String(view.resolvedTitle)}`
-          }
-        />
-      ) : null}
-      <button
-        type="button"
-        data-keep-action="remove-item"
-        onClick={() => void view.remove()}
-        disabled={view.itemState.isMutating}
-      >
-        {removeLabel ?? view.labels.remove}
-      </button>
+      {showSaveButton ? <KeepItemCardSave /> : null}
+      <KeepItemCardRemove />
     </>
   );
   const compoundValue: KeepItemCardCompoundContext = {
@@ -275,6 +266,11 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     meta,
     error,
     actions,
+    saveButtonLabels,
+    removeLabel: removeLabel ?? view.labels.remove,
+    remove: view.remove,
+    isMutating: view.itemState.isMutating,
+    saveAriaLabel: `${view.labels.remove} ${String(view.resolvedTitle)}`,
     renderText: (content) => <KeepHighlight query={searchQuery}>{content}</KeepHighlight>,
   };
   const defaultBody = (
@@ -387,7 +383,42 @@ function KeepItemCardActions({ children, ...props }: KeepItemCardActionsProps) {
 export type KeepItemCardActionSlotProps = Omit<KeepPinButtonProps<unknown>, "item" | "children"> & {
   children?: ReactNode;
 };
+export type KeepItemCardSaveProps = Omit<KeepButtonProps<unknown>, "item" | "asChild"> & { asChild?: false };
+export type KeepItemCardRemoveProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
+  children?: ReactNode;
+};
 export type KeepItemCardBadgeProps = HTMLAttributes<HTMLSpanElement>;
+
+function KeepItemCardSave({ labels, getAriaLabel, ...props }: KeepItemCardSaveProps) {
+  const context = useKeepItemCardCompound("Save");
+  return (
+    <KeepButton<unknown>
+      {...props}
+      item={toKeepButtonItem(context.item)}
+      asChild={false}
+      labels={labels ?? context.saveButtonLabels}
+      getAriaLabel={getAriaLabel ?? (() => context.saveAriaLabel)}
+    />
+  );
+}
+
+function KeepItemCardRemove({ children, disabled, onClick, ...props }: KeepItemCardRemoveProps) {
+  const context = useKeepItemCardCompound("Remove");
+  return (
+    <button
+      {...props}
+      type={props.type ?? "button"}
+      data-keep-action="remove-item"
+      disabled={disabled ?? context.isMutating}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) void context.remove();
+      }}
+    >
+      {children ?? context.removeLabel}
+    </button>
+  );
+}
 
 function KeepItemCardPin({ children, ...props }: KeepItemCardActionSlotProps) {
   const context = useKeepItemCardCompound("Pin");
@@ -426,6 +457,8 @@ export const KeepItemCard = Object.assign(KeepItemCardRoot, {
   Title: KeepItemCardTitle,
   Tags: KeepItemCardTags,
   Actions: KeepItemCardActions,
+  Save: KeepItemCardSave,
+  Remove: KeepItemCardRemove,
   Pin: KeepItemCardPin,
   Archive: KeepItemCardArchive,
   CollectionBadge: KeepItemCardCollectionBadge,

@@ -7,13 +7,15 @@ export interface AppViewState {
   isOnline: boolean;
   savedItemCount: number;
   syncLabel: string;
-  clearAll: () => void;
+  shortcutLabel: string;
 }
 
 export function useAppView(shortcutItem: KeepItem<DemoMeta>): AppViewState {
   const [isOnline, setIsOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
-  const { items, clear } = useKeepList<DemoMeta>();
+  const { items } = useKeepList<DemoMeta>();
   const { syncState } = useKeepContext<DemoMeta>();
+  const isApplePlatform =
+    typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
 
   useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);
@@ -27,7 +29,7 @@ export function useAppView(shortcutItem: KeepItem<DemoMeta>): AppViewState {
 
   useKeepShortcut({
     key: "k",
-    modifier: "meta",
+    modifier: isApplePlatform ? "meta" : "ctrl",
     item: {
       id: shortcutItem.id,
       meta: shortcutItem.meta,
@@ -50,6 +52,6 @@ export function useAppView(shortcutItem: KeepItem<DemoMeta>): AppViewState {
     isOnline,
     savedItemCount: items.length,
     syncLabel,
-    clearAll: () => void clear(),
+    shortcutLabel: isApplePlatform ? "⌘K" : "Ctrl+K",
   };
 }

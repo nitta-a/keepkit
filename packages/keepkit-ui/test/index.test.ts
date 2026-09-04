@@ -71,6 +71,8 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepItemCard.Title, "function");
   assert.equal(typeof KeepItemCard.Tags, "function");
   assert.equal(typeof KeepItemCard.Actions, "function");
+  assert.equal(typeof KeepItemCard.Save, "function");
+  assert.equal(typeof KeepItemCard.Remove, "function");
   assert.equal(typeof KeepItemCard.Pin, "function");
   assert.equal(typeof KeepItemCard.Archive, "function");
   assert.equal(typeof KeepItemCard.CollectionBadge, "function");

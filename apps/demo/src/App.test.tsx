@@ -79,12 +79,21 @@ test("saves a resource and displays it in the collection", async () => {
   expect(await screen.findByRole("heading", { name: "Nothing here yet" })).toBeInTheDocument();
   fireEvent.click(screen.getAllByText("Save for later")[0]);
 
+  const quickEditor = await screen.findByRole("dialog", { name: "Edit saved item" });
+  fireEvent.change(within(quickEditor).getByRole("textbox", { name: "Note" }), {
+    target: { value: "Return to this guide" },
+  });
+  await waitFor(() => expect(getItems()[0]?.note).toBe("Return to this guide"));
+  fireEvent.click(within(quickEditor).getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
   await waitFor(() => {
     expect(screen.getByRole("button", { name: "Remove saved item" })).toHaveAttribute("aria-pressed", "true");
   });
   expect(within(await findCollectionList()).getByText(firstArticle.meta.title)).toBeInTheDocument();
   expect(getItems()).toHaveLength(1);
   expect(getItems()[0]?.id).toBe(firstArticle.id);
+  expect(getItems()[0]?.note).toBe("Return to this guide");
 });
 
 test("filters the collection by resource type", async () => {
@@ -120,18 +129,26 @@ test("adds and saves a note for an existing resource", async () => {
   expect(getItems()[0]?.note).toBe("Read this later");
 });
 
-test("removes an item and clears the remaining collection", async () => {
-  renderDemo([toSavedItem(firstArticle), toSavedItem(product, 2)]);
-  const collection = await findCollectionList();
+test("manages selected items with removal and Undo instead of clearing the collection", async () => {
+  const { getItems } = renderDemo([toSavedItem(firstArticle), toSavedItem(product, 2)]);
+  await findCollectionList();
 
-  const firstSavedItem = within(collection).getByRole("heading", { name: firstArticle.meta.title }).closest("li");
-  expect(firstSavedItem).not.toBeNull();
-  fireEvent.click(within(firstSavedItem as HTMLElement).getByRole("button", { name: "Remove" }));
+  fireEvent.click(screen.getByRole("button", { name: "Manage items" }));
+  expect(screen.queryByRole("button", { name: "Clear all" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("checkbox", { name: firstArticle.meta.title }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
   await waitFor(() => {
-    expect(within(collection).queryByText(firstArticle.meta.title)).not.toBeInTheDocument();
-    expect(within(collection).getByText(product.meta.title)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Manage items" })).toBeInTheDocument();
+    expect(getItems().map((item) => item.id)).toEqual([product.id]);
   });
 
-  fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
-  expect(await screen.findByRole("heading", { name: "Nothing here yet" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await waitFor(() =>
+    expect(
+      getItems()
+        .map((item) => item.id)
+        .sort(),
+    ).toEqual([firstArticle.id, product.id].sort()),
+  );
+  expect(within(await findCollectionList()).getByText(firstArticle.meta.title)).toBeInTheDocument();
 });

@@ -12,6 +12,8 @@ export const ZH_HANT_LABELS: KeepUiLocaleLabels = {
   filterCollections: "依收藏集篩選",
   uncategorized: "未分類",
   saveWithNote: "儲存並加備註",
+  editSavedItem: "編輯已儲存項目",
+  unsavedChanges: "有未儲存的變更",
   save: "儲存",
   saved: "已儲存",
   remove: "刪除",

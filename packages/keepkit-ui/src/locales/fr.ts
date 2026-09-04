@@ -12,6 +12,8 @@ export const FR_LABELS: KeepUiLocaleLabels = {
   filterCollections: "Filtrer par collection",
   uncategorized: "Non classé",
   saveWithNote: "Enregistrer avec une note",
+  editSavedItem: "Modifier l’élément enregistré",
+  unsavedChanges: "Modifications non enregistrées",
   save: "Enregistrer",
   saved: "Enregistré",
   remove: "Supprimer",

@@ -1,5 +1,6 @@
 import type { KeepItem } from "@keepkit/core/core";
 import {
+  KeepBulkActions,
   KeepCollection,
   KeepEmptyState,
   KeepItemCard,
@@ -75,8 +76,9 @@ const content: Content[] = [
 ];
 
 export function App() {
-  const { isOnline, savedItemCount, syncLabel, clearAll } = useAppView(content[0]);
+  const { isOnline, savedItemCount, shortcutLabel, syncLabel } = useAppView(content[0]);
   const [showArchived, setShowArchived] = useState(false);
+  const [isManaging, setIsManaging] = useState(false);
 
   return (
     <main className="shell">
@@ -90,7 +92,7 @@ export function App() {
         <div className={isOnline ? "sync-status online" : "sync-status offline"} aria-live="polite">
           <span className="status-dot" aria-hidden="true" />
           <span>{syncLabel}</span>
-          <span className="shortcut-hint">⌘K saves the first article</span>
+          <span className="shortcut-hint">{shortcutLabel} saves the first article</span>
         </div>
       </header>
 
@@ -129,7 +131,7 @@ export function App() {
                       entry.targetType === "article" ? "reading" : entry.targetType === "product" ? "shopping" : "work",
                     ...(entry.targetType === undefined ? {} : { targetType: entry.targetType }),
                   }}
-                  editorProps={{ collectionIds: ["reading", "shopping", "work"] }}
+                  editorProps={{ collectionIds: ["reading", "shopping", "work"], showSaveButton: false }}
                   buttonProps={{ savedLabel: "Saved ✓", unsavedLabel: "Save for later" }}
                 />
               </div>
@@ -149,48 +151,68 @@ export function App() {
             <button className="text-button" onClick={() => setShowArchived((current) => !current)} type="button">
               {showArchived ? "Show active" : "Show archived"}
             </button>
-            <button className="text-button" onClick={clearAll} type="button">
-              Clear all
+            <button
+              className="text-button"
+              onClick={() => setIsManaging((current) => !current)}
+              type="button"
+              disabled={savedItemCount === 0}
+              aria-expanded={isManaging}
+              aria-controls="collection-manager"
+            >
+              {isManaging ? "Done managing" : "Manage items"}
             </button>
           </div>
         </div>
 
-        <KeepCollection<DemoMeta>
-          className="demo-collection"
-          layout="auto"
-          loadingCount={6}
-          pageSize={6}
-          query={{ archived: showArchived, pinnedFirst: true }}
-          features={{ tagFilter: true, collectionFilter: true }}
-          empty={
-            <KeepEmptyState
-              title="Nothing here yet"
-              description="Save a resource above and it will appear in this searchable collection."
+        {isManaging ? (
+          <div id="collection-manager" className="collection-manager">
+            <p>Select the items you want to update or remove. Removed items can be restored with Undo.</p>
+            <KeepBulkActions<DemoMeta>
+              query={{ archived: showArchived, pinnedFirst: true }}
+              onCompleted={() => setIsManaging(false)}
             />
-          }
-          renderItem={(item) => (
-            <li className="saved-item" key={item.id}>
-              <KeepItemCard
-                item={item}
-                href={item.meta.url}
-                showSaveButton={false}
-                getImageProps={(entry) => ({ src: entry.meta.image, alt: entry.meta.title })}
-              >
-                <KeepItemCard.Media />
-                <KeepItemCard.Content>
-                  <span className="type-badge">{item.targetType ?? "Item"}</span>
-                  <KeepItemCard.Title />
-                  <KeepItemCard.Tags />
-                </KeepItemCard.Content>
-                <KeepItemCard.Actions />
-                <KeepItemCard.Pin />
-                <KeepItemCard.Archive />
-                <KeepItemCard.CollectionBadge />
-              </KeepItemCard>
-              <KeepNoteEditor item={item} placeholder="Why is this worth returning to?" showShortcutHint />
-            </li>
-          )}
-        />
+          </div>
+        ) : (
+          <KeepCollection<DemoMeta>
+            className="demo-collection"
+            layout="auto"
+            loadingCount={6}
+            pageSize={6}
+            query={{ archived: showArchived, pinnedFirst: true }}
+            features={{ tagFilter: true, collectionFilter: true }}
+            empty={
+              <KeepEmptyState
+                title="Nothing here yet"
+                description="Save a resource above and it will appear in this searchable collection."
+              />
+            }
+            renderItem={(item) => (
+              <li className="saved-item" key={item.id}>
+                <KeepItemCard
+                  id={`saved-item-${encodeURIComponent(item.id)}`}
+                  item={item}
+                  href={item.meta.url}
+                  showSaveButton={false}
+                  getImageProps={(entry) => ({ src: entry.meta.image, alt: entry.meta.title })}
+                >
+                  <KeepItemCard.Media />
+                  <KeepItemCard.Content>
+                    <span className="type-badge">{item.targetType ?? "Item"}</span>
+                    <KeepItemCard.Title />
+                    <KeepItemCard.Tags />
+                    <KeepItemCard.CollectionBadge />
+                  </KeepItemCard.Content>
+                  <KeepItemCard.Actions>
+                    <KeepItemCard.Pin />
+                    <KeepItemCard.Archive />
+                    <KeepItemCard.Remove />
+                  </KeepItemCard.Actions>
+                </KeepItemCard>
+                <KeepNoteEditor item={item} placeholder="Why is this worth returning to?" showShortcutHint />
+              </li>
+            )}
+          />
+        )}
         <KeepUndo />
         <KeepTourBar<DemoMeta>
           currentId={content[0].id}

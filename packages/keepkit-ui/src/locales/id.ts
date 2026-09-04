@@ -12,6 +12,8 @@ export const ID_LABELS: KeepUiLocaleLabels = {
   filterCollections: "Filter koleksi",
   uncategorized: "Tanpa kategori",
   saveWithNote: "Simpan dengan catatan",
+  editSavedItem: "Edit item tersimpan",
+  unsavedChanges: "Perubahan belum disimpan",
   save: "Simpan",
   saved: "Tersimpan",
   remove: "Hapus",

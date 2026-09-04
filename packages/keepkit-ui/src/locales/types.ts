@@ -17,6 +17,8 @@ export type KeepUiLabelKey =
   | "filterCollections"
   | "uncategorized"
   | "saveWithNote"
+  | "editSavedItem"
+  | "unsavedChanges"
   | "allTags"
   | "tags"
   | "filterTags"

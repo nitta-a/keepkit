@@ -12,6 +12,8 @@ export const KO_LABELS: KeepUiLocaleLabels = {
   filterCollections: "컬렉션 필터",
   uncategorized: "미분류",
   saveWithNote: "메모와 함께 저장",
+  editSavedItem: "저장된 항목 편집",
+  unsavedChanges: "저장되지 않은 변경 사항",
   save: "저장",
   saved: "저장됨",
   remove: "삭제",

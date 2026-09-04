@@ -256,6 +256,22 @@ h3 {
 .text-button:hover {
   text-decoration: underline;
 }
+.text-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  text-decoration: none;
+}
+
+.collection-manager {
+  display: grid;
+  gap: 14px;
+}
+.collection-manager > p {
+  margin: 0;
+  color: #746e64;
+  font-size: 14px;
+  line-height: 1.5;
+}
 
 .demo-toast {
   position: fixed;
@@ -284,6 +300,14 @@ h3 {
 }
 
 @media (max-width: 800px) {
+  .theme-switcher {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: fit-content;
+    margin: 14px 14px 0 auto;
+  }
+
   .content-grid {
     grid-template-columns: 1fr;
   }
@@ -312,6 +336,7 @@ h3 {
   }
   .collection-actions {
     align-items: flex-start;
+    flex-wrap: wrap;
   }
   .content-card {
     display: block;

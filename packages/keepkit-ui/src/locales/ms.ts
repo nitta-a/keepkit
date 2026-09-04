@@ -12,6 +12,8 @@ export const MS_LABELS: KeepUiLocaleLabels = {
   filterCollections: "Tapis koleksi",
   uncategorized: "Tiada kategori",
   saveWithNote: "Simpan dengan nota",
+  editSavedItem: "Edit item yang disimpan",
+  unsavedChanges: "Perubahan belum disimpan",
   save: "Simpan",
   saved: "Disimpan",
   remove: "Buang",

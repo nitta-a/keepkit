@@ -1,6 +1,12 @@
 import type { RemoteSyncDriver } from "@keepkit/core/core";
 import { createBrowserStorageAdapter, SyncStorageAdapter } from "@keepkit/core/storage";
-import { KeepKitProvider, type KeepThemeName, type KeepToastFeedbackOptions, useKeepToastFeedback } from "@keepkit/ui";
+import {
+  KeepKitProvider,
+  type KeepThemeName,
+  type KeepToastFeedbackOptions,
+  type KeepUiFeedbackEvent,
+  useKeepToastFeedback,
+} from "@keepkit/ui";
 import { StrictMode, useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -46,7 +52,28 @@ function Demo() {
   const showToast = useCallback((message: string, options?: KeepToastFeedbackOptions) => {
     setToast({ message, ...(options ? { options } : {}) });
   }, []);
-  const onFeedback = useKeepToastFeedback<DemoMeta>(showToast);
+  const showDefaultFeedback = useKeepToastFeedback<DemoMeta>(showToast);
+  const onFeedback = useCallback(
+    (event: KeepUiFeedbackEvent<DemoMeta>) => {
+      if (event.type !== "item-saved") {
+        showDefaultFeedback(event);
+        return;
+      }
+      showToast(event.message, {
+        action: {
+          label: "View in collection",
+          onClick: () => {
+            const card = document.getElementById(`saved-item-${encodeURIComponent(event.item.id)}`);
+            const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+            card?.scrollIntoView?.({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+            window.requestAnimationFrame(() => card?.focus());
+            setToast(undefined);
+          },
+        },
+      });
+    },
+    [showDefaultFeedback, showToast],
+  );
 
   return (
     <KeepKitProvider<DemoMeta> storage={storage} theme={theme} mode="light" radius="large" onFeedback={onFeedback}>
