@@ -1,5 +1,23 @@
 # Release notes
 
+## [0.23.2] - 2026-09-05
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepCollection features`で標準カードのピン留め、アーカイブ、タグ表示を個別に切り替えられるようにしました。
+- `itemCardProps`の`showPinButton`、`showArchiveButton`、`showTags`を指定した場合は、コレクション設定より優先するようにしました。
+- UIパッケージのREADMEに、機能を絞った構成例を追加しました。
+
+### English
+
+#### Added and changed
+
+- Added independent `KeepCollection features` toggles for standard card pinning, archiving, and tag display.
+- Explicit `itemCardProps` values for `showPinButton`, `showArchiveButton`, and `showTags` take precedence over collection features.
+- Added focused feature-configuration examples to the UI package documentation.
+
 ## [0.19.0] - 2026-09-04
 
 ### 日本語

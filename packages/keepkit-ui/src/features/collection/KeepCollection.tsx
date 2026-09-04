@@ -14,7 +14,16 @@ import { KeepPagination, KeepSearchInput, KeepSortSelect } from "../query/query-
 import { useKeepCollection } from "./hooks/useKeepCollection";
 import { KeepList, type KeepListState } from "./KeepList";
 
-export type KeepCollectionFeature = "search" | "sort" | "pagination" | "tagFilter" | "collectionFilter" | "bulkActions";
+export type KeepCollectionFeature =
+  | "search"
+  | "sort"
+  | "pagination"
+  | "tagFilter"
+  | "collectionFilter"
+  | "bulkActions"
+  | "tags"
+  | "pin"
+  | "archive";
 export type KeepLayoutPreset = "list" | "grid" | "compact" | "auto";
 
 export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
@@ -71,6 +80,12 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   ...rootProps
 }: Omit<KeepCollectionProps<TMeta>, "fallback" | "onBoundaryError" | "boundaryResetKey">) {
   const view = useKeepCollection<TMeta>({ query, pageSize, urlSync, urlAdapter, features });
+  const resolvedItemCardProps = {
+    ...itemCardProps,
+    showTags: itemCardProps?.showTags ?? view.enabled.tags,
+    showPinButton: itemCardProps?.showPinButton ?? view.enabled.pin,
+    showArchiveButton: itemCardProps?.showArchiveButton ?? view.enabled.archive,
+  };
 
   return (
     <section
@@ -110,7 +125,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
       <KeepList<TMeta>
         query={view.resolvedQuery}
         renderItem={renderItem}
-        itemCardProps={itemCardProps}
+        itemCardProps={resolvedItemCardProps}
         layout={layout}
         loading={loading}
         renderLoading={renderLoading}

@@ -57,6 +57,7 @@ function SavedArticles() {
 ```
 
 `keep.Collection`は検索、ソート、ページング、loading / empty / error、ARIA live通知を標準で提供します。検索は既定で300msデバウンスされます。`features={{ tagFilter: true, bulkActions: true }}`でタグフィルターと一括操作も有効にできます。個別の`KeepList`、`KeepSearchInput`、`KeepSortSelect`、`KeepPagination`、`KeepItemCheckbox`、`KeepTagEditor`などは高度なレイアウト用に利用できます。`KeepBulkActions`はrender propsで操作UIを差し替えられ、`isAllSelected` / `toggleSelectAll`で表示中アイテムを一括操作できます。`KeepNoteEditor`は既定300msのデバウンス保存に対応し、`debounceMs={0}`でフォーム送信のみへ戻せます。通知領域だけを明示的に置く場合は`KeepAnnouncer`（`KeepAnnouncements`のalias）を使えます。
+一覧の標準カードで必要な機能だけを有効化する場合は、`features={{ pin: true, archive: true, tags: false }}`を指定できます。`pin` / `archive` はカード操作ボタン、`tags` はカード内のタグ表示を切り替えます。タグフィルターは`tagFilter`、タグ編集は`KeepTagEditor`で個別に制御でき、`itemCardProps`の明示指定が`features`より優先されます。
 `KeepCollection`は検索語と選択タグを`KeepActiveFiltersSummary`のチップとして表示し、個別解除と「すべての条件をクリア」を提供します。`activeFilters`でこの領域を差し替えられます。標準の`KeepList` / `KeepCollection`は、全件0件の`empty-storage`と絞り込み結果0件の`empty-filtered`を区別し、後者では`onClearFilters`付きの解除ボタンを表示します。
 `KeepItemCard`は`href`、`onOpen`、`linkTarget`、`linkComponent`に対応し、保存アイテムから詳細ページへ遷移できます。非公開・期限切れ等の`status`を持つアイテムは自動的にリンクを無効化します。`KeepBackup`はJSONのエクスポート、merge / replaceインポート、結果件数、容量エラー表示を提供します。
 `KeepTourBar`（alias: `KeepNavigator`）は進行度、前へ・次へ、一覧へ戻る操作をURLまたはコールバックで提供します。前後ボタンには隣接アイテム名のプレビューが付き、`getItemTitle`で表示名を差し替えられます。`keyboardShortcuts`を指定するとJ/Kまたは]/[で巡回でき、`useKeepTourShortcuts`ではキーと動作を個別に差し替えられます。`KeepReorderableList`はドラッグ操作と矢印キーによる並び替えを提供し、ドラッグ中の挿入位置を表示します。
@@ -93,7 +94,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.23.1ではTailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応を追加しました。保存直後の`KeepSavePopover`自動編集、`KeepQuickEditorState.saveStatus`、`KeepItemCard.Save` / `KeepItemCard.Remove`、管理モード向け`KeepBulkActions`、通知からのコレクション再訪導線も引き続き利用できます。
+v0.23.2では一覧の標準カードでピン留め・アーカイブ・タグ表示を個別に切り替えられるようにしました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。保存直後の`KeepSavePopover`自動編集、`KeepQuickEditorState.saveStatus`、`KeepItemCard.Save` / `KeepItemCard.Remove`、管理モード向け`KeepBulkActions`、通知からのコレクション再訪導線も引き続き利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -184,6 +185,7 @@ function SavedArticles() {
 ```
 
 `keep.Collection` includes search, sorting, pagination, loading/empty/error states, and polite live announcements. Search is debounced by 300ms by default. Enable `features={{ tagFilter: true, bulkActions: true }}` for tag filtering and bulk operations. Use the individual `KeepList`, `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, and `KeepTagEditor` primitives when you need a custom layout. `KeepBulkActions` supports render props and exposes `isAllSelected` / `toggleSelectAll` for visible-item selection. `KeepNoteEditor` auto-saves dirty notes after 300ms by default; set `debounceMs={0}` to use form submission only. Mount `KeepAnnouncer` (`KeepAnnouncements` alias) when you need the live region explicitly.
+Enable only the standard card features you need with `features={{ pin: true, archive: true, tags: false }}`. `pin` and `archive` toggle card action buttons, while `tags` controls tag display inside cards. Tag filtering remains independently controlled by `tagFilter`, tag editing by `KeepTagEditor`, and explicit `itemCardProps` values take precedence over `features`.
 `KeepCollection` renders the current search and tag filters as `KeepActiveFiltersSummary` chips with individual removal and a “Clear all filters” action. Replace that area with the `activeFilters` slot. Default `KeepList` / `KeepCollection` output distinguishes `empty-storage` from `empty-filtered`; the filtered state includes a reset button when `onClearFilters` is provided.
 
 The opt-in theme adds neutral borders, surfaces, shadows, focus treatment, and decorative action icons without changing accessible names. Target individual controls with `data-keep-action`, or override `--keep-icon-size`, `--keep-control-gap`, `--keep-shadow`, `--keep-success`, and `--keep-warning`. Consumers that omit the CSS keep the headless markup, and `KeepButton icons` continues to take precedence over the built-in icon.
@@ -217,7 +219,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-In v0.23.1, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support are included. `KeepSavePopover` post-save editing, `KeepQuickEditorState.saveStatus`, `KeepItemCard.Save` / `KeepItemCard.Remove`, management-mode `KeepBulkActions`, and notification-driven return to the collection remain available.
+In v0.23.2, standard card pinning, archiving, and tag display can be enabled independently. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available. `KeepSavePopover` post-save editing, `KeepQuickEditorState.saveStatus`, `KeepItemCard.Save` / `KeepItemCard.Remove`, management-mode `KeepBulkActions`, and notification-driven return to the collection remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme

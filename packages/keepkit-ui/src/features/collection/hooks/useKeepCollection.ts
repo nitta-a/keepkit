@@ -28,6 +28,9 @@ export function useKeepCollection<TMeta>({
     tagFilter: false,
     collectionFilter: false,
     bulkActions: false,
+    tags: true,
+    pin: false,
+    archive: false,
     ...features,
   };
   const [searchValue, setSearchValue] = useState(query.search?.query ?? "");

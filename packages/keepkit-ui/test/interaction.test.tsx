@@ -1070,6 +1070,45 @@ test("exposes stable data attributes for CSS styling", async () => {
   expect(screen.getByTestId("pagination").querySelector('[data-keep-action="next-page"]')).not.toBeNull();
 });
 
+test("enables optional pin, archive, and tag card features from collection config", async () => {
+  const storage = createStorage([{ ...item, tags: ["read"] }]);
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepCollection
+        features={{ search: false, sort: false, pagination: false, pin: true, archive: true, tags: false }}
+      />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+  expect(screen.queryByRole("list", { name: "Tags" })).toBeNull();
+  const pin = screen.getByRole("button", { name: "Pin" });
+  const archive = screen.getByRole("button", { name: "Archive" });
+  expect(pin.getAttribute("aria-pressed")).toBe("false");
+  expect(archive.getAttribute("aria-pressed")).toBe("false");
+
+  fireEvent.click(pin);
+  await waitFor(() => expect(pin.getAttribute("aria-pressed")).toBe("true"));
+  fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+  await waitFor(async () => expect((await storage.getAll())[0]?.archived).toBe(true));
+});
+
+test("allows explicit item card feature props to override collection defaults", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([{ ...item, tags: ["read"] }])}>
+      <KeepCollection
+        features={{ search: false, sort: false, pagination: false, pin: true, archive: true, tags: false }}
+        itemCardProps={{ showPinButton: false, showArchiveButton: false, showTags: true }}
+      />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+  expect(screen.getByRole("list", { name: "Tags" }).textContent).toContain("read");
+  expect(screen.queryByRole("button", { name: "Pin" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Archive" })).toBeNull();
+});
+
 test("links available card titles and blocks unavailable card links", async () => {
   const onOpen = vi.fn();
   render(

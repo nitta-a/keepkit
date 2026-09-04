@@ -78,6 +78,8 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   onRemoved?: (item: KeepItem<TMeta>) => void;
   onRetry?: (item: KeepItem<TMeta>) => void | Promise<void>;
   showSaveButton?: boolean;
+  showPinButton?: boolean;
+  showArchiveButton?: boolean;
   saveButtonLabels?: KeepButtonLabels;
   asChild?: boolean;
   href?: string | ((item: KeepItem<TMeta>) => string | undefined);
@@ -153,6 +155,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   onRemoved,
   onRetry,
   showSaveButton = true,
+  showPinButton = false,
+  showArchiveButton = false,
   saveButtonLabels,
   asChild = false,
   href: hrefOption,
@@ -249,6 +253,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   ) : (
     <>
       {showSaveButton ? <KeepItemCardSave /> : null}
+      {showPinButton ? <KeepItemCardPin /> : null}
+      {showArchiveButton ? <KeepItemCardArchive /> : null}
       <KeepItemCardRemove />
     </>
   );
