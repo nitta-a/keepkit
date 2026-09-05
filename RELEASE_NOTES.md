@@ -1,5 +1,21 @@
 # Release notes
 
+## [0.26.3] - 2026-09-05
+
+### 日本語
+
+#### 追加・修正
+
+- `apps/collection-demo` に、最小構成と高度な操作を切り替えて確認できる `KeepCollection` デモを追加しました。
+- demo を単独で dev 起動・ビルドした場合も、`@keepkit/ui/theme.css` が事前生成されるようにしました。
+
+### English
+
+#### Added and fixed
+
+- Added `apps/collection-demo`, a `KeepCollection` demo with minimal and advanced modes.
+- Ensured `@keepkit/ui/theme.css` is generated before standalone demo dev and build commands.
+
 ## [0.26.2] - 2026-09-05
 
 ### 日本語
