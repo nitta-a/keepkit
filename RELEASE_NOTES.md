@@ -1,5 +1,21 @@
 # Release notes
 
+## [0.26.2] - 2026-09-05
+
+### 日本語
+
+#### 修正
+
+- Workspaceの空コンテンツが空の領域枠を生成しないように修正しました。
+- Collectionツールバーのグループに明示的な`role="group"`を付与しました。
+
+### English
+
+#### Fixed
+
+- Prevented empty Workspace content from generating empty region frames.
+- Added an explicit `role="group"` to grouped Collection toolbar regions.
+
 ## [0.26.1] - 2026-09-05
 
 ### 日本語

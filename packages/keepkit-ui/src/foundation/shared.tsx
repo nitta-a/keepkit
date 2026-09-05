@@ -5,6 +5,7 @@ import {
   type ComponentType,
   cloneElement,
   createContext,
+  Fragment,
   type HTMLAttributes,
   type ImgHTMLAttributes,
   isValidElement,
@@ -132,6 +133,16 @@ export function sortToValue(sort: KeepListQuery["sort"]): `${"savedAt" | "update
 
 export function resolveContent<TState>(content: ReactNode | RenderProp<TState>, state: TState): ReactNode {
   return typeof content === "function" ? content(state) : content;
+}
+
+export function hasRenderableContent(content: ReactNode): boolean {
+  if (content === null || content === undefined || typeof content === "boolean") return false;
+  if (typeof content === "string") return content.length > 0;
+  if (Array.isArray(content)) return content.some(hasRenderableContent);
+  if (isValidElement<{ children?: ReactNode }>(content) && content.type === Fragment) {
+    return hasRenderableContent(content.props.children);
+  }
+  return true;
 }
 
 type MergeableProps = Record<string, unknown>;

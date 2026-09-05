@@ -1,7 +1,7 @@
 "use client";
 
 import type { HTMLAttributes, ReactNode } from "react";
-import { type RenderProp, resolveContent } from "../../foundation/shared";
+import { hasRenderableContent, type RenderProp, resolveContent } from "../../foundation/shared";
 import { KeepBackup, type KeepBackupProps } from "../actions/KeepBackup";
 import { KeepUndo, type KeepUndoProps } from "../actions/KeepUndo";
 import { KeepCollection, type KeepCollectionProps } from "../collection/KeepCollection";
@@ -97,7 +97,7 @@ export function KeepWorkspace<TMeta = Record<string, unknown>>({
   const structuredRegions = surface !== undefined && surface !== "plain";
   const region = (name: KeepWorkspaceRegion, content: ReactNode): ReactNode => {
     if (!structuredRegions) return content;
-    if (content === null || content === undefined || content === false) return null;
+    if (!hasRenderableContent(content)) return null;
     const resolvedSurface = typeof surface === "string" ? surface : (surface[name] ?? "plain");
     return (
       <div data-keepkit="workspace-region" data-region={name} data-surface={resolvedSurface}>

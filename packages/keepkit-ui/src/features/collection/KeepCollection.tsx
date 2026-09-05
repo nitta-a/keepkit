@@ -4,7 +4,7 @@ import type { KeepItem, KeepListQuery, KeepUrlSyncOptions } from "@keepkit/core/
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "@keepkit/core/react";
 import { type HTMLAttributes, type ReactNode, useEffect, useId, useState } from "react";
 import type { KeepUrlAdapter } from "../../adapters/url-sync";
-import { type RenderProp, resolveContent } from "../../foundation/shared";
+import { hasRenderableContent, type RenderProp, resolveContent } from "../../foundation/shared";
 import { useUiLabel } from "../../foundation/ui-context";
 import { KeepBulkActions } from "../actions/KeepBulkActions";
 import type { KeepItemCardProps } from "../item/KeepItemCard";
@@ -192,7 +192,13 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
     if (!hasRenderableContent(content)) return null;
     const labelId = `${toolbarId}-${group}`;
     return (
-      <fieldset data-keepkit="collection-toolbar-group" data-group={group} aria-labelledby={labelId}>
+      <fieldset
+        data-keepkit="collection-toolbar-group"
+        data-group={group}
+        // biome-ignore lint/a11y/noRedundantRoles: Keep the explicit role in the public grouped-toolbar contract.
+        role="group"
+        aria-labelledby={labelId}
+      >
         <legend id={labelId} data-keepkit="collection-toolbar-label">
           {label}
         </legend>
@@ -277,8 +283,4 @@ function getCollectionState<TMeta>(list: KeepListState<TMeta>): "loading" | "err
   if (list.isLoading && !list.isHydrated) return "loading";
   if (list.isHydrated && list.items.length === 0) return "empty";
   return "ready";
-}
-
-function hasRenderableContent(content: ReactNode): boolean {
-  return content !== null && content !== undefined && content !== false && content !== true && content !== "";
 }

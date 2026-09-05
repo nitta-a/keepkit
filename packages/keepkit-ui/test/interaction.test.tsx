@@ -1465,9 +1465,9 @@ test("opts into workspace region surfaces without creating frames for empty slot
       surface={{ before: "plain", collection: "panel", children: "compact", after: "panel" }}
       sectionGap="comfortable"
       data-testid="surface-workspace"
-      slots={{ before: <p>Workspace header</p>, collection: <p>Custom collection</p>, after: null }}
+      slots={{ before: <p>Workspace header</p>, collection: <p>Custom collection</p>, after: "" }}
     >
-      {null}
+      {[null, false, true]}
     </KeepWorkspace>,
   );
 
@@ -1508,7 +1508,7 @@ test("groups collection toolbar controls and host actions with localized group l
     ["toolbarEnd", "Additional actions"],
   ]) {
     const element = toolbar.querySelector(`[data-group="${group}"]`);
-    expect(element?.getAttribute("role") ?? "group").toBe("group");
+    expect(element?.getAttribute("role")).toBe("group");
     expect(element?.getAttribute("aria-labelledby")).toBe(element?.querySelector("[id]")?.id);
     expect(element?.textContent).toContain(label);
   }
