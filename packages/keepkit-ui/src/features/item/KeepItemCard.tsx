@@ -16,6 +16,8 @@ import {
   type SyntheticEvent,
   useContext,
   useEffect,
+  useId,
+  useRef,
   useState,
 } from "react";
 import {
@@ -25,6 +27,7 @@ import {
   toKeepButtonItem,
   useKeepSearchQuery,
 } from "../../foundation/shared";
+import { useUiLabel } from "../../foundation/ui-context";
 import {
   KeepArchiveButton,
   type KeepArchiveButtonProps,
@@ -33,6 +36,7 @@ import {
 } from "../actions/KeepArchiveButton";
 import { KeepButton, type KeepButtonLabels, type KeepButtonProps } from "../actions/KeepButton";
 import type { KeepLayoutPreset } from "../collection/KeepCollection";
+import { KeepQuickEditor } from "../editor/KeepQuickEditor";
 import { KeepStaleNotice } from "../status/KeepStaleNotice";
 import { useKeepItemCard } from "./hooks/useKeepItemCard";
 
@@ -80,6 +84,9 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   showSaveButton?: boolean;
   showPinButton?: boolean;
   showArchiveButton?: boolean;
+  showEditButton?: boolean;
+  onEdit?: (item: KeepItem<TMeta>) => void;
+  editSlot?: (item: KeepItem<TMeta>, close: () => void) => ReactNode;
   saveButtonLabels?: KeepButtonLabels;
   asChild?: boolean;
   href?: string | ((item: KeepItem<TMeta>) => string | undefined);
@@ -157,6 +164,9 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   showSaveButton = true,
   showPinButton = false,
   showArchiveButton = false,
+  showEditButton = false,
+  onEdit,
+  editSlot,
   saveButtonLabels,
   asChild = false,
   href: hrefOption,
@@ -183,6 +193,14 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   const contextQuery = useKeepSearchQuery();
   const searchQuery = highlightQuery ?? contextQuery;
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
+  const [isEditOpen, setEditOpen] = useState(false);
+  const editTriggerRef = useRef<HTMLButtonElement>(null);
+  const editPanelId = useId();
+  const editLabel = useUiLabel("editSavedItem");
+  const closeEdit = () => setEditOpen(false);
+  useEffect(() => {
+    if (!isEditOpen) editTriggerRef.current?.focus();
+  }, [isEditOpen]);
 
   function renderLink(content: ReactNode): ReactNode {
     if (!view.href || !view.isAvailable) return content;
@@ -252,6 +270,34 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     <KeepStaleNotice item={item} onRetry={onRetry} onRemoved={onRemoved} />
   ) : (
     <>
+      {showEditButton ? (
+        <>
+          <button
+            ref={editTriggerRef}
+            type="button"
+            data-keep-action="edit"
+            aria-label={editLabel}
+            aria-haspopup="dialog"
+            aria-expanded={isEditOpen}
+            aria-controls={editPanelId}
+            onClick={() => {
+              onEdit?.(item);
+              setEditOpen(true);
+            }}
+          >
+            {editLabel}
+          </button>
+          {isEditOpen ? (
+            <div id={editPanelId} role="dialog" aria-label={editLabel} data-keepkit="item-edit-dialog">
+              {editSlot ? (
+                editSlot(item, closeEdit)
+              ) : (
+                <KeepQuickEditor item={view.itemState.item ?? item} onClose={closeEdit} />
+              )}
+            </div>
+          ) : null}
+        </>
+      ) : null}
       {showSaveButton ? <KeepItemCardSave /> : null}
       {showPinButton ? <KeepItemCardPin /> : null}
       {showArchiveButton ? <KeepItemCardArchive /> : null}

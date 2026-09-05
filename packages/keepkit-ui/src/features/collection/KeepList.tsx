@@ -15,6 +15,7 @@ import { KeepEmptyState } from "../status/KeepEmptyState";
 import { useKeepListView } from "./hooks/useKeepListView";
 import { useRovingTabIndex } from "./hooks/useRovingTabIndex";
 import type { KeepLayoutPreset } from "./KeepCollection";
+import { KeepReorderableList } from "./KeepReorderableList";
 
 export type KeepListState<TMeta = Record<string, unknown>> = UseKeepListResult<TMeta>;
 
@@ -32,6 +33,8 @@ export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes
   onClearFilters?: () => void;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
   layout?: KeepLayoutPreset;
+  reorderable?: boolean;
+  onReorder?: (orderedIds: string[]) => void | Promise<void>;
   asChild?: boolean;
   fallback?: KeepErrorBoundaryProps["fallback"];
   onBoundaryError?: KeepErrorBoundaryProps["onError"];
@@ -62,6 +65,8 @@ function KeepListContent<TMeta = Record<string, unknown>>({
   onClearFilters,
   itemCardProps,
   layout = "list",
+  reorderable = false,
+  onReorder,
   asChild = false,
   onKeyDown,
   onFocusCapture,
@@ -84,6 +89,9 @@ function KeepListContent<TMeta = Record<string, unknown>>({
     query,
     itemCardProps,
     layout,
+    reorderable,
+    onReorder,
+    reorder: state.reorder,
   });
   return renderRoot(
     asChild,
@@ -135,6 +143,9 @@ function getListBody<TMeta>(
     query: KeepListQuery<TMeta> | undefined;
     itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
     layout: KeepLayoutPreset;
+    reorderable: boolean;
+    onReorder?: (orderedIds: string[]) => void | Promise<void>;
+    reorder: (orderedIds: string[]) => Promise<void>;
   },
 ): ReactNode {
   if (state.error && state.items.length === 0) return resolveContent(options.error, state);
@@ -168,6 +179,30 @@ function getListBody<TMeta>(
   }
   if (typeof options.children === "function") return options.children(state);
   if (options.children !== undefined && !isValidElement(options.children)) return options.children;
+  if (options.reorderable) {
+    return (
+      <KeepReorderableList
+        items={state.items}
+        onReorder={async (orderedIds) => {
+          await options.reorder(orderedIds);
+          await options.onReorder?.(orderedIds);
+        }}
+        renderItem={(item, reorderState) => (
+          <>
+            <button type="button" {...reorderState.dragHandleProps}>
+              ↕
+            </button>
+            {options.renderItem ? (
+              options.renderItem(item, state)
+            ) : (
+              <KeepItemCard item={item} {...options.itemCardProps} />
+            )}
+          </>
+        )}
+        data-layout={options.layout}
+      />
+    );
+  }
   return (
     <ul data-layout={options.layout}>
       {state.items.map((item) =>
@@ -190,7 +225,7 @@ function hasActiveQueryFilters<TMeta>(query: KeepListQuery<TMeta> | undefined): 
       query.tags?.some((tag) => tag.trim()) ||
       query.targetType ||
       query.savedBetween ||
-      query.archived !== undefined ||
+      (query.archiveScope !== undefined && query.archiveScope !== "active") ||
       query.collectionId ||
       query.filter,
   );

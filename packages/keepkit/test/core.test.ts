@@ -50,6 +50,24 @@ test("encodes and decodes shareable list URL state", () => {
   });
 });
 
+test("encodes archive scopes and preserves the legacy archived URL parameter", () => {
+  assert.equal(encodeKeepListQuery({ archiveScope: "all" }).get("archiveScope"), "all");
+  assert.deepEqual(decodeKeepListQuery("/?archiveScope=archived"), { archived: true, archiveScope: "archived" });
+  assert.deepEqual(decodeKeepListQuery("/?archived=false"), { archived: false });
+});
+
+test("supports an explicit all archive scope without changing legacy defaults", () => {
+  const archived = { ...itemA, id: "archived-item", archived: true };
+  assert.deepEqual(
+    queryKeepItems([itemA, archived]).items.map((item) => item.id),
+    [itemA.id],
+  );
+  assert.deepEqual(
+    queryKeepItems([itemA, archived], { archiveScope: "all" }).items.map((item) => item.id),
+    [itemA.id, archived.id],
+  );
+});
+
 test("scoped storage isolates reads, writes, and clears", async () => {
   let items = [
     { ...itemA, scope: { userId: "one" } },

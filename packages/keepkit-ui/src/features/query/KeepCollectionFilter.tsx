@@ -1,8 +1,8 @@
 "use client";
 
 import type { KeepItem } from "@keepkit/core/core";
-import { useKeepContext } from "@keepkit/core/react";
-import { type SelectHTMLAttributes, useMemo, useState } from "react";
+import { useKeepCollections, useKeepContext } from "@keepkit/core/react";
+import { type SelectHTMLAttributes, useState } from "react";
 import { useUiLabel } from "../../foundation/ui-context";
 
 export type KeepCollectionOption = { id?: string; label: string };
@@ -20,12 +20,14 @@ export type KeepCollectionControlProps = Omit<
   uncategorizedLabel?: string;
 };
 
-function useCollectionOptions<TMeta>(collectionLabels?: Record<string, string>, items?: KeepItem<TMeta>[]) {
-  const ids = useMemo(
-    () => [...new Set((items ?? []).map((item) => item.collectionId).filter((id): id is string => Boolean(id)))].sort(),
-    [items],
-  );
-  return ids.map((id) => ({ id, label: collectionLabels?.[id] ?? id }));
+function useCollectionOptions(
+  collectionLabels: Record<string, string> | undefined,
+  collections: ReturnType<typeof useKeepCollections>,
+) {
+  return collections.map((collection) => ({
+    id: collection.id,
+    label: collectionLabels?.[collection.id] ?? collection.name,
+  }));
 }
 
 /** A select that moves one item between derived collections. */
@@ -42,7 +44,8 @@ export function KeepCollectionSelect<TMeta = Record<string, unknown>>({
   const context = useKeepContext<TMeta>();
   const state = useState(value ?? defaultValue ?? item.collectionId ?? "");
   const selected = value ?? state[0];
-  const options = useCollectionOptions(collectionLabels, context.items);
+  const collections = useKeepCollections<TMeta>({ targetType: item.targetType, orderBy: "name" });
+  const options = useCollectionOptions(collectionLabels, collections);
   const defaultUncategorizedLabel = useUiLabel("uncategorized");
   const uncategorized = uncategorizedLabel ?? defaultUncategorizedLabel;
   const handleChange = (next: string) => {
@@ -80,10 +83,10 @@ export function KeepCollectionFilter<TMeta = Record<string, unknown>>({
   uncategorizedLabel,
   ...props
 }: KeepCollectionControlProps) {
-  const context = useKeepContext<TMeta>();
   const [internalValue, setInternalValue] = useState(value ?? defaultValue ?? "");
   const selected = value ?? internalValue;
-  const options = useCollectionOptions(collectionLabels, context.items);
+  const collections = useKeepCollections<TMeta>({ orderBy: "name" });
+  const options = useCollectionOptions(collectionLabels, collections);
   const collectionLabel = useUiLabel("collection");
   const defaultAllLabel = useUiLabel("allCollections");
   const defaultUncategorizedLabel = useUiLabel("uncategorized");

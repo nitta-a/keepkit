@@ -96,4 +96,9 @@ export const ZH_HANS_LABELS: KeepUiLocaleLabels = {
   syncPending: "有更改等待同步。",
   syncSynced: "所有更改均已同步。",
   syncConflict: "有些更改需要解决冲突。",
+  archiveScope: "归档范围",
+  archiveScopeActive: "保存中",
+  archiveScopeArchived: "已归档",
+  archiveScopeAll: "全部项目",
+  undoReorder: "撤销排序",
 };

@@ -23,6 +23,12 @@ export type { KeepContextValue, KeepProviderProps } from "./react/components/Kee
 export { KeepProvider, useKeepContext, useKeepStore } from "./react/components/KeepProvider";
 export type { CreateKeepKitOptions, KeepKit } from "./react/createKeepKit";
 export { createKeepKit } from "./react/createKeepKit";
+export type {
+  KeepCollectionSummary,
+  UseKeepCollectionsOptions,
+  UseKeepCollectionsResult,
+} from "./react/hooks/useKeepCollections";
+export { useKeepCollections } from "./react/hooks/useKeepCollections";
 /** React bindings for the framework-neutral KeepKit primitives. */
 export type { UseKeepItemResult } from "./react/hooks/useKeepItem";
 export { useKeepItem } from "./react/hooks/useKeepItem";

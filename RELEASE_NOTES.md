@@ -1,5 +1,27 @@
 # Release notes
 
+## [0.25.0] - 2026-09-05
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepCollection reorderable`にドラッグ、Space把持、矢印キー並び替え、ドロップ位置表示、Undoを統合しました。
+- `KeepItemCard showEditButton`と標準QuickEditorダイアログ、`editSlot`を追加しました。
+- `archiveScope`（`active` / `archived` / `all`）とURL同期、16言語のラベルを追加しました。
+- `useKeepCollections({ targetType, orderBy })`を追加し、QuickEditorとコレクション選択UIへ接続しました。
+- `KeepTourBar`に`getItemHref`、`getBackHref`、`onNavigate`を追加しました。
+
+### English
+
+#### Added and changed
+
+- Integrated drag, Space-to-grab, arrow-key reordering, drop indicators, and undo into `KeepCollection reorderable`.
+- Added the standard QuickEditor dialog through `KeepItemCard showEditButton`, with `editSlot` customization.
+- Added `archiveScope` (`active` / `archived` / `all`), URL synchronization, and labels across all 16 locales.
+- Added `useKeepCollections({ targetType, orderBy })` and connected it to QuickEditor and collection selectors.
+- Added `getItemHref`, `getBackHref`, and `onNavigate` to `KeepTourBar` for host routing integration.
+
 ## [0.23.2] - 2026-09-05
 
 ### 日本語

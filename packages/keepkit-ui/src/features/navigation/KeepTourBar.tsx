@@ -17,6 +17,9 @@ export type KeepTourBarProps<TMeta = Record<string, unknown>> = Omit<HTMLAttribu
   prevHref?: string;
   nextHref?: string;
   backHref?: string;
+  getItemHref?: (item: KeepItem<TMeta>) => string;
+  getBackHref?: () => string;
+  onNavigate?: (direction: "prev" | "next", item: KeepItem<TMeta>) => void;
   onPrev?: () => void | Promise<void>;
   onNext?: () => void | Promise<void>;
   onBack?: () => void | Promise<void>;
@@ -41,6 +44,9 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
   prevHref,
   nextHref,
   backHref,
+  getItemHref,
+  getBackHref,
+  onNavigate,
   onPrev,
   onNext,
   onBack,
@@ -62,8 +68,33 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
   const nextItemLabel = useUiLabel("nextPage", nextLabel);
   const listLabel = useUiLabel("allItems", backLabel);
   const { labels } = useKeepUiLabels();
-  const resolvedPrev = onPrev ?? (() => navigateTo(navigation.goToPrev(), prevHref));
-  const resolvedNext = onNext ?? (() => navigateTo(navigation.goToNext(), nextHref));
+  const resolvedPrevHref = prevHref ?? (navigation.prevItem ? getItemHref?.(navigation.prevItem) : undefined);
+  const resolvedNextHref = nextHref ?? (navigation.nextItem ? getItemHref?.(navigation.nextItem) : undefined);
+  const resolvedBackHref = backHref ?? getBackHref?.();
+  const navigateByKeyboard = (direction: "prev" | "next") => {
+    const item = direction === "prev" ? navigation.goToPrev() : navigation.goToNext();
+    if (!item) return;
+    onNavigate?.(direction, item);
+    const handler = direction === "prev" ? onPrev : onNext;
+    if (handler) return handler();
+    navigateTo(item, direction === "prev" ? resolvedPrevHref : resolvedNextHref);
+  };
+  const resolvedPrev = () => navigateByKeyboard("prev");
+  const resolvedNext = () => navigateByKeyboard("next");
+  const notifyPrevNavigation = () => {
+    const item = navigation.prevItem;
+    if (!item) return;
+    navigation.goToPrev();
+    onNavigate?.("prev", item);
+    void onPrev?.();
+  };
+  const notifyNextNavigation = () => {
+    const item = navigation.nextItem;
+    if (!item) return;
+    navigation.goToNext();
+    onNavigate?.("next", item);
+    void onNext?.();
+  };
   useKeepTourShortcuts({
     ...shortcutOptions,
     enabled: keyboardShortcuts && (shortcutOptions?.enabled ?? true),
@@ -83,9 +114,9 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
         </span>
       ) : null}
       <TourAction
-        href={prevHref}
+        href={resolvedPrevHref}
         disabled={!navigation.hasPrev}
-        onClick={prevHref ? onPrev : resolvedPrev}
+        onClick={resolvedPrevHref ? notifyPrevNavigation : resolvedPrev}
         data-keep-action="tour-prev"
         shortcut={showShortcutHint ? (shortcutOptions?.prevKeys?.[0] ?? "K") : undefined}
         preview={
@@ -99,9 +130,9 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
         {previousLabel}
       </TourAction>
       <TourAction
-        href={nextHref}
+        href={resolvedNextHref}
         disabled={!navigation.hasNext}
-        onClick={nextHref ? onNext : resolvedNext}
+        onClick={resolvedNextHref ? notifyNextNavigation : resolvedNext}
         data-keep-action="tour-next"
         shortcut={showShortcutHint ? (shortcutOptions?.nextKeys?.[0] ?? "J") : undefined}
         preview={
@@ -114,8 +145,8 @@ export function KeepTourBar<TMeta = Record<string, unknown>>({
       >
         {nextItemLabel}
       </TourAction>
-      {backHref || onBack ? (
-        <TourAction href={backHref} onClick={onBack} data-keep-action="tour-back">
+      {resolvedBackHref || onBack ? (
+        <TourAction href={resolvedBackHref} onClick={onBack} data-keep-action="tour-back">
           {listLabel}
         </TourAction>
       ) : null}

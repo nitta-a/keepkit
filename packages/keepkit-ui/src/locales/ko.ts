@@ -96,4 +96,9 @@ export const KO_LABELS: KeepUiLocaleLabels = {
   syncPending: "동기화 대기 중인 변경 사항이 있습니다.",
   syncSynced: "모든 변경 사항이 동기화되었습니다.",
   syncConflict: "충돌을 해결해야 하는 변경 사항이 있습니다.",
+  archiveScope: "보관 범위",
+  archiveScopeActive: "활성",
+  archiveScopeArchived: "보관됨",
+  archiveScopeAll: "모든 항목",
+  undoReorder: "정렬 실행 취소",
 };

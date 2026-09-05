@@ -6,6 +6,8 @@ export type KeepListQuery<TMeta = Record<string, unknown>> = {
   tags?: string[];
   /** Defaults to active (not archived) items; true selects archived items. */
   archived?: boolean;
+  /** Optional explicit archive scope. When provided, this takes precedence over `archived`. */
+  archiveScope?: "active" | "archived" | "all";
   collectionId?: string;
   pinnedFirst?: boolean;
   sort?: {
@@ -49,7 +51,7 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
     return (
       (query.targetType === undefined || item.targetType === query.targetType) &&
       (query.tags === undefined || query.tags.every((tag) => item.tags?.includes(tag))) &&
-      (query.archived === true ? item.archived === true : item.archived !== true) &&
+      matchesArchiveScope(item, query) &&
       (query.collectionId === undefined || item.collectionId === query.collectionId) &&
       (lowerBound === undefined || savedAt >= lowerBound) &&
       (upperBound === undefined || savedAt <= upperBound) &&
@@ -83,6 +85,13 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
     hasNextPage: page < pageCount,
     hasPreviousPage: page > 1,
   };
+}
+
+function matchesArchiveScope<TMeta>(item: KeepItem<TMeta>, query: KeepListQuery<TMeta>): boolean {
+  if (query.archiveScope === "all") return true;
+  if (query.archiveScope === "archived") return item.archived === true;
+  if (query.archiveScope === "active") return item.archived !== true;
+  return query.archived === true ? item.archived === true : item.archived !== true;
 }
 
 export function getTagCounts<TMeta = Record<string, unknown>>(items: KeepItem<TMeta>[]): Record<string, number> {

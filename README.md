@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.24.0では、一覧・管理・同期UIをまとめる`KeepWorkspace`と、`createKeepKit()`が返す型付きの`keep.Workspace`を追加しました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.25.0では、一覧・管理・同期UIをまとめる`KeepWorkspace`と、`createKeepKit()`が返す型付きの`keep.Workspace`を追加しました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。
 
 ### インストール
 
@@ -68,9 +68,10 @@ export function SavedArticle({ article }: { article: Meta & { id: string } }) {
 `@keepkit/ui`は`KeepItemCardSkeleton`、`KeepList loadingCount`、コンテナ幅対応の`layout="auto"`、`KeepItemCard.Media / Content / Title / Tags / Actions / Save / Remove`、および`onFeedback` / `useKeepToastFeedback`による外部トースト連携も提供します。`KeepSavePopover`はtriggerとdialogをARIAで関連付け、`KeepQuickEditor`の`saveStatus`は未保存・保存中・保存済み・失敗を公開します。自動保存だけを表示する場合は`showSaveButton={false}`を指定できます。
 `KeepList` / `KeepCollection`内のカードタイトルとテキストは検索語を大文字小文字を区別せず`<mark class="keep-highlight" data-highlight="true">`でハイライトします。単体カードでは`highlightQuery`、再利用可能な表示では`KeepHighlight`を指定できます。画像は`data-media-status="loading" | "loaded" | "error"`を公開し、失敗時は`KeepItemCard.Media fallback`または標準SVGへ切り替わります。カード一覧はRoving Tabindexにより矢印キー、Home、Endで移動できます。
 `KeepCollection`は検索語と選択タグを`KeepActiveFiltersSummary`のチップとして表示し、個別解除と一括クリアを提供します。標準の空状態は全件0件の`empty-storage`と絞り込み結果0件の`empty-filtered`を区別し、後者では`onClearFilters`で復帰できます。`KeepShortcutHint`、`KeepTourBar showShortcutHint`、`KeepNoteEditor showShortcutHint`で`<kbd>`の操作ヒントを表示でき、`mergeProps` / `createSlot`は`asChild`のclassName、style、ARIA、イベント合成に利用できます。
-保存順を巡回ルートとして使う場合は、`useKeepNavigator()` と`useKeepList().reorder()` / `.move()` を利用できます。`KeepItem.order` は既存アイテムにも追加でき、`KeepTourBar` は進行度・前後移動・一覧戻りをURLまたはコールバックで接続し、前後アイテム名のプレビュー（`getItemTitle`でカスタマイズ可能）を表示します。`KeepReorderableList` はドラッグ中の挿入位置ガイドと矢印キーによる並び替えを提供します。キーボード巡回は`keyboardShortcuts`または`useKeepTourShortcuts`で明示的に有効化します。
+保存順を巡回ルートとして使う場合は、`useKeepNavigator()` と`useKeepList().reorder()` / `.move()` を利用できます。`KeepItem.order` は既存アイテムにも追加でき、`KeepCollection reorderable` はドラッグハンドル、キーボード並び替え、標準Undoを内蔵します。`KeepTourBar` は進行度・前後移動・一覧戻りをURLまたはコールバックで接続し、`getItemHref` / `getBackHref` / `onNavigate`でホストのルーティングを注入できます。`KeepReorderableList` はドラッグ中の挿入位置ガイドと矢印キーによる並び替えを提供します。キーボード巡回は`keyboardShortcuts`または`useKeepTourShortcuts`で明示的に有効化します。
+`KeepCollection archiveScope="active" | "archived" | "all"` は標準スコープセレクターを表示し、`archiveScope` URLパラメータと同期します。`useKeepCollections({ targetType, orderBy })` は保存済みアイテムから候補を重複除去・集計して返し、`KeepQuickEditor`の選択肢にも自動接続されます。`KeepItemCard showEditButton` は標準QuickEditor dialogを表示し、`editSlot`で内容を差し替えられます。
 
-`@keepkit/ui/theme.css`を読み込むと、枠、面色、影、フォーカス表示と、保存・検索・削除・タグ・同期などの標準アイコンが有効になります。アイコンは装飾であり、操作名は引き続きラベルとARIA属性から提供されます。個別に調整する場合は`data-keep-action`を選択し、`--keep-icon-size`、`--keep-control-gap`、`--keep-shadow`、`--keep-success`、`--keep-warning`を上書きできます。CSSを読み込まないheadless利用と、既存の`KeepButton icons`指定は変更されません。
+`@keepkit/ui/theme.css`を読み込むと、枠、面色、影、フォーカス表示と、保存・検索・削除・タグ・同期などの標準アイコンが有効になります。通常の削除・一括削除・stale削除は薄い赤の枠線と文字色、hover時の淡い面色で表示し、強い赤の塗りつぶしは確認が必要なエラー状態に限定します。アイコンは装飾であり、操作名は引き続きラベルとARIA属性から提供されます。個別に調整する場合は`data-keep-action`を選択し、`--keep-icon-size`、`--keep-control-gap`、`--keep-shadow`、`--keep-success`、`--keep-warning`を上書きできます。CSSを読み込まないheadless利用と、既存の`KeepButton icons`指定は変更されません。
 ハイライトは`--keep-highlight-bg` / `--keep-highlight-fg`でライト／ダーク双方のコントラストを確保し、タイトルは2行、メモプレビューは3行、メディアは固定アスペクト比で一覧の高さを安定させます。`KeepItemStatusBadge`は状態テキストにチェック・時計・進入禁止・鍵のSVGアイコンを併記します。状態スタイルだけが必要な場合は`@keepkit/ui/styles/status.css`を読み込めます。
 
 `keep.Collection`は検索、ソート、ページング、タグフィルター、一括操作、loading / empty / error状態、ARIA通知を組み合わせて提供します。検索は既定で300msデバウンスされ、追加機能は`features`で有効化できます。
@@ -147,7 +148,7 @@ JSONバックアップUIは`<KeepBackup />`として利用できます。エク�
 
 Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepPruneStaleButton />`、`<KeepSyncStatusBanner />`、`<KeepSyncRecoveryDialog />`として利用できます。テーマを使う場合は`import "@keepkit/ui/theme.css"`を追加してください。
 
-### v0.24.0のWorkspaceとTailwind v4統合
+### v0.25.0のWorkspaceとTailwind v4統合
 
 `<keep.Collection urlSync layout="grid" />`で検索・タグ・ソート・ページをURL、戻る／進む、共有URLと同期できます。Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`に渡してください。`layout`は`list`、`grid`、`compact`に対応し、`itemCardProps`の`getImageProps`、`renderTags`、`href`、`onOpen`でカード表示と遷移を差し替えられます。
 
@@ -155,7 +156,7 @@ Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepP
 
 ユーザー／テナント分離が必要な場合は、`createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })`を使うとstorage、同期キュー、バックアップの構成をまとめられます。ラベルは16個の組み込みlocale（`en`、`ja`、`ko`、`zh-Hans`、`zh-Hant`、`th`、`fr`、`es`、`pt-BR`、`it`、`de`、`ru`、`fil`、`vi`、`id`、`ms`）で切り替えられ、`labels`で上書きできます。`zh-CN`と`zh-TW`も互換aliasとして利用できます。
 
-### v0.24.0 Tailwind／shadcnテーマ
+### v0.25.0 Tailwind／shadcnテーマ
 
 Tailwind CSS v4ではグローバルCSSで2行読み込み、必要ならテーマ用Providerを配置します。既存のshadcn/ui変数はTailwind v4の`--color-*`経由で`--keep-*`トークンへ継承されます。
 
@@ -179,7 +180,7 @@ shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keep
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.24.0 adds `KeepWorkspace` and the typed `keep.Workspace` returned by `createKeepKit()` to compose collection, management, and sync UI. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.25.0 adds `KeepWorkspace` and the typed `keep.Workspace` returned by `createKeepKit()` to compose collection, management, and sync UI. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
 
 ### Installation
 
@@ -234,9 +235,10 @@ Every UI primitive exposes its semantic state through `data-state`, `data-loadin
 `@keepkit/ui` also provides `KeepItemCardSkeleton`, `KeepList loadingCount`, container-aware `layout="auto"`, `KeepItemCard.Media / Content / Title / Tags / Actions / Save / Remove`, and external toast integration through `onFeedback` / `useKeepToastFeedback`. `KeepSavePopover` connects its trigger and dialog with ARIA, while `KeepQuickEditorState.saveStatus` exposes dirty, saving, saved, and error states. Set `showSaveButton={false}` for an auto-save-only presentation.
 Cards rendered by `KeepList` / `KeepCollection` highlight case-insensitive search matches with `<mark class="keep-highlight" data-highlight="true">`; use `highlightQuery` on a standalone card or `KeepHighlight` for reusable text. Media exposes `data-media-status="loading" | "loaded" | "error"` and swaps failed images for `KeepItemCard.Media fallback` or a built-in SVG placeholder. Card groups support Roving Tabindex navigation with arrow keys, Home, and End.
 `KeepCollection` renders search and selected tags as `KeepActiveFiltersSummary` chips with individual removal and clear-all actions. The default empty state distinguishes `empty-storage` from `empty-filtered`; the filtered state can recover through `onClearFilters`. `KeepShortcutHint`, `KeepTourBar showShortcutHint`, and `KeepNoteEditor showShortcutHint` expose `<kbd>` operation hints, while `mergeProps` / `createSlot` compose className, style, ARIA, and events for `asChild` slots.
-Use `useKeepNavigator()` with `useKeepList().reorder()` / `.move()` to turn saved order into a tour route. `KeepItem.order` is additive and persisted by existing adapters. `KeepTourBar` provides progress, previous/next, and return-to-list actions through URLs or callbacks, with adjacent item title previews customizable through `getItemTitle`; `KeepReorderableList` shows the active drop insertion position and supports keyboard reordering. Enable tour keyboard shortcuts explicitly with `keyboardShortcuts` or `useKeepTourShortcuts`.
+Use `useKeepNavigator()` with `useKeepList().reorder()` / `.move()` to turn saved order into a tour route. `KeepItem.order` is additive and persisted by existing adapters. `KeepCollection reorderable` includes a drag handle, keyboard reordering, and standard undo feedback. `KeepTourBar` provides progress, previous/next, and return-to-list actions through URLs or callbacks; inject host routing with `getItemHref`, `getBackHref`, and `onNavigate`. `KeepReorderableList` shows the active drop insertion position and supports keyboard reordering. Enable tour keyboard shortcuts explicitly with `keyboardShortcuts` or `useKeepTourShortcuts`.
+`KeepCollection archiveScope="active" | "archived" | "all"` renders a standard scope selector and synchronizes the `archiveScope` URL parameter. `useKeepCollections({ targetType, orderBy })` derives de-duplicated, counted choices from saved items and powers `KeepQuickEditor` choices automatically. `KeepItemCard showEditButton` opens the standard QuickEditor dialog; customize its contents with `editSlot`.
 
-Importing `@keepkit/ui/theme.css` enables the standard borders, surfaces, shadows, focus treatment, and decorative icons for save, search, remove, tags, sync, and other common actions. Accessible names still come from visible labels and ARIA attributes. Target individual controls through `data-keep-action`, or override `--keep-icon-size`, `--keep-control-gap`, `--keep-shadow`, `--keep-success`, and `--keep-warning`. Headless use without CSS and existing `KeepButton icons` overrides remain unchanged.
+Importing `@keepkit/ui/theme.css` enables the standard borders, surfaces, shadows, focus treatment, and decorative icons for save, search, remove, tags, sync, and other common actions. Regular remove, bulk-delete, and stale-prune actions use a subtle red outline and text with a light hover surface; solid red is reserved for error states that need confirmation. Accessible names still come from visible labels and ARIA attributes. Target individual controls through `data-keep-action`, or override `--keep-icon-size`, `--keep-control-gap`, `--keep-shadow`, `--keep-success`, and `--keep-warning`. Headless use without CSS and existing `KeepButton icons` overrides remain unchanged.
 The theme also defines WCAG-oriented `--keep-highlight-bg` / `--keep-highlight-fg` pairs for light and dark modes, clamps titles to two lines and memo previews to three, and reserves stable media space. `KeepItemStatusBadge` combines visible status text with check, clock, ban, or lock SVG icons.
 
 `keep.Collection` combines search, sorting, pagination, optional tag filtering and bulk actions, loading/empty/error states, and accessible live announcements. Search is debounced by 300ms by default; enable optional behavior with `features`.
@@ -255,11 +257,11 @@ Enable only the standard card features you need with `features={{ pin: true, arc
 
 Saved inputs contain only `id`, `meta`, `targetType`, `note`, and `tags`; persistence timestamps and normalization are handled by KeepKit. Collection queries use the canonical `query` shape with `search`, `sort`, and `pagination`.
 
-The typed factory returns `Provider`, `Button`, `Collection`, `Workspace`, `useItem`, `useList`, `useNavigator`, and `useShortcut`. `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, `KeepTagEditor`, `KeepBulkActions`, `KeepTourBar`, and `KeepReorderableList` are also available as standalone primitives. `KeepBulkActions` exposes `isAllSelected` / `toggleSelectAll` in its render-prop state and as standalone helpers. Use `@keepkit/core/core` for framework-neutral primitives, `@keepkit/core/react` for low-level React bindings, and `@keepkit/core/storage` for adapters.
+The typed factory returns `Provider`, `Button`, `Collection`, `Workspace`, `useItem`, `useList`, `useCollections`, `useNavigator`, and `useShortcut`. `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, `KeepTagEditor`, `KeepBulkActions`, `KeepTourBar`, and `KeepReorderableList` are also available as standalone primitives. `KeepBulkActions` exposes `isAllSelected` / `toggleSelectAll` in its render-prop state and as standalone helpers. Use `@keepkit/core/core` for framework-neutral primitives, `@keepkit/core/react` for low-level React bindings, and `@keepkit/core/storage` for adapters.
 
 See `examples/next-app-router` for the Server Component/client boundary pattern and `examples/next-pages-router` for the Pages Router integration.
 
-### v0.24.0 Workspace, URL, layouts, setup presets, and Tailwind integration
+### v0.25.0 Workspace, URL, layouts, setup presets, and Tailwind integration
 
 Use `<keep.Collection urlSync layout="grid" />` to synchronize search, tags, sorting, and pagination with shareable URLs and browser history. For Next.js Pages Router, pass `createNextPagesRouterAdapter(router)` as `urlAdapter`. Layouts are `list`, `grid`, and `compact`; customize thumbnails, tags, and detail navigation through `itemCardProps`.
 
@@ -272,7 +274,7 @@ Use `createAuthenticatedSyncKit` when the host supplies authentication. It refre
 Use `KeepItemStatusBadge`, `KeepStaleNotice`, and `KeepPruneStaleButton` for unavailable-item recovery. `KeepSyncStatusBanner` and `KeepSyncRecoveryDialog` expose retry, local/server/manual conflict resolution, and backup restoration guidance. Optionally import `@keepkit/ui/theme.css` for CSS-variable theming, dark mode, and mobile typography.
 External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, while the recovery dialog compares local and remote updated dates and notes side by side.
 
-### v0.24.0 Tailwind and shadcn theme
+### v0.25.0 Tailwind and shadcn theme
 
 Tailwind CSS v4 needs two imports in the global CSS entry. The theme is scoped by `KeepThemeProvider`, and its `--keep-*` tokens inherit complete `--color-*` values such as `--color-background`, `--color-primary`, and `--color-ring` when present.
 

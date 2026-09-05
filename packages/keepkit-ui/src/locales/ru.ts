@@ -96,4 +96,9 @@ export const RU_LABELS: KeepUiLocaleLabels = {
   syncPending: "Есть изменения, ожидающие синхронизации.",
   syncSynced: "Все изменения синхронизированы.",
   syncConflict: "Некоторые изменения требуют разрешения конфликта.",
+  archiveScope: "Область архива",
+  archiveScopeActive: "Активные",
+  archiveScopeArchived: "В архиве",
+  archiveScopeAll: "Все элементы",
+  undoReorder: "Отменить сортировку",
 };

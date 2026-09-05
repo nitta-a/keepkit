@@ -96,4 +96,9 @@ export const FIL_LABELS: KeepUiLocaleLabels = {
   syncPending: "May mga pagbabagong naghihintay ng sync.",
   syncSynced: "Naka-sync na ang lahat ng pagbabago.",
   syncConflict: "May mga pagbabagong kailangang ayusin ang conflict.",
+  archiveScope: "Saklaw ng archive",
+  archiveScopeActive: "Aktibo",
+  archiveScopeArchived: "Naka-archive",
+  archiveScopeAll: "Lahat ng item",
+  undoReorder: "I-undo ang pag-aayos",
 };

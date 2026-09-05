@@ -1,8 +1,9 @@
 import type { KeepListQuery, KeepUrlSyncOptions } from "@keepkit/core/core";
 import { useKeepList } from "@keepkit/core/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type KeepUrlAdapter, useKeepUrlSync } from "../../../adapters/url-sync";
 import { sortToValue } from "../../../foundation/shared";
+import type { KeepArchiveScope } from "../../query/KeepArchiveScopeSelect";
 import type { KeepSortValue } from "../../query/query-controls";
 import type { KeepCollectionFeature } from "../KeepCollection";
 
@@ -12,6 +13,7 @@ type KeepCollectionOptions<TMeta> = {
   urlSync: boolean | KeepUrlSyncOptions;
   urlAdapter: KeepUrlAdapter | undefined;
   features: Partial<Record<KeepCollectionFeature, boolean>> | undefined;
+  archiveScope: KeepArchiveScope | undefined;
 };
 
 export function useKeepCollection<TMeta>({
@@ -20,6 +22,7 @@ export function useKeepCollection<TMeta>({
   urlSync,
   urlAdapter,
   features,
+  archiveScope,
 }: KeepCollectionOptions<TMeta>) {
   const enabled = {
     search: true,
@@ -38,10 +41,18 @@ export function useKeepCollection<TMeta>({
   const [activeTags, setActiveTags] = useState<string[]>(query.tags ?? []);
   const [activeCollection, setActiveCollection] = useState<string | undefined>(query.collectionId);
   const [page, setPage] = useState(query.pagination?.page ?? 1);
+  const [activeArchiveScope, setActiveArchiveScope] = useState<KeepArchiveScope>(
+    archiveScope ?? query.archiveScope ?? scopeFromArchived(query.archived),
+  );
+  useEffect(() => {
+    if (archiveScope !== undefined) setActiveArchiveScope(archiveScope);
+  }, [archiveScope]);
   const resolvedPageSize = query.pagination?.pageSize ?? pageSize;
   const resolvedQuery = useMemo<KeepListQuery<TMeta>>(
     () => ({
       ...query,
+      archiveScope: activeArchiveScope,
+      archived: activeArchiveScope === "active" ? false : activeArchiveScope === "archived" ? true : undefined,
       search: enabled.search ? { ...query.search, query: searchValue } : query.search,
       sort: enabled.sort ? sort : query.sort,
       tags: activeTags.length > 0 ? activeTags : undefined,
@@ -63,6 +74,7 @@ export function useKeepCollection<TMeta>({
       resolvedPageSize,
       searchValue,
       sort,
+      activeArchiveScope,
     ],
   );
   useKeepUrlSync({
@@ -74,13 +86,14 @@ export function useKeepCollection<TMeta>({
       setSort(next.sort ?? { by: "updatedAt", direction: "desc" });
       setActiveTags(next.tags ?? []);
       setActiveCollection(next.collectionId);
+      setActiveArchiveScope(next.archiveScope ?? scopeFromArchived(next.archived));
       setPage(next.pagination?.page ?? 1);
     },
     options: typeof urlSync === "object" ? urlSync : {},
     adapter: urlAdapter,
   });
   const list = useKeepList<TMeta>(resolvedQuery);
-  const allState = useKeepList<TMeta>({});
+  const allState = useKeepList<TMeta>({ archiveScope: "all" });
 
   return {
     enabled,
@@ -88,6 +101,7 @@ export function useKeepCollection<TMeta>({
     sortValue: sortToValue(sort),
     activeTags,
     activeCollection,
+    archiveScope: activeArchiveScope,
     resolvedPageSize,
     resolvedQuery,
     list,
@@ -108,6 +122,10 @@ export function useKeepCollection<TMeta>({
       setActiveCollection(value);
       setPage(1);
     },
+    setArchiveScope: (value: KeepArchiveScope) => {
+      setActiveArchiveScope(value);
+      setPage(1);
+    },
     removeTag: (tagToRemove: string) => {
       setActiveTags((current) => current.filter((tag) => tag !== tagToRemove));
       setPage(1);
@@ -120,4 +138,8 @@ export function useKeepCollection<TMeta>({
     },
     setPage,
   };
+}
+
+function scopeFromArchived(archived?: boolean): KeepArchiveScope {
+  return archived === true ? "archived" : "active";
 }

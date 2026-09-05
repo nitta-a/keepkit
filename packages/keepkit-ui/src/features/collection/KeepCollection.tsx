@@ -2,12 +2,14 @@
 
 import type { KeepItem, KeepListQuery, KeepUrlSyncOptions } from "@keepkit/core/core";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "@keepkit/core/react";
-import type { HTMLAttributes, ReactNode } from "react";
+import { type HTMLAttributes, type ReactNode, useEffect, useState } from "react";
 import type { KeepUrlAdapter } from "../../adapters/url-sync";
 import { type RenderProp, resolveContent } from "../../foundation/shared";
+import { useUiLabel } from "../../foundation/ui-context";
 import { KeepBulkActions } from "../actions/KeepBulkActions";
 import type { KeepItemCardProps } from "../item/KeepItemCard";
 import { KeepActiveFiltersSummary } from "../query/KeepActiveFiltersSummary";
+import { type KeepArchiveScope, KeepArchiveScopeSelect } from "../query/KeepArchiveScopeSelect";
 import { KeepCollectionFilter } from "../query/KeepCollectionFilter";
 import { KeepTagFilter } from "../query/KeepTagFilter";
 import { KeepPagination, KeepSearchInput, KeepSortSelect } from "../query/query-controls";
@@ -32,6 +34,12 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   layout?: KeepLayoutPreset;
   urlSync?: boolean | KeepUrlSyncOptions;
   urlAdapter?: KeepUrlAdapter;
+  /** Enables the built-in active/archived/all scope selector and query state. */
+  archiveScope?: KeepArchiveScope;
+  onArchiveScopeChange?: (scope: KeepArchiveScope) => void;
+  /** Enables the built-in drag and keyboard reorder list. */
+  reorderable?: boolean;
+  onReorder?: (items: KeepItem<TMeta>[]) => void | Promise<void>;
   features?: Partial<Record<KeepCollectionFeature, boolean>>;
   collectionLabels?: Record<string, string>;
   renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
@@ -66,6 +74,10 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   layout = "list",
   urlSync = false,
   urlAdapter,
+  archiveScope,
+  onArchiveScopeChange,
+  reorderable = false,
+  onReorder,
   features,
   collectionLabels,
   renderItem,
@@ -79,7 +91,31 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   className,
   ...rootProps
 }: Omit<KeepCollectionProps<TMeta>, "fallback" | "onBoundaryError" | "boundaryResetKey">) {
-  const view = useKeepCollection<TMeta>({ query, pageSize, urlSync, urlAdapter, features });
+  const view = useKeepCollection<TMeta>({ query, pageSize, urlSync, urlAdapter, features, archiveScope });
+  const [reorderUndoIds, setReorderUndoIds] = useState<string[] | null>(null);
+  const reorderUndoLabel = useUiLabel("undoReorder");
+  const handleReorder = async (orderedIds: string[]) => {
+    const previousIds = view.list.items.map((item) => item.id);
+    await view.list.reorder(orderedIds);
+    const itemsById = new Map(view.list.items.map((item) => [item.id, item]));
+    const orderedItems = orderedIds.flatMap((id) => {
+      const item = itemsById.get(id);
+      return item ? [item] : [];
+    });
+    setReorderUndoIds(previousIds);
+    await onReorder?.(orderedItems);
+  };
+  useEffect(() => {
+    if (!reorderUndoIds) return;
+    const timer = window.setTimeout(() => setReorderUndoIds(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [reorderUndoIds]);
+  const undoReorder = async () => {
+    if (!reorderUndoIds) return;
+    const previous = reorderUndoIds;
+    setReorderUndoIds(null);
+    await view.list.reorder(previous);
+  };
   const resolvedItemCardProps = {
     ...itemCardProps,
     showTags: itemCardProps?.showTags ?? view.enabled.tags,
@@ -110,6 +146,15 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
             collectionLabels={collectionLabels}
           />
         ) : null}
+        {archiveScope !== undefined ? (
+          <KeepArchiveScopeSelect
+            value={view.archiveScope}
+            onValueChange={(next) => {
+              view.setArchiveScope(next);
+              onArchiveScopeChange?.(next);
+            }}
+          />
+        ) : null}
       </div>
       {activeFilters === undefined ? (
         <KeepActiveFiltersSummary<TMeta>
@@ -131,6 +176,8 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         renderLoading={renderLoading}
         loadingCount={loadingCount}
         onClearFilters={view.clearFilters}
+        reorderable={reorderable}
+        onReorder={reorderable ? handleReorder : undefined}
         empty={view.list.totalCount === 0 && view.allState.totalCount > 0 ? undefined : empty}
         error={error}
       />
@@ -143,6 +190,13 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         />
       ) : null}
       {view.enabled.bulkActions ? <KeepBulkActions<TMeta> query={view.resolvedQuery} /> : null}
+      {reorderable && reorderUndoIds ? (
+        <div data-keepkit="reorder-feedback" role="status" aria-live="polite">
+          <button type="button" data-keep-action="undo-reorder" onClick={() => void undoReorder()}>
+            {reorderUndoLabel}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

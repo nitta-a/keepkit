@@ -96,4 +96,9 @@ export const TH_LABELS: KeepUiLocaleLabels = {
   syncPending: "มีการเปลี่ยนแปลงที่รอการซิงค์",
   syncSynced: "ซิงค์การเปลี่ยนแปลงทั้งหมดแล้ว",
   syncConflict: "มีการเปลี่ยนแปลงที่ต้องแก้ไขข้อขัดแย้ง",
+  archiveScope: "ขอบเขตการเก็บถาวร",
+  archiveScopeActive: "ใช้งานอยู่",
+  archiveScopeArchived: "เก็บถาวรแล้ว",
+  archiveScopeAll: "รายการทั้งหมด",
+  undoReorder: "เลิกทำการจัดเรียง",
 };

@@ -96,4 +96,9 @@ export const ES_LABELS: KeepUiLocaleLabels = {
   syncPending: "Hay cambios pendientes de sincronización.",
   syncSynced: "Todos los cambios están sincronizados.",
   syncConflict: "Algunos cambios necesitan resolver un conflicto.",
+  archiveScope: "Ámbito del archivo",
+  archiveScopeActive: "Activos",
+  archiveScopeArchived: "Archivados",
+  archiveScopeAll: "Todos los elementos",
+  undoReorder: "Deshacer ordenación",
 };

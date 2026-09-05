@@ -74,6 +74,11 @@ export function useKeepUrlSync<TMeta = Record<string, unknown>>({
         ...(decoded.tags ? { tags: decoded.tags } : { tags: undefined }),
         ...(decoded.sort ? { sort: decoded.sort } : {}),
         ...(decoded.pagination ? { pagination: { ...previousQuery.pagination, ...decoded.pagination } } : {}),
+        ...(decoded.archiveScope !== undefined
+          ? { archived: decoded.archived, archiveScope: decoded.archiveScope }
+          : decoded.archived !== undefined
+            ? { archived: decoded.archived, archiveScope: undefined }
+            : { archived: undefined, archiveScope: undefined }),
       }));
     };
     read();

@@ -96,4 +96,9 @@ export const MS_LABELS: KeepUiLocaleLabels = {
   syncPending: "Terdapat perubahan yang menunggu penyegerakan.",
   syncSynced: "Semua perubahan telah disegerakkan.",
   syncConflict: "Sesetengah perubahan memerlukan penyelesaian konflik.",
+  archiveScope: "Skop arkib",
+  archiveScopeActive: "Aktif",
+  archiveScopeArchived: "Diarkibkan",
+  archiveScopeAll: "Semua item",
+  undoReorder: "Buat asal susunan",
 };

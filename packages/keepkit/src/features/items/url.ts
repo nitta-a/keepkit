@@ -6,6 +6,7 @@ export type KeepUrlParamNames = {
   sort: string;
   page: string;
   archived: string;
+  archiveScope: string;
   collection: string;
   pinnedFirst: string;
 };
@@ -25,13 +26,14 @@ export const DEFAULT_KEEP_URL_PARAMS: KeepUrlParamNames = {
   sort: "sort",
   page: "page",
   archived: "archived",
+  archiveScope: "archiveScope",
   collection: "collection",
   pinnedFirst: "pinned",
 };
 
 export type KeepUrlState = Pick<
   KeepListQuery,
-  "search" | "tags" | "sort" | "pagination" | "archived" | "collectionId" | "pinnedFirst"
+  "search" | "tags" | "sort" | "pagination" | "archived" | "archiveScope" | "collectionId" | "pinnedFirst"
 >;
 
 /** Convert a list query to stable URLSearchParams without serializing functions or unsupported filters. */
@@ -50,7 +52,8 @@ export function encodeKeepListQuery<TMeta = Record<string, unknown>>(
   if (query.sort?.by) result.set(params.sort, `${query.sort.by}:${query.sort.direction ?? "desc"}`);
   const page = query.pagination?.page;
   if (page !== undefined && Number.isFinite(page) && page > 1) result.set(params.page, String(Math.floor(page)));
-  if (query.archived !== undefined) result.set(params.archived, query.archived ? "true" : "false");
+  if (query.archiveScope !== undefined) result.set(params.archiveScope, query.archiveScope);
+  else if (query.archived !== undefined) result.set(params.archived, query.archived ? "true" : "false");
   if (query.collectionId) result.set(params.collection, query.collectionId);
   if (query.pinnedFirst) result.set(params.pinnedFirst, "true");
   return result;
@@ -82,8 +85,18 @@ export function decodeKeepListQuery(
       : undefined;
   const rawPage = Number(searchParams.get(params.page));
   const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : undefined;
+  const archiveScopeValue = searchParams.get(params.archiveScope);
+  const archiveScope =
+    archiveScopeValue === "active" || archiveScopeValue === "archived" || archiveScopeValue === "all"
+      ? archiveScopeValue
+      : undefined;
   const archivedValue = searchParams.get(params.archived);
-  const archived = archivedValue === "true" ? true : archivedValue === "false" ? false : undefined;
+  const archived =
+    archiveScope === "archived" || archivedValue === "true"
+      ? true
+      : archiveScope === "active" || archivedValue === "false"
+        ? false
+        : undefined;
   const collectionId = searchParams.get(params.collection)?.trim() || undefined;
   const pinnedFirst = searchParams.get(params.pinnedFirst) === "true" ? true : undefined;
   return {
@@ -92,6 +105,7 @@ export function decodeKeepListQuery(
     ...(sort ? { sort } : {}),
     ...(page ? { pagination: { page } } : {}),
     ...(archived === undefined ? {} : { archived }),
+    ...(archiveScope === undefined ? {} : { archiveScope }),
     ...(collectionId ? { collectionId } : {}),
     ...(pinnedFirst ? { pinnedFirst } : {}),
   };
@@ -118,5 +132,7 @@ export function mergeKeepListQueryFromUrl<TMeta = Record<string, unknown>>(
     tags: decoded.tags ?? query.tags,
     sort: decoded.sort ?? query.sort,
     pagination: decoded.pagination ? { ...query.pagination, ...decoded.pagination } : query.pagination,
+    archived: decoded.archived ?? query.archived,
+    archiveScope: decoded.archiveScope ?? query.archiveScope,
   };
 }

@@ -52,6 +52,7 @@ import {
   KeepUndo,
   KeepWorkspace,
   mergeProps,
+  useKeepCollections,
   useKeepToastFeedback,
 } from "../src/index";
 
@@ -589,6 +590,26 @@ test("renders a tour URL action for router or link integration", async () => {
   expect(screen.getByRole("link", { name: "Next page" }).getAttribute("href")).toBe("/saved/second");
 });
 
+test("derives tour item links and reports host navigation callbacks", async () => {
+  const onNavigate = vi.fn();
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, secondItem])}>
+      <KeepTourBar
+        initialIndex={0}
+        getItemHref={(entry) => `/saved/${entry.id}`}
+        getBackHref={() => "/saved"}
+        onNavigate={onNavigate}
+      />
+    </KeepProvider>,
+  );
+
+  const next = await screen.findByRole("link", { name: "Next page" });
+  expect(next.getAttribute("href")).toBe(`/saved/${secondItem.id}`);
+  fireEvent.click(next);
+  expect(onNavigate).toHaveBeenCalledWith("next", secondItem);
+  expect(screen.getByRole("link", { name: "All saved items" }).getAttribute("href")).toBe("/saved");
+});
+
 test("reorders items with keyboard handles and reports the new id order", () => {
   const onReorder = vi.fn();
   render(
@@ -601,6 +622,103 @@ test("reorders items with keyboard handles and reports the new id order", () => 
 
   fireEvent.keyDown(screen.getByRole("button", { name: "Move item 2" }), { key: "ArrowUp" });
   expect(onReorder).toHaveBeenCalledWith([secondItem.id, item.id]);
+});
+
+test("supports Space grab and release on reorder handles", () => {
+  const onReorder = vi.fn();
+  render(
+    <KeepReorderableList
+      items={[item, secondItem]}
+      onReorder={onReorder}
+      renderItem={(entry, state) => <span {...state.dragHandleProps}>{entry.meta.title}</span>}
+    />,
+  );
+
+  const handle = screen.getByRole("button", { name: "Move item 1" });
+  fireEvent.keyDown(handle, { key: " " });
+  expect(handle.getAttribute("aria-grabbed")).toBe("true");
+  fireEvent.keyDown(handle, { key: "ArrowDown" });
+  expect(onReorder).toHaveBeenCalledWith([secondItem.id, item.id]);
+  fireEvent.keyDown(handle, { key: " " });
+  expect(handle.getAttribute("aria-grabbed")).toBe("false");
+});
+
+test("integrates reorder handles and undo into KeepCollection", async () => {
+  const onReorder = vi.fn();
+  const storage = createStorage([item, secondItem]);
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepCollection reorderable onReorder={onReorder} features={{ search: false, sort: false, pagination: false }} />
+    </KeepProvider>,
+  );
+
+  const secondHandle = await screen.findByRole("button", { name: "Move item 2" });
+  fireEvent.keyDown(secondHandle, { key: "ArrowUp" });
+  await waitFor(() => expect(onReorder).toHaveBeenCalledWith([secondItem, item]));
+  const undo = await screen.findByRole("button", { name: "Undo reorder" });
+  fireEvent.click(undo);
+  await waitFor(async () =>
+    expect(
+      (await storage.getAll()).sort((left, right) => (left.order ?? 0) - (right.order ?? 0)).map((entry) => entry.id),
+    ).toEqual([item.id, secondItem.id]),
+  );
+});
+
+test("derives collection candidates through the core hook and binds them to the editor", async () => {
+  function CollectionsProbe() {
+    const collections = useKeepCollections<Meta>({ orderBy: "count" });
+    return (
+      <output data-testid="collections">
+        {collections.map((collection) => `${collection.id}:${collection.count}`).join(",")}
+      </output>
+    );
+  }
+
+  render(
+    <KeepProvider<Meta>
+      storage={createStorage([
+        { ...item, collectionId: "reading" },
+        { ...secondItem, collectionId: "reading" },
+      ])}
+    >
+      <CollectionsProbe />
+      <KeepQuickEditor item={item} debounceMs={0} />
+    </KeepProvider>,
+  );
+
+  await waitFor(() => expect(screen.getByTestId("collections").textContent).toBe("reading:2"));
+  expect(screen.getByRole("option", { name: "reading" })).not.toBeNull();
+});
+
+test("provides the standard edit dialog from KeepItemCard", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepItemCard item={item} showEditButton />
+    </KeepProvider>,
+  );
+
+  const edit = await screen.findByRole("button", { name: "Edit saved item" });
+  expect(edit.getAttribute("data-keep-action")).toBe("edit");
+  expect(edit.getAttribute("aria-haspopup")).toBe("dialog");
+  fireEvent.click(edit);
+  expect(await screen.findByRole("dialog", { name: "Edit saved item" })).not.toBeNull();
+  expect(screen.getByRole("textbox", { name: "Note" })).not.toBeNull();
+});
+
+test("switches KeepCollection archive scopes and keeps all items available", async () => {
+  const archived = { ...secondItem, archived: true };
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, archived])}>
+      <KeepCollection archiveScope="all" features={{ search: false, sort: false, pagination: false }} />
+    </KeepProvider>,
+  );
+
+  const scope = await screen.findByRole("combobox", { name: "Archive scope" });
+  await waitFor(() => expect(screen.getByRole("heading", { name: "Interaction item" })).not.toBeNull());
+  expect(screen.getByRole("heading", { name: "Second interaction item" })).not.toBeNull();
+  fireEvent.change(scope, { target: { value: "archived" } });
+  await waitFor(() => expect(screen.queryByRole("heading", { name: "Interaction item" })).toBeNull());
+  expect(screen.getByRole("heading", { name: "Second interaction item" })).not.toBeNull();
 });
 
 test("shows the active drop insertion line while dragging", () => {
@@ -925,6 +1043,11 @@ test("ships dark-mode and reduced-motion CSS contracts", async () => {
   expect(cssText).toContain("container-name: keepkit-layout");
   expect(cssText).toContain("@container keepkit-layout");
   expect(cssText).toContain("keepkit-skeleton-pulse");
+  expect(cssText).toContain('[data-keep-action="delete-selected"]');
+  expect(cssText).toContain("background: transparent;");
+  expect(cssText).toContain("background: color-mix(in srgb, var(--keep-destructive) 8%, var(--keep-card));");
+  expect(cssText).toContain('[data-keepkit="button"][data-state="error"]');
+  expect(cssText).toContain("background: var(--keep-destructive);");
 });
 
 test("keeps the Tailwind v4 bridge scoped and composable", async () => {

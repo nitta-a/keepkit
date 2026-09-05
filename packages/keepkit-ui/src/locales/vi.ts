@@ -96,4 +96,9 @@ export const VI_LABELS: KeepUiLocaleLabels = {
   syncPending: "Có thay đổi đang chờ đồng bộ.",
   syncSynced: "Tất cả thay đổi đã được đồng bộ.",
   syncConflict: "Một số thay đổi cần giải quyết xung đột.",
+  archiveScope: "Phạm vi lưu trữ",
+  archiveScopeActive: "Đang hoạt động",
+  archiveScopeArchived: "Đã lưu trữ",
+  archiveScopeAll: "Tất cả mục",
+  undoReorder: "Hoàn tác sắp xếp",
 };

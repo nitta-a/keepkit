@@ -1,3 +1,5 @@
+export type { KeepCollectionSummary, UseKeepCollectionsOptions, UseKeepCollectionsResult } from "./useKeepCollections";
+export { useKeepCollections } from "./useKeepCollections";
 export type { UseKeepItemResult } from "./useKeepItem";
 export { useKeepItem } from "./useKeepItem";
 export type { KeepListQuery, UseKeepListResult } from "./useKeepList";

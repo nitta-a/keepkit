@@ -14,6 +14,7 @@ import {
   createKeepKit as createCoreKeepKit,
   type KeepProviderProps,
   type KeepShortcutOptions,
+  type UseKeepCollectionsResult,
   type UseKeepNavigatorOptions,
   type UseKeepNavigatorResult,
   type useKeepContext,
@@ -108,6 +109,11 @@ import {
   type KeepActiveFiltersSummaryProps,
   type KeepActiveFiltersSummaryState,
 } from "./features/query/KeepActiveFiltersSummary";
+import {
+  type KeepArchiveScope,
+  KeepArchiveScopeSelect,
+  type KeepArchiveScopeSelectProps,
+} from "./features/query/KeepArchiveScopeSelect";
 import {
   type KeepCollectionControlProps,
   KeepCollectionFilter,
@@ -254,6 +260,7 @@ export type {
 export {
   KeepErrorBoundary,
   KeepProvider,
+  useKeepCollections,
   useKeepContext,
   useKeepItem,
   useKeepList,
@@ -288,6 +295,8 @@ export type {
   KeepAnnouncementsProps,
   KeepArchiveButtonProps,
   KeepArchiveButtonState,
+  KeepArchiveScope,
+  KeepArchiveScopeSelectProps,
   KeepBackupProps,
   KeepBulkActionsProps,
   KeepBulkActionsState,
@@ -384,6 +393,7 @@ export {
   KeepAnnouncements,
   KeepAnnouncer,
   KeepArchiveButton,
+  KeepArchiveScopeSelect,
   KeepBackup,
   KeepBulkActions,
   KeepButton,
@@ -451,6 +461,7 @@ export type KeepKit<TMeta = Record<string, unknown>> = {
   useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useItem: (item?: KeepItemInput<TMeta>) => ReturnType<typeof useKeepItem<TMeta>>;
   useList: (query?: KeepListQuery<TMeta>) => ReturnType<typeof useKeepList<TMeta>>;
+  useCollections: (options?: { targetType?: string; orderBy?: "name" | "count" }) => UseKeepCollectionsResult;
   useNavigator: (options?: UseKeepNavigatorOptions<TMeta>) => UseKeepNavigatorResult<TMeta>;
   useShortcut: (options: KeepShortcutOptions<TMeta>) => void;
 };
@@ -528,6 +539,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     useContext: () => coreKit.useContext(),
     useItem: (item) => coreKit.useItem(item),
     useList: (query) => coreKit.useList(query),
+    useCollections: (collectionsOptions) => coreKit.useCollections(collectionsOptions),
     useNavigator: (navigatorOptions) => coreKit.useNavigator(navigatorOptions),
     useShortcut: (shortcutOptions) => coreKit.useShortcut(shortcutOptions),
   };

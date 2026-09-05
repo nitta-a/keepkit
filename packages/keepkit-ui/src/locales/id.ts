@@ -96,4 +96,9 @@ export const ID_LABELS: KeepUiLocaleLabels = {
   syncPending: "Ada perubahan yang menunggu sinkronisasi.",
   syncSynced: "Semua perubahan telah disinkronkan.",
   syncConflict: "Beberapa perubahan memerlukan penyelesaian konflik.",
+  archiveScope: "Cakupan arsip",
+  archiveScopeActive: "Aktif",
+  archiveScopeArchived: "Diarsipkan",
+  archiveScopeAll: "Semua item",
+  undoReorder: "Batalkan pengurutan",
 };

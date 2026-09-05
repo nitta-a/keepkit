@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeepItem } from "@keepkit/core/core";
-import { useKeepContext, useKeepItem } from "@keepkit/core/react";
+import { useKeepCollections, useKeepItem } from "@keepkit/core/react";
 import {
   type FormEvent,
   type FormHTMLAttributes,
@@ -205,7 +205,7 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   focusScopeRef,
   ...props
 }: KeepQuickEditorViewProps<TMeta>) {
-  const context = useKeepContext<TMeta>();
+  const collections = useKeepCollections<TMeta>({ targetType: state.item.targetType, orderBy: "name" });
   const rootRef = useRef<HTMLFormElement>(null);
   const noteLabel = useUiLabel("note");
   const tagsLabel = useUiLabel("tags");
@@ -273,14 +273,7 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
                 onChange={(event) => state.setCollectionId(event.currentTarget.value || undefined)}
               >
                 <option value="">{uncategorizedLabel}</option>
-                {(
-                  collectionIds ??
-                  [
-                    ...new Set(
-                      context.items.map((entry) => entry.collectionId).filter((id): id is string => Boolean(id)),
-                    ),
-                  ].sort()
-                ).map((id) => (
+                {(collectionIds ?? collections.map((collection) => collection.id)).map((id) => (
                   <option key={id} value={id}>
                     {collectionLabels?.[id] ?? id}
                   </option>

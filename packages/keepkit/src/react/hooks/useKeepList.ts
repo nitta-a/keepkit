@@ -52,11 +52,46 @@ export function useKeepList<TMeta = Record<string, unknown>>(
   query: KeepListQuery<TMeta> = {},
 ): UseKeepListResult<TMeta> {
   const { store, actions } = useKeepStore<TMeta>();
-  const { archived, collectionId, filter, pagination, pinnedFirst, savedBetween, search, sort, tags, targetType } =
-    query;
+  const {
+    archiveScope,
+    archived,
+    collectionId,
+    filter,
+    pagination,
+    pinnedFirst,
+    savedBetween,
+    search,
+    sort,
+    tags,
+    targetType,
+  } = query;
   const queryOptions = useMemo<KeepListQuery<TMeta>>(
-    () => ({ archived, collectionId, filter, pagination, pinnedFirst, savedBetween, search, sort, tags, targetType }),
-    [archived, collectionId, filter, pagination, pinnedFirst, savedBetween, search, sort, tags, targetType],
+    () => ({
+      archiveScope,
+      archived,
+      collectionId,
+      filter,
+      pagination,
+      pinnedFirst,
+      savedBetween,
+      search,
+      sort,
+      tags,
+      targetType,
+    }),
+    [
+      archiveScope,
+      archived,
+      collectionId,
+      filter,
+      pagination,
+      pinnedFirst,
+      savedBetween,
+      search,
+      sort,
+      tags,
+      targetType,
+    ],
   );
   const selector = useMemo(() => {
     let previousResult: QueryKeepItemsResult<TMeta> | undefined;

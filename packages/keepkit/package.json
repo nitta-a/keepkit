@@ -1,6 +1,6 @@
 {
   "name": "@keepkit/core",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "description": "A flexible save-and-collect toolkit for React apps.",
   "type": "module",
   "license": "MIT",

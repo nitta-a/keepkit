@@ -93,7 +93,12 @@ export type KeepUiLabelKey =
   | "backupRecoveryDescription"
   | "syncPending"
   | "syncSynced"
-  | "syncConflict";
+  | "syncConflict"
+  | "archiveScope"
+  | "archiveScopeActive"
+  | "archiveScopeArchived"
+  | "archiveScopeAll"
+  | "undoReorder";
 
 export type KeepUiLabels = Partial<Record<KeepUiLabelKey, string>>;
 export type KeepUiLocaleLabels = Record<KeepUiLabelKey, string>;

@@ -76,7 +76,16 @@ export function KeepReorderableList<TItem extends { id: string } = KeepItem>({
         const moveUp = () => move(index, index - 1);
         const moveDown = () => move(index, index + 1);
         const onHandleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-          if (event.key === "ArrowUp") {
+          if (event.key === " ") {
+            event.preventDefault();
+            if (draggedId === item.id) {
+              setDraggedId(null);
+              setDropTargetIndex(null);
+            } else {
+              setDraggedId(item.id);
+              setDropTargetIndex(index);
+            }
+          } else if (event.key === "ArrowUp") {
             event.preventDefault();
             moveUp();
           } else if (event.key === "ArrowDown") {

@@ -96,4 +96,9 @@ export const JA_LABELS: KeepUiLocaleLabels = {
   syncPending: "同期待ちの変更があります。",
   syncSynced: "すべての変更を同期しました。",
   syncConflict: "競合している変更があります。解決してください。",
+  archiveScope: "アーカイブの範囲",
+  archiveScopeActive: "保存中",
+  archiveScopeArchived: "アーカイブ済み",
+  archiveScopeAll: "すべて",
+  undoReorder: "並び替えを元に戻す",
 };

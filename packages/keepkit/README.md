@@ -38,7 +38,7 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.24.0では、UI層に一覧・管理・同期UIをまとめる`KeepWorkspace`と型付きの`keep.Workspace`を追加しました。Tailwind CSS v4統合とホストテーマ変数との衝突回避も引き続き利用できます。coreでは既存の保存順プレイリスト、`useKeepNavigator`、`reorderKeepItems` / `moveKeepItem`、URL状態codec、ユーザー／テナント分離、`createKeepKitPreset`、認証付き同期を引き続き利用できます。
+v0.25.0では、UI層に一覧・管理・同期UIをまとめる`KeepWorkspace`と型付きの`keep.Workspace`を追加しました。Tailwind CSS v4統合とホストテーマ変数との衝突回避も引き続き利用できます。coreでは既存の保存順プレイリスト、`useKeepNavigator`、`reorderKeepItems` / `moveKeepItem`、URL状態codec、ユーザー／テナント分離、`createKeepKitPreset`、認証付き同期を引き続き利用できます。
 
 `createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
@@ -83,7 +83,7 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-v0.24.0 adds `KeepWorkspace` and the typed `keep.Workspace` to the UI layer for composed collection, management, and sync interfaces. Tailwind CSS v4 integration and host-theme isolation remain available. Core continues to provide persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem`, URL state codecs, user/tenant isolation, `createKeepKitPreset({ mode: "local" | "sync" | "backup" })`, and token-aware authenticated sync.
+v0.25.0 adds `KeepWorkspace` and the typed `keep.Workspace` to the UI layer for composed collection, management, and sync interfaces. Tailwind CSS v4 integration and host-theme isolation remain available. Core continues to provide persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem`, URL state codecs, user/tenant isolation, `createKeepKitPreset({ mode: "local" | "sync" | "backup" })`, and token-aware authenticated sync.
 
 `createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 
@@ -91,8 +91,8 @@ The v0.5 factory returns `Provider`, `Button`, `useContext`, `useItem`, `useList
 
 ## Archive, pin, and collections
 
-`KeepItem` and `KeepItemInput` accept optional `archived`, `pinned`, and `collectionId` fields. `useKeepList` defaults to unarchived items; pass `archived: true` for the archive, `collectionId` for an exact collection filter, and `pinnedFirst: true` to stably promote pinned items without changing the existing order inside either group. `useKeepItem` and the provider expose `toggleArchive`, `archiveItem`, `unarchiveItem`, `togglePin`, and `moveToCollection` operations. Each operation updates `updatedAt`, removes an empty collection ID, and uses the normal persistence, rollback, plugin, and `onChange` pipeline.
+`KeepItem` and `KeepItemInput` accept optional `archived`, `pinned`, and `collectionId` fields. `useKeepList` defaults to unarchived items; pass `archived: true` for the archive, `archiveScope: "all"` for both scopes, `collectionId` for an exact collection filter, and `pinnedFirst: true` to stably promote pinned items without changing the existing order inside either group. `useKeepCollections({ targetType, orderBy })` derives de-duplicated collection IDs, names, and counts from the complete saved-item snapshot. `useKeepItem` and the provider expose `toggleArchive`, `archiveItem`, `unarchiveItem`, `togglePin`, and `moveToCollection` operations. Each operation updates `updatedAt`, removes an empty collection ID, and uses the normal persistence, rollback, plugin, and `onChange` pipeline.
 
 ## アーカイブ・ピン留め・コレクション
 
-`KeepItem` と `KeepItemInput` は `archived`、`pinned`、`collectionId` を任意で受け取れます。`useKeepList` は未アーカイブを既定とし、`archived: true` でアーカイブを、`collectionId` で完全一致のコレクションを取得できます。`pinnedFirst: true` は既存の順序を保ったままピン留め項目を先頭へ安定移動します。`useKeepItem` と Provider には `toggleArchive`、`archiveItem`、`unarchiveItem`、`togglePin`、`moveToCollection` を追加しました。各操作は `updatedAt` を更新し、空のコレクション ID はプロパティを削除して、既存の永続化・rollback・plugin・`onChange` 経路を利用します。
+`KeepItem` と `KeepItemInput` は `archived`、`pinned`、`collectionId` を任意で受け取れます。`useKeepList` は未アーカイブを既定とし、`archived: true` でアーカイブを、`archiveScope: "all"` で両方を、`collectionId` で完全一致のコレクションを取得できます。`useKeepCollections({ targetType, orderBy })` は全保存アイテムからコレクションID・名前・件数を重複なく導出します。`pinnedFirst: true` は既存の順序を保ったままピン留め項目を先頭へ安定移動します。`useKeepItem` と Provider には `toggleArchive`、`archiveItem`、`unarchiveItem`、`togglePin`、`moveToCollection` を追加しました。各操作は `updatedAt` を更新し、空のコレクション ID はプロパティを削除して、既存の永続化・rollback・plugin・`onChange` 経路を利用します。
