@@ -11,14 +11,68 @@
   flex-wrap: wrap;
   gap: var(--keep-card-gap);
   align-items: center;
-  border: 1px solid var(--keep-border);
+  border: 1px solid var(--keep-surface-border);
   border-radius: calc(var(--keep-radius) + 0.25rem);
   padding: var(--keep-card-padding);
-  background: color-mix(in srgb, var(--keep-muted) 64%, var(--keep-card));
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--keep-foreground) 4%, transparent);
+  background: color-mix(in srgb, var(--keep-muted) 64%, var(--keep-surface-background));
+  box-shadow: var(--keep-surface-shadow);
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection"] > :first-child > :is(input, select) {
+  flex: 1 1 12rem;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-toolbar"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--keep-card-gap);
+  min-width: 0;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-toolbar"][data-variant="panel"] {
+  border: 1px solid var(--keep-surface-border);
+  border-radius: calc(var(--keep-radius) + 0.25rem);
+  padding: var(--keep-card-padding);
+  background: color-mix(in srgb, var(--keep-muted) 64%, var(--keep-surface-background));
+  box-shadow: var(--keep-surface-shadow);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-toolbar-group"] {
+  display: grid;
+  flex: 1 1 12rem;
+  align-content: start;
+  gap: 0.375rem;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  color: var(--keep-muted-foreground);
+  font-size: var(--keep-tag-size);
+  font-weight: 600;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-toolbar-group"][data-group="toolbarStart"],
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-toolbar-group"][data-group="toolbarEnd"] {
+  flex-basis: auto;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-toolbar-content"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--keep-control-gap);
+  min-width: 0;
+}
+
+:where(.keep-theme, [data-keep-theme]) :where([data-keepkit="collection-toolbar-content"] > :is(input, select)) {
+  flex: 1 1 10rem;
+  min-width: min(100%, 12rem);
+}
+
+:where(.keep-theme, [data-keep-theme])
+  [data-keepkit="collection-toolbar-content"]
+  > :is([data-keepkit="tag-filter"], [data-keepkit="collection-filter"]) {
   flex: 1 1 12rem;
 }
 
@@ -141,12 +195,12 @@
   position: relative;
   gap: var(--keep-card-gap);
   min-width: 0;
-  border: 1px solid var(--keep-border);
+  border: 1px solid var(--keep-card-border);
   border-radius: var(--keep-radius);
   padding: var(--keep-card-padding);
   background: var(--keep-card);
   color: var(--keep-card-foreground);
-  box-shadow: var(--keep-shadow);
+  box-shadow: var(--keep-card-shadow);
   transition:
     opacity 160ms ease,
     box-shadow 160ms ease,
@@ -290,11 +344,19 @@
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="card"]:hover {
-  border-color: color-mix(in srgb, var(--keep-primary) 32%, var(--keep-border));
+  border-color: color-mix(in srgb, var(--keep-primary) 32%, var(--keep-card-border));
   box-shadow:
     0 2px 4px color-mix(in srgb, var(--keep-foreground) 8%, transparent),
     0 12px 28px color-mix(in srgb, var(--keep-foreground) 9%, transparent);
   transform: translateY(-1px);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-card-variant="elevated"] {
+  box-shadow: var(--keep-card-shadow-elevated, var(--keep-card-shadow));
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="card"][data-card-variant="filled"] {
+  background: var(--keep-muted);
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="card"]:has(> img) {
@@ -835,6 +897,25 @@
   :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection"] > :first-child {
     align-items: stretch;
     flex-direction: column;
+  }
+  :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-toolbar"] {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-toolbar-group"] {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+  :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-toolbar-content"] {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  :where(.keep-theme, [data-keep-theme])
+    [data-keepkit="collection-toolbar-content"]
+    > :is(input, select, [data-keepkit="tag-filter"], [data-keepkit="collection-filter"]) {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
   }
   :where(.keep-theme, [data-keep-theme])
     [data-keepkit="collection"]

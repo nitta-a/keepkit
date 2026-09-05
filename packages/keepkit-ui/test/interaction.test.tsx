@@ -1458,6 +1458,89 @@ test("exposes the same workspace implementation from createKeepKit and supports 
   expect(screen.getByText("basic:false")).not.toBeNull();
 });
 
+test("opts into workspace region surfaces without creating frames for empty slots", () => {
+  render(
+    <KeepWorkspace
+      preset="basic"
+      surface={{ before: "plain", collection: "panel", children: "compact", after: "panel" }}
+      sectionGap="comfortable"
+      data-testid="surface-workspace"
+      slots={{ before: <p>Workspace header</p>, collection: <p>Custom collection</p>, after: null }}
+    >
+      {null}
+    </KeepWorkspace>,
+  );
+
+  const workspace = screen.getByTestId("surface-workspace");
+  expect(workspace.getAttribute("data-surface")).toBe("custom");
+  expect(workspace.getAttribute("data-section-gap")).toBe("comfortable");
+  expect(workspace.querySelectorAll('[data-keepkit="workspace-region"]')).toHaveLength(2);
+  expect(workspace.querySelector('[data-region="before"]')?.getAttribute("data-surface")).toBe("plain");
+  expect(workspace.querySelector('[data-region="collection"]')?.getAttribute("data-surface")).toBe("panel");
+  expect(workspace.querySelector('[data-region="after"]')).toBeNull();
+});
+
+test("groups collection toolbar controls and host actions with localized group labels", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepCollection
+        toolbarVariant="panel"
+        toolbarLayout="grouped"
+        archiveScope="all"
+        features={{ tagFilter: true, collectionFilter: true, pagination: false }}
+        slots={{
+          toolbarStart: <button type="button">Start tour</button>,
+          toolbarEnd: <button type="button">Select all</button>,
+        }}
+      />
+    </KeepProvider>,
+  );
+
+  await screen.findByRole("heading", { name: "Interaction item" });
+  const toolbar = document.querySelector('[data-keepkit="collection-toolbar"]');
+  if (!toolbar) throw new Error("The grouped collection toolbar was not rendered.");
+  expect(toolbar.getAttribute("data-variant")).toBe("panel");
+  expect(toolbar.getAttribute("data-layout")).toBe("grouped");
+  for (const [group, label] of [
+    ["toolbarStart", "Collection actions"],
+    ["query", "Search and sort"],
+    ["filters", "Filters"],
+    ["toolbarEnd", "Additional actions"],
+  ]) {
+    const element = toolbar.querySelector(`[data-group="${group}"]`);
+    expect(element?.getAttribute("role") ?? "group").toBe("group");
+    expect(element?.getAttribute("aria-labelledby")).toBe(element?.querySelector("[id]")?.id);
+    expect(element?.textContent).toContain(label);
+  }
+  expect(toolbar.querySelector('[data-group="query"] [data-keep-action="search"]')).not.toBeNull();
+  expect(toolbar.querySelector('[data-group="query"] [data-keep-action="sort"]')).not.toBeNull();
+  expect(toolbar.querySelector('[data-group="filters"] [data-keep-action="filter-all-tags"]')).not.toBeNull();
+  expect(toolbar.querySelector('[data-group="filters"] [data-keep-action="filter-collection"]')).not.toBeNull();
+  expect(toolbar.querySelector('[data-group="filters"] [data-keep-action="archive-scope"]')).not.toBeNull();
+});
+
+test("exposes independent card and surface theme contracts", async () => {
+  render(
+    <KeepThemeProvider
+      variables={{
+        "--keep-card-border": "rgb(1 2 3)",
+        "--keep-card-shadow": "none",
+        "--keep-surface-border": "rgb(4 5 6)",
+        "--keep-surface-background": "rgb(7 8 9)",
+      }}
+    >
+      <KeepProvider<Meta> storage={createStorage([item])}>
+        <KeepItemCard item={item} cardVariant="elevated" data-testid="variant-card" />
+      </KeepProvider>
+    </KeepThemeProvider>,
+  );
+
+  const theme = document.querySelector("[data-keep-theme]");
+  expect(theme?.getAttribute("style")).toContain("--keep-card-border: rgb(1 2 3)");
+  const card = await screen.findByTestId("variant-card");
+  expect(card.getAttribute("data-card-variant")).toBe("elevated");
+});
+
 test("emits sync failure feedback from the combined provider", async () => {
   const syncError = new Error("offline");
   const syncState: KeepSyncState<Meta> = { status: "error", pendingCount: 1, conflictIds: [], error: syncError };

@@ -101,4 +101,8 @@ export const FIL_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "Naka-archive",
   archiveScopeAll: "Lahat ng item",
   undoReorder: "I-undo ang pag-aayos",
+  toolbarStart: "Mga aksyon ng koleksyon",
+  toolbarQuery: "Maghanap at mag-ayos",
+  toolbarFilters: "Mga filter",
+  toolbarEnd: "Mga karagdagang aksyon",
 };

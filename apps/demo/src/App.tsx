@@ -1,16 +1,13 @@
 import type { KeepItem } from "@keepkit/core/core";
 import {
   KeepBulkActions,
+  KeepButton,
   KeepCollection,
   KeepEmptyState,
   KeepItemCard,
-  KeepItemStatusBadge,
   KeepNoteEditor,
-  KeepSavePopover,
-  KeepTourBar,
   KeepUndo,
 } from "@keepkit/ui";
-import { useState } from "react";
 import type { DemoMeta } from "./main";
 import { useAppView } from "./useAppView";
 
@@ -76,23 +73,34 @@ const content: Content[] = [
 ];
 
 export function App() {
-  const { isOnline, savedItemCount, shortcutLabel, syncLabel } = useAppView(content[0]);
-  const [showArchived, setShowArchived] = useState(false);
-  const [isManaging, setIsManaging] = useState(false);
+  const {
+    isOnline,
+    savedItemCount,
+    shortcutLabel,
+    syncLabel,
+    showArchived,
+    setShowArchived,
+    isManaging,
+    setIsManaging,
+    areFiltersOpen,
+    setAreFiltersOpen,
+    openNoteId,
+    setOpenNoteId,
+  } = useAppView(content[0]);
 
   return (
     <main className="shell">
       <header className="hero">
-        <p className="eyebrow">@keepkit/core · phase 1—3 demo</p>
-        <h1>A small place for things worth returning to.</h1>
+        <p className="eyebrow">KeepKit demo</p>
+        <h1>Save what you want to return to.</h1>
         <p className="lede">
-          Save articles and products with the same headless API. Notes and the collection persist in localStorage, while
-          changes in another tab are reloaded automatically.
+          Keep useful articles, products, and ideas in one simple collection. Your saves stay available offline and sync
+          when you are back online.
         </p>
         <div className={isOnline ? "sync-status online" : "sync-status offline"} aria-live="polite">
           <span className="status-dot" aria-hidden="true" />
           <span>{syncLabel}</span>
-          <span className="shortcut-hint">{shortcutLabel} saves the first article</span>
+          <span className="shortcut-hint">{shortcutLabel} saves the first item</span>
         </div>
       </header>
 
@@ -121,7 +129,7 @@ export function App() {
                     {entry.meta.company} · {entry.meta.location} · {entry.meta.salary}
                   </span>
                 )}
-                <KeepSavePopover
+                <KeepButton
                   className="favorite-button"
                   item={{
                     id: entry.id,
@@ -131,8 +139,8 @@ export function App() {
                       entry.targetType === "article" ? "reading" : entry.targetType === "product" ? "shopping" : "work",
                     ...(entry.targetType === undefined ? {} : { targetType: entry.targetType }),
                   }}
-                  editorProps={{ collectionIds: ["reading", "shopping", "work"], showSaveButton: false }}
-                  buttonProps={{ savedLabel: "Saved ✓", unsavedLabel: "Save for later" }}
+                  savedLabel="Saved ✓"
+                  unsavedLabel="Save for later"
                 />
               </div>
             </article>
@@ -148,12 +156,23 @@ export function App() {
           </div>
           <div className="collection-actions">
             <span className="count">{savedItemCount} saved</span>
-            <button className="text-button" onClick={() => setShowArchived((current) => !current)} type="button">
+            <button className="text-button" onClick={() => setShowArchived(!showArchived)} type="button">
               {showArchived ? "Show active" : "Show archived"}
             </button>
+            {!isManaging ? (
+              <button
+                className="text-button"
+                onClick={() => setAreFiltersOpen(!areFiltersOpen)}
+                type="button"
+                aria-expanded={areFiltersOpen}
+                aria-controls="collection-filters"
+              >
+                {areFiltersOpen ? "Hide filters" : "Filter"}
+              </button>
+            ) : null}
             <button
               className="text-button"
-              onClick={() => setIsManaging((current) => !current)}
+              onClick={() => setIsManaging(!isManaging)}
               type="button"
               disabled={savedItemCount === 0}
               aria-expanded={isManaging}
@@ -175,10 +194,13 @@ export function App() {
         ) : (
           <KeepCollection<DemoMeta>
             className="demo-collection"
+            id="collection-filters"
+            data-filters-open={areFiltersOpen ? "true" : "false"}
             layout="auto"
             loadingCount={6}
             pageSize={6}
             query={{ archived: showArchived, pinnedFirst: true }}
+            collectionLabels={{ reading: "Reading", shopping: "Shopping", work: "Work" }}
             features={{ tagFilter: true, collectionFilter: true }}
             empty={
               <KeepEmptyState
@@ -204,38 +226,39 @@ export function App() {
                   </KeepItemCard.Content>
                   <KeepItemCard.Actions>
                     <KeepItemCard.Pin />
-                    <KeepItemCard.Archive />
-                    <KeepItemCard.Remove />
+                    <details className="card-more-actions">
+                      <summary>More</summary>
+                      <div>
+                        <KeepItemCard.Archive />
+                        <KeepItemCard.Remove />
+                      </div>
+                    </details>
                   </KeepItemCard.Actions>
                 </KeepItemCard>
-                <KeepNoteEditor item={item} placeholder="Why is this worth returning to?" showShortcutHint />
+                <div className="note-disclosure">
+                  <button
+                    className="note-toggle"
+                    type="button"
+                    aria-expanded={openNoteId === item.id}
+                    aria-controls={`note-${encodeURIComponent(item.id)}`}
+                    onClick={() => setOpenNoteId(openNoteId === item.id ? null : item.id)}
+                  >
+                    {item.note ? "Edit note" : "Add note"}
+                  </button>
+                  {openNoteId === item.id ? (
+                    <KeepNoteEditor
+                      id={`note-${encodeURIComponent(item.id)}`}
+                      item={item}
+                      placeholder="Why is this worth returning to?"
+                      showShortcutHint
+                    />
+                  ) : null}
+                </div>
               </li>
             )}
           />
         )}
         <KeepUndo />
-        <KeepTourBar<DemoMeta>
-          currentId={content[0].id}
-          backHref="#collection-heading"
-          getItemTitle={(entry) => entry.meta.title}
-          keyboardShortcuts
-          showShortcutHint
-        />
-      </section>
-      <section className="section" aria-labelledby="feedback-heading">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Perception</p>
-            <h2 id="feedback-heading">Status at a glance</h2>
-          </div>
-        </div>
-        <fieldset className="status-preview">
-          <legend className="visually-hidden">Status examples</legend>
-          <KeepItemStatusBadge status="available" />
-          <KeepItemStatusBadge status="expired" />
-          <KeepItemStatusBadge status="removed" />
-          <KeepItemStatusBadge status="restricted" />
-        </fieldset>
       </section>
     </main>
   );

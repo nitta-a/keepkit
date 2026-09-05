@@ -55,6 +55,7 @@ function Demo() {
   const showDefaultFeedback = useKeepToastFeedback<DemoMeta>(showToast);
   const onFeedback = useCallback(
     (event: KeepUiFeedbackEvent<DemoMeta>) => {
+      if (event.type === "sync-completed") return;
       if (event.type !== "item-saved") {
         showDefaultFeedback(event);
         return;

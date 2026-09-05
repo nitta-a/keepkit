@@ -101,4 +101,8 @@ export const MS_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "Diarkibkan",
   archiveScopeAll: "Semua item",
   undoReorder: "Buat asal susunan",
+  toolbarStart: "Tindakan koleksi",
+  toolbarQuery: "Cari dan susun",
+  toolbarFilters: "Penapis",
+  toolbarEnd: "Tindakan tambahan",
 };

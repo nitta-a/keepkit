@@ -101,4 +101,8 @@ export const JA_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "アーカイブ済み",
   archiveScopeAll: "すべて",
   undoReorder: "並び替えを元に戻す",
+  toolbarStart: "コレクションの操作",
+  toolbarQuery: "検索と並び替え",
+  toolbarFilters: "絞り込み",
+  toolbarEnd: "追加の操作",
 };

@@ -8,10 +8,22 @@ export interface AppViewState {
   savedItemCount: number;
   syncLabel: string;
   shortcutLabel: string;
+  showArchived: boolean;
+  setShowArchived: (show: boolean) => void;
+  isManaging: boolean;
+  setIsManaging: (managing: boolean) => void;
+  areFiltersOpen: boolean;
+  setAreFiltersOpen: (open: boolean) => void;
+  openNoteId: string | null;
+  setOpenNoteId: (id: string | null) => void;
 }
 
 export function useAppView(shortcutItem: KeepItem<DemoMeta>): AppViewState {
   const [isOnline, setIsOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  const [showArchived, setShowArchived] = useState(false);
+  const [isManaging, setIsManaging] = useState(false);
+  const [areFiltersOpen, setAreFiltersOpen] = useState(false);
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const { items } = useKeepList<DemoMeta>();
   const { syncState } = useKeepContext<DemoMeta>();
   const isApplePlatform =
@@ -53,5 +65,13 @@ export function useAppView(shortcutItem: KeepItem<DemoMeta>): AppViewState {
     savedItemCount: items.length,
     syncLabel,
     shortcutLabel: isApplePlatform ? "⌘K" : "Ctrl+K",
+    showArchived,
+    setShowArchived,
+    isManaging,
+    setIsManaging,
+    areFiltersOpen,
+    setAreFiltersOpen,
+    openNoteId,
+    setOpenNoteId,
   };
 }

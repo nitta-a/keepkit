@@ -101,4 +101,8 @@ export const ID_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "Diarsipkan",
   archiveScopeAll: "Semua item",
   undoReorder: "Batalkan pengurutan",
+  toolbarStart: "Tindakan koleksi",
+  toolbarQuery: "Cari dan urutkan",
+  toolbarFilters: "Filter",
+  toolbarEnd: "Tindakan tambahan",
 };

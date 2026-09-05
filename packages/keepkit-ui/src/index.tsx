@@ -57,6 +57,11 @@ import {
   KeepCollection,
   type KeepCollectionFeature,
   type KeepCollectionProps,
+  type KeepCollectionSlots,
+  type KeepCollectionToolbarContent,
+  type KeepCollectionToolbarGroup,
+  type KeepCollectionToolbarLayout,
+  type KeepCollectionToolbarVariant,
   type KeepLayoutPreset,
 } from "./features/collection/KeepCollection";
 import { KeepLayout, type KeepLayoutProps } from "./features/collection/KeepLayout";
@@ -96,6 +101,7 @@ import {
   type KeepItemCardState,
   type KeepItemCardTagsProps,
   type KeepItemCardTitleProps,
+  type KeepItemCardVariant,
 } from "./features/item/KeepItemCard";
 import {
   type KeepDisplayStatus,
@@ -157,8 +163,11 @@ import {
   type KeepWorkspaceModule,
   type KeepWorkspacePreset,
   type KeepWorkspaceProps,
+  type KeepWorkspaceRegion,
+  type KeepWorkspaceSectionGap,
   type KeepWorkspaceSlots,
   type KeepWorkspaceState,
+  type KeepWorkspaceSurface,
 } from "./features/workspace/KeepWorkspace";
 import {
   type KeepThemeDensity,
@@ -309,6 +318,11 @@ export type {
   KeepCollectionFeature,
   KeepCollectionOption,
   KeepCollectionProps,
+  KeepCollectionSlots,
+  KeepCollectionToolbarContent,
+  KeepCollectionToolbarGroup,
+  KeepCollectionToolbarLayout,
+  KeepCollectionToolbarVariant,
   KeepDisplayStatus,
   KeepEmptyStateProps,
   KeepImageProps,
@@ -325,6 +339,7 @@ export type {
   KeepItemCardState,
   KeepItemCardTagsProps,
   KeepItemCardTitleProps,
+  KeepItemCardVariant,
   KeepItemCheckboxProps,
   KeepItemStatusBadgeProps,
   KeepLayoutPreset,
@@ -383,8 +398,11 @@ export type {
   KeepWorkspaceModule,
   KeepWorkspacePreset,
   KeepWorkspaceProps,
+  KeepWorkspaceRegion,
+  KeepWorkspaceSectionGap,
   KeepWorkspaceSlots,
   KeepWorkspaceState,
+  KeepWorkspaceSurface,
 };
 export {
   createNextPagesRouterAdapter,

@@ -1,5 +1,8 @@
 {
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "biomejs.biome",
-  "cSpell.words": ["keepkit"]
+  "cSpell.words": [
+    "keepkit"
+  ],
+  "js/ts.experimental.useTsgo": false
 }

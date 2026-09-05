@@ -101,4 +101,8 @@ export const VI_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "Đã lưu trữ",
   archiveScopeAll: "Tất cả mục",
   undoReorder: "Hoàn tác sắp xếp",
+  toolbarStart: "Thao tác bộ sưu tập",
+  toolbarQuery: "Tìm kiếm và sắp xếp",
+  toolbarFilters: "Bộ lọc",
+  toolbarEnd: "Thao tác bổ sung",
 };

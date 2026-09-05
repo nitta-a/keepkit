@@ -1,5 +1,23 @@
 # Release notes
 
+## [0.26.0] - 2026-09-05
+
+### 日本語
+
+#### 追加・改善
+
+- `KeepWorkspace`に領域別の`surface`（`plain` / `compact` / `panel`）と有限の`sectionGap`を追加しました。空のslotは枠を生成しません。
+- `KeepCollection`に`toolbarLayout="grouped"`、`toolbarVariant="panel"`、`toolbarStart` / `toolbarEnd` slotを追加し、検索・ソート・フィルターをローカライズされたARIAグループへ整理しました。
+- `KeepItemCard`に`cardVariant`を追加し、カードとsurfaceを個別に調整できるテーマトークンとWorkspace用CSS exportを公開しました。
+
+### English
+
+#### Added and changed
+
+- Added per-region `surface` (`plain` / `compact` / `panel`) and finite `sectionGap` options to `KeepWorkspace`; empty slots do not create frames.
+- Added `toolbarLayout="grouped"`, `toolbarVariant="panel"`, and `toolbarStart` / `toolbarEnd` slots to `KeepCollection`, with localized ARIA groups for query and filter controls.
+- Added `cardVariant` to `KeepItemCard`, independent card/surface theme tokens, and a public Workspace stylesheet export.
+
 ## [0.25.0] - 2026-09-05
 
 ### 日本語

@@ -12,6 +12,17 @@ import { useKeepWorkspace } from "./hooks/useKeepWorkspace";
 
 export type KeepWorkspacePreset = "basic" | "standard" | "management" | "sync";
 export type KeepWorkspaceModule = "syncStatus" | "undo" | "recovery" | "backup" | "stalePrune";
+export type KeepWorkspaceRegion =
+  | "before"
+  | "syncStatus"
+  | "collection"
+  | "actions"
+  | "undo"
+  | "recovery"
+  | "children"
+  | "after";
+export type KeepWorkspaceSurface = "plain" | "compact" | "panel";
+export type KeepWorkspaceSectionGap = "none" | "compact" | "comfortable";
 
 export type KeepWorkspaceState = {
   preset: KeepWorkspacePreset;
@@ -35,6 +46,10 @@ export type KeepWorkspaceSlots = {
 export type KeepWorkspaceProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   preset?: KeepWorkspacePreset;
   modules?: Partial<Record<KeepWorkspaceModule, boolean>>;
+  /** Opts into region wrappers and their theme-backed surface treatment. */
+  surface?: KeepWorkspaceSurface | Partial<Record<KeepWorkspaceRegion, KeepWorkspaceSurface>>;
+  /** Controls the finite spacing scale between rendered workspace regions. */
+  sectionGap?: KeepWorkspaceSectionGap;
   collectionProps?: KeepCollectionProps<TMeta>;
   syncStatusProps?: KeepSyncStatusBannerProps;
   recoveryProps?: KeepSyncRecoveryDialogProps<TMeta>;
@@ -49,6 +64,8 @@ export type KeepWorkspaceProps<TMeta = Record<string, unknown>> = Omit<HTMLAttri
 export function KeepWorkspace<TMeta = Record<string, unknown>>({
   preset = "standard",
   modules,
+  surface,
+  sectionGap,
   collectionProps,
   syncStatusProps,
   recoveryProps,
@@ -77,42 +94,69 @@ export function KeepWorkspace<TMeta = Record<string, unknown>>({
     ...collectionProps,
     features: { ...view.collectionFeatures, ...collectionProps?.features },
   };
+  const structuredRegions = surface !== undefined && surface !== "plain";
+  const region = (name: KeepWorkspaceRegion, content: ReactNode): ReactNode => {
+    if (!structuredRegions) return content;
+    if (content === null || content === undefined || content === false) return null;
+    const resolvedSurface = typeof surface === "string" ? surface : (surface[name] ?? "plain");
+    return (
+      <div data-keepkit="workspace-region" data-region={name} data-surface={resolvedSurface}>
+        {content}
+      </div>
+    );
+  };
+  const before = resolveOptionalSlot(slots?.before, state);
+  const syncStatus = view.modules.syncStatus
+    ? resolveSlot(
+        slots?.syncStatus,
+        <KeepSyncStatusBanner {...syncStatusProps} onResolveConflicts={view.openRecovery} />,
+        state,
+      )
+    : null;
+  const collection = resolveSlot(slots?.collection, <KeepCollection<TMeta> {...resolvedCollectionProps} />, state);
+  const actions =
+    view.modules.backup || view.modules.stalePrune
+      ? resolveSlot(
+          slots?.actions,
+          <div data-keepkit="workspace-actions">
+            {view.modules.stalePrune ? <KeepPruneStaleButton {...stalePruneProps} /> : null}
+            {view.modules.backup ? <KeepBackup<TMeta> {...backupProps} /> : null}
+          </div>,
+          state,
+        )
+      : null;
+  const undo = view.modules.undo ? resolveSlot(slots?.undo, <KeepUndo {...undoProps} />, state) : null;
+  const recovery = view.modules.recovery
+    ? resolveSlot(
+        slots?.recovery,
+        <KeepSyncRecoveryDialog<TMeta>
+          {...recoveryProps}
+          open={view.recoveryOpen}
+          onOpenChange={view.setRecoveryOpen}
+        />,
+        state,
+      )
+    : null;
+  const additionalContent = resolveOptionalSlot(children, state);
+  const after = resolveOptionalSlot(slots?.after, state);
 
   return (
-    <section {...props} className={className} data-keepkit="workspace" data-preset={preset}>
-      {resolveOptionalSlot(slots?.before, state)}
-      {view.modules.syncStatus
-        ? resolveSlot(
-            slots?.syncStatus,
-            <KeepSyncStatusBanner {...syncStatusProps} onResolveConflicts={view.openRecovery} />,
-            state,
-          )
-        : null}
-      {resolveSlot(slots?.collection, <KeepCollection<TMeta> {...resolvedCollectionProps} />, state)}
-      {view.modules.backup || view.modules.stalePrune
-        ? resolveSlot(
-            slots?.actions,
-            <div data-keepkit="workspace-actions">
-              {view.modules.stalePrune ? <KeepPruneStaleButton {...stalePruneProps} /> : null}
-              {view.modules.backup ? <KeepBackup<TMeta> {...backupProps} /> : null}
-            </div>,
-            state,
-          )
-        : null}
-      {view.modules.undo ? resolveSlot(slots?.undo, <KeepUndo {...undoProps} />, state) : null}
-      {view.modules.recovery
-        ? resolveSlot(
-            slots?.recovery,
-            <KeepSyncRecoveryDialog<TMeta>
-              {...recoveryProps}
-              open={view.recoveryOpen}
-              onOpenChange={view.setRecoveryOpen}
-            />,
-            state,
-          )
-        : null}
-      {resolveOptionalSlot(children, state)}
-      {resolveOptionalSlot(slots?.after, state)}
+    <section
+      {...props}
+      className={className}
+      data-keepkit="workspace"
+      data-preset={preset}
+      data-surface={surface !== undefined ? (typeof surface === "string" ? surface : "custom") : undefined}
+      data-section-gap={sectionGap}
+    >
+      {region("before", before)}
+      {region("syncStatus", syncStatus)}
+      {region("collection", collection)}
+      {region("actions", actions)}
+      {region("undo", undo)}
+      {region("recovery", recovery)}
+      {region("children", additionalContent)}
+      {region("after", after)}
     </section>
   );
 }

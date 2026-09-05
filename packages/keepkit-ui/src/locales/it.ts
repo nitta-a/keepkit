@@ -101,4 +101,8 @@ export const IT_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "Archiviati",
   archiveScopeAll: "Tutti gli elementi",
   undoReorder: "Annulla riordinamento",
+  toolbarStart: "Azioni della raccolta",
+  toolbarQuery: "Cerca e ordina",
+  toolbarFilters: "Filtri",
+  toolbarEnd: "Azioni aggiuntive",
 };

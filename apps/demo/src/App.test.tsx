@@ -79,21 +79,13 @@ test("saves a resource and displays it in the collection", async () => {
   expect(await screen.findByRole("heading", { name: "Nothing here yet" })).toBeInTheDocument();
   fireEvent.click(screen.getAllByText("Save for later")[0]);
 
-  const quickEditor = await screen.findByRole("dialog", { name: "Edit saved item" });
-  fireEvent.change(within(quickEditor).getByRole("textbox", { name: "Note" }), {
-    target: { value: "Return to this guide" },
-  });
-  await waitFor(() => expect(getItems()[0]?.note).toBe("Return to this guide"));
-  fireEvent.click(within(quickEditor).getByRole("button", { name: "Close" }));
-  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-
   await waitFor(() => {
     expect(screen.getByRole("button", { name: "Remove saved item" })).toHaveAttribute("aria-pressed", "true");
   });
   expect(within(await findCollectionList()).getByText(firstArticle.meta.title)).toBeInTheDocument();
   expect(getItems()).toHaveLength(1);
   expect(getItems()[0]?.id).toBe(firstArticle.id);
-  expect(getItems()[0]?.note).toBe("Return to this guide");
+  expect(getItems()[0]?.note).toBeUndefined();
 });
 
 test("filters the collection by resource type", async () => {
@@ -102,7 +94,10 @@ test("filters the collection by resource type", async () => {
 
   expect(within(collection).getByText(firstArticle.meta.title)).toBeInTheDocument();
   expect(within(collection).getByText(product.meta.title)).toBeInTheDocument();
+  expect(document.getElementById("collection-filters")).toHaveAttribute("data-filters-open", "false");
 
+  fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+  expect(document.getElementById("collection-filters")).toHaveAttribute("data-filters-open", "true");
   fireEvent.click(screen.getByRole("button", { name: /Product/ }));
 
   await waitFor(() => {
@@ -118,6 +113,8 @@ test("adds and saves a note for an existing resource", async () => {
   const collection = await findCollectionList();
   const savedItem = within(collection).getByRole("heading", { name: firstArticle.meta.title }).closest("li");
   expect(savedItem).not.toBeNull();
+  expect(within(savedItem as HTMLElement).queryByRole("textbox", { name: "Note" })).not.toBeInTheDocument();
+  fireEvent.click(within(savedItem as HTMLElement).getByRole("button", { name: "Add note" }));
   const input = within(savedItem as HTMLElement).getByRole("textbox", { name: "Note" });
   fireEvent.change(input, { target: { value: "Read this later" } });
   fireEvent.click(within(savedItem as HTMLElement).getByRole("button", { name: "Save note" }));

@@ -101,4 +101,8 @@ export const KO_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "보관됨",
   archiveScopeAll: "모든 항목",
   undoReorder: "정렬 실행 취소",
+  toolbarStart: "컬렉션 작업",
+  toolbarQuery: "검색 및 정렬",
+  toolbarFilters: "필터",
+  toolbarEnd: "추가 작업",
 };

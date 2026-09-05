@@ -58,6 +58,7 @@ export type KeepItemCardLinkProps = {
 };
 
 export type KeepImageProps = ImgHTMLAttributes<HTMLImageElement> & { src: string; alt: string };
+export type KeepItemCardVariant = "outlined" | "elevated" | "filled";
 
 export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   HTMLAttributes<HTMLElement>,
@@ -96,6 +97,8 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   linkTargetAttribute?: HTMLAttributeAnchorTarget;
   linkRel?: string;
   highlightQuery?: string;
+  /** Controls the opt-in card surface treatment while preserving the card contract. */
+  cardVariant?: KeepItemCardVariant;
 };
 
 export type KeepItemCardMediaProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
@@ -176,6 +179,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   linkTargetAttribute,
   linkRel,
   highlightQuery,
+  cardVariant = "outlined",
   className,
   ...rootProps
 }: KeepItemCardProps<TMeta>) {
@@ -350,6 +354,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
       "data-state": view.itemState.error ? "error" : view.itemState.isSaved ? "saved" : "unsaved",
       "data-status": item.status ?? "available",
       "data-item-status": view.displayStatus,
+      "data-card-variant": cardVariant !== "outlined" ? cardVariant : undefined,
       "data-loading": view.itemState.isMutating ? "true" : undefined,
     },
     linkedBody,

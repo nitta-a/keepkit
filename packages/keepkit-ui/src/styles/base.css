@@ -3,6 +3,14 @@
   --keep-foreground: var(--foreground, #0f172a);
   --keep-card: var(--card, var(--keep-background));
   --keep-card-foreground: var(--card-foreground, var(--keep-foreground));
+  --keep-card-border: var(--keep-border);
+  --keep-card-shadow: var(--keep-shadow);
+  --keep-card-shadow-elevated:
+    0 4px 10px color-mix(in srgb, var(--keep-foreground) 10%, transparent),
+    0 16px 36px color-mix(in srgb, var(--keep-foreground) 12%, transparent);
+  --keep-surface-border: var(--keep-border);
+  --keep-surface-background: var(--keep-card);
+  --keep-surface-shadow: var(--keep-shadow);
   --keep-muted: var(--muted, #f1f5f9);
   --keep-muted-foreground: var(--muted-foreground, #64748b);
   --keep-border: var(--border, #d7dee8);

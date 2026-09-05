@@ -15,6 +15,11 @@
     --keep-foreground: var(--color-foreground, #0f172a);
     --keep-card: var(--color-card, var(--color-background, #ffffff));
     --keep-card-foreground: var(--color-card-foreground, var(--color-foreground, #0f172a));
+    --keep-card-border: var(--keep-border);
+    --keep-card-shadow: var(--keep-shadow);
+    --keep-surface-border: var(--keep-border);
+    --keep-surface-background: var(--keep-card);
+    --keep-surface-shadow: var(--keep-shadow);
     --keep-muted: var(--color-muted, #f1f5f9);
     --keep-muted-foreground: var(--color-muted-foreground, #64748b);
     --keep-border: var(--color-border, #d7dee8);

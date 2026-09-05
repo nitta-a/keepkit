@@ -101,4 +101,8 @@ export const TH_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "เก็บถาวรแล้ว",
   archiveScopeAll: "รายการทั้งหมด",
   undoReorder: "เลิกทำการจัดเรียง",
+  toolbarStart: "การดำเนินการของคอลเลกชัน",
+  toolbarQuery: "ค้นหาและจัดเรียง",
+  toolbarFilters: "ตัวกรอง",
+  toolbarEnd: "การดำเนินการเพิ่มเติม",
 };

@@ -98,7 +98,11 @@ export type KeepUiLabelKey =
   | "archiveScopeActive"
   | "archiveScopeArchived"
   | "archiveScopeAll"
-  | "undoReorder";
+  | "undoReorder"
+  | "toolbarStart"
+  | "toolbarQuery"
+  | "toolbarFilters"
+  | "toolbarEnd";
 
 export type KeepUiLabels = Partial<Record<KeepUiLabelKey, string>>;
 export type KeepUiLocaleLabels = Record<KeepUiLabelKey, string>;

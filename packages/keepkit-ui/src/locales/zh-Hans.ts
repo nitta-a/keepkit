@@ -101,4 +101,8 @@ export const ZH_HANS_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "已归档",
   archiveScopeAll: "全部项目",
   undoReorder: "撤销排序",
+  toolbarStart: "集合操作",
+  toolbarQuery: "搜索和排序",
+  toolbarFilters: "筛选",
+  toolbarEnd: "其他操作",
 };

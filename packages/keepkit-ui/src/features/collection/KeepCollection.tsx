@@ -2,7 +2,7 @@
 
 import type { KeepItem, KeepListQuery, KeepUrlSyncOptions } from "@keepkit/core/core";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "@keepkit/core/react";
-import { type HTMLAttributes, type ReactNode, useEffect, useState } from "react";
+import { type HTMLAttributes, type ReactNode, useEffect, useId, useState } from "react";
 import type { KeepUrlAdapter } from "../../adapters/url-sync";
 import { type RenderProp, resolveContent } from "../../foundation/shared";
 import { useUiLabel } from "../../foundation/ui-context";
@@ -27,11 +27,26 @@ export type KeepCollectionFeature =
   | "pin"
   | "archive";
 export type KeepLayoutPreset = "list" | "grid" | "compact" | "auto";
+export type KeepCollectionToolbarVariant = "plain" | "panel";
+export type KeepCollectionToolbarLayout = "flat" | "grouped";
+export type KeepCollectionToolbarGroup = "toolbarStart" | "query" | "filters" | "toolbarEnd";
+export type KeepCollectionToolbarContent<TMeta = Record<string, unknown>> =
+  | ReactNode
+  | RenderProp<KeepListState<TMeta>>;
+export type KeepCollectionSlots<TMeta = Record<string, unknown>> = {
+  toolbarStart?: KeepCollectionToolbarContent<TMeta>;
+  toolbarEnd?: KeepCollectionToolbarContent<TMeta>;
+};
 
 export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   query?: KeepListQuery<TMeta>;
   pageSize?: number;
   layout?: KeepLayoutPreset;
+  /** Opts into the theme-backed toolbar surface. */
+  toolbarVariant?: KeepCollectionToolbarVariant;
+  /** Groups host actions, query controls, and filters into labelled regions. */
+  toolbarLayout?: KeepCollectionToolbarLayout;
+  slots?: KeepCollectionSlots<TMeta>;
   urlSync?: boolean | KeepUrlSyncOptions;
   urlAdapter?: KeepUrlAdapter;
   /** Enables the built-in active/archived/all scope selector and query state. */
@@ -72,6 +87,8 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   query = {},
   pageSize = 20,
   layout = "list",
+  toolbarVariant = "plain",
+  toolbarLayout = "flat",
   urlSync = false,
   urlAdapter,
   archiveScope,
@@ -79,6 +96,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   reorderable = false,
   onReorder,
   features,
+  slots,
   collectionLabels,
   renderItem,
   itemCardProps,
@@ -122,6 +140,79 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
     showPinButton: itemCardProps?.showPinButton ?? view.enabled.pin,
     showArchiveButton: itemCardProps?.showArchiveButton ?? view.enabled.archive,
   };
+  const toolbarId = useId();
+  const structuredToolbar =
+    toolbarLayout === "grouped" ||
+    toolbarVariant === "panel" ||
+    slots?.toolbarStart !== undefined ||
+    slots?.toolbarEnd !== undefined;
+  const hasQueryControls = view.enabled.search || view.enabled.sort;
+  const hasFilterControls = view.enabled.tagFilter || view.enabled.collectionFilter || archiveScope !== undefined;
+  const queryControls = hasQueryControls ? (
+    <>
+      {view.enabled.search ? <KeepSearchInput value={view.searchValue} onValueChange={view.setSearchValue} /> : null}
+      {view.enabled.sort ? <KeepSortSelect value={view.sortValue} onValueChange={view.setSortValue} /> : null}
+    </>
+  ) : null;
+  const filterControls = hasFilterControls ? (
+    <>
+      {view.enabled.tagFilter ? (
+        <KeepTagFilter<TMeta> query={query} value={view.activeTags[0]} onValueChange={view.setTag} />
+      ) : null}
+      {view.enabled.collectionFilter ? (
+        <KeepCollectionFilter
+          value={view.activeCollection}
+          onValueChange={view.setCollection}
+          collectionLabels={collectionLabels}
+        />
+      ) : null}
+      {archiveScope !== undefined ? (
+        <KeepArchiveScopeSelect
+          value={view.archiveScope}
+          onValueChange={(next) => {
+            view.setArchiveScope(next);
+            onArchiveScopeChange?.(next);
+          }}
+        />
+      ) : null}
+    </>
+  ) : null;
+  const toolbarStartLabel = useUiLabel("toolbarStart");
+  const toolbarQueryLabel = useUiLabel("toolbarQuery");
+  const toolbarFiltersLabel = useUiLabel("toolbarFilters");
+  const toolbarEndLabel = useUiLabel("toolbarEnd");
+  const toolbarStartContent = slots?.toolbarStart === undefined ? null : resolveContent(slots.toolbarStart, view.list);
+  const toolbarEndContent = slots?.toolbarEnd === undefined ? null : resolveContent(slots.toolbarEnd, view.list);
+  const hasToolbarContent =
+    hasQueryControls ||
+    hasFilterControls ||
+    hasRenderableContent(toolbarStartContent) ||
+    hasRenderableContent(toolbarEndContent);
+  const renderToolbarGroup = (group: KeepCollectionToolbarGroup, content: ReactNode, label: string): ReactNode => {
+    if (!hasRenderableContent(content)) return null;
+    const labelId = `${toolbarId}-${group}`;
+    return (
+      <fieldset data-keepkit="collection-toolbar-group" data-group={group} aria-labelledby={labelId}>
+        <legend id={labelId} data-keepkit="collection-toolbar-label">
+          {label}
+        </legend>
+        <div data-keepkit="collection-toolbar-content">{content}</div>
+      </fieldset>
+    );
+  };
+  const toolbar = !structuredToolbar ? (
+    <div>
+      {queryControls}
+      {filterControls}
+    </div>
+  ) : !hasToolbarContent ? null : (
+    <div data-keepkit="collection-toolbar" data-variant={toolbarVariant} data-layout={toolbarLayout}>
+      {renderToolbarGroup("toolbarStart", toolbarStartContent, toolbarStartLabel)}
+      {renderToolbarGroup("query", queryControls, toolbarQueryLabel)}
+      {renderToolbarGroup("filters", filterControls, toolbarFiltersLabel)}
+      {renderToolbarGroup("toolbarEnd", toolbarEndContent, toolbarEndLabel)}
+    </div>
+  );
 
   return (
     <section
@@ -129,33 +220,13 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
       className={className}
       data-keepkit="collection"
       data-layout={layout}
+      data-toolbar-variant={toolbarVariant !== "plain" ? toolbarVariant : undefined}
+      data-toolbar-layout={toolbarLayout !== "flat" ? toolbarLayout : undefined}
       aria-busy={view.list.isLoading || view.list.isMutating || rootProps["aria-busy"]}
       data-state={getCollectionState(view.list)}
       data-loading={view.list.isLoading || view.list.isMutating ? "true" : undefined}
     >
-      <div>
-        {view.enabled.search ? <KeepSearchInput value={view.searchValue} onValueChange={view.setSearchValue} /> : null}
-        {view.enabled.sort ? <KeepSortSelect value={view.sortValue} onValueChange={view.setSortValue} /> : null}
-        {view.enabled.tagFilter ? (
-          <KeepTagFilter<TMeta> query={query} value={view.activeTags[0]} onValueChange={view.setTag} />
-        ) : null}
-        {view.enabled.collectionFilter ? (
-          <KeepCollectionFilter
-            value={view.activeCollection}
-            onValueChange={view.setCollection}
-            collectionLabels={collectionLabels}
-          />
-        ) : null}
-        {archiveScope !== undefined ? (
-          <KeepArchiveScopeSelect
-            value={view.archiveScope}
-            onValueChange={(next) => {
-              view.setArchiveScope(next);
-              onArchiveScopeChange?.(next);
-            }}
-          />
-        ) : null}
-      </div>
+      {toolbar}
       {activeFilters === undefined ? (
         <KeepActiveFiltersSummary<TMeta>
           search={view.searchValue}
@@ -206,4 +277,8 @@ function getCollectionState<TMeta>(list: KeepListState<TMeta>): "loading" | "err
   if (list.isLoading && !list.isHydrated) return "loading";
   if (list.isHydrated && list.items.length === 0) return "empty";
   return "ready";
+}
+
+function hasRenderableContent(content: ReactNode): boolean {
+  return content !== null && content !== undefined && content !== false && content !== true && content !== "";
 }

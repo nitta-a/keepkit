@@ -101,4 +101,8 @@ export const ZH_HANT_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "已封存",
   archiveScopeAll: "所有項目",
   undoReorder: "復原排序",
+  toolbarStart: "集合操作",
+  toolbarQuery: "搜尋與排序",
+  toolbarFilters: "篩選",
+  toolbarEnd: "其他操作",
 };

@@ -101,4 +101,8 @@ export const RU_LABELS: KeepUiLocaleLabels = {
   archiveScopeArchived: "В архиве",
   archiveScopeAll: "Все элементы",
   undoReorder: "Отменить сортировку",
+  toolbarStart: "Действия коллекции",
+  toolbarQuery: "Поиск и сортировка",
+  toolbarFilters: "Фильтры",
+  toolbarEnd: "Дополнительные действия",
 };
