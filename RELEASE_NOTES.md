@@ -1,5 +1,19 @@
 # Release notes
 
+## [0.26.1] - 2026-09-05
+
+### 日本語
+
+#### 修正
+
+- リリース検証時のBiome整形チェックに合格するよう、VS Code設定のフォーマットを修正しました。
+
+### English
+
+#### Fixed
+
+- Fixed the VS Code settings formatting so the release validation workflow passes its Biome check.
+
 ## [0.26.0] - 2026-09-05
 
 ### 日本語
