@@ -11,6 +11,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef, useState } from "react";
 import { expect, test, vi } from "vitest";
 import {
+  createKeepKit,
   KeepActiveFiltersSummary,
   KeepAnnouncements,
   KeepArchiveButton,
@@ -49,6 +50,7 @@ import {
   KeepTourBar,
   KeepUiProvider,
   KeepUndo,
+  KeepWorkspace,
   mergeProps,
   useKeepToastFeedback,
 } from "../src/index";
@@ -1253,6 +1255,84 @@ test("surfaces sync conflicts and delegates server resolution from the recovery 
   expect(onFeedback).toHaveBeenCalledWith(
     expect.objectContaining({ type: "sync-completed", message: "All changes are synced." }),
   );
+});
+
+test("composes collection, management, and sync primitives through workspace presets", async () => {
+  const conflict: KeepSyncConflict<Meta> = {
+    id: item.id,
+    operation: { operationId: "workspace-conflict", type: "upsert", id: item.id, item, createdAt: 1 },
+    remote: { ...item, note: "remote workspace note" },
+    revision: "workspace-revision",
+  };
+  const syncState: KeepSyncState<Meta> = {
+    status: "conflict",
+    pendingCount: 1,
+    conflictIds: [item.id],
+    conflicts: [conflict],
+  };
+  const storage: SyncCapableStorageAdapter<Meta> = {
+    ...createStorage([item]),
+    getSyncState: () => syncState,
+    subscribeSync: () => () => undefined,
+    flushSync: async () => undefined,
+    resolveSyncConflict: async () => undefined,
+  };
+
+  const { unmount } = render(
+    <KeepKitProvider<Meta> storage={storage}>
+      <KeepWorkspace
+        preset="sync"
+        collectionProps={{ features: { search: false, sort: false, pagination: false } }}
+        data-testid="workspace"
+      />
+    </KeepKitProvider>,
+  );
+
+  expect((await screen.findByTestId("workspace")).getAttribute("data-preset")).toBe("sync");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Resolve conflicts" }));
+  expect(await screen.findByRole("dialog", { name: "Resolve conflicts" })).not.toBeNull();
+  unmount();
+
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepWorkspace preset="management" data-testid="management-workspace" />
+    </KeepProvider>,
+  );
+  await screen.findByRole("heading", { name: "Interaction item" });
+  expect(screen.getByTestId("management-workspace").querySelector('[data-keepkit="workspace-actions"]')).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Pin" })).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Archive" })).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Export JSON" })).not.toBeNull();
+});
+
+test("exposes the same workspace implementation from createKeepKit and supports slots", async () => {
+  const keep = createKeepKit<Meta>({
+    storage: createStorage([item]),
+    getTitle: (entry) => `Saved: ${entry.meta.title}`,
+  });
+
+  const { unmount } = render(
+    <keep.Provider>
+      <keep.Workspace preset="basic" />
+    </keep.Provider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Saved: Interaction item" })).not.toBeNull();
+  expect(screen.queryByRole("textbox", { name: "Search" })).toBeNull();
+  unmount();
+
+  render(
+    <keep.Provider>
+      <keep.Workspace preset="basic" slots={{ before: <p>Workspace header</p>, collection: <p>Custom collection</p> }}>
+        {(state) => <output>{`${state.preset}:${state.recoveryOpen}`}</output>}
+      </keep.Workspace>
+    </keep.Provider>,
+  );
+
+  expect(screen.getByText("Workspace header")).not.toBeNull();
+  expect(screen.getByText("Custom collection")).not.toBeNull();
+  expect(screen.getByText("basic:false")).not.toBeNull();
 });
 
 test("emits sync failure feedback from the combined provider", async () => {

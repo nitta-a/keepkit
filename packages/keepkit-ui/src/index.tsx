@@ -147,6 +147,14 @@ import { KeepSyncFeedbackObserver } from "./features/sync/KeepSyncFeedbackObserv
 import { KeepSyncRecoveryDialog, type KeepSyncRecoveryDialogProps } from "./features/sync/KeepSyncRecoveryDialog";
 import { KeepSyncStatusBanner, type KeepSyncStatusBannerProps } from "./features/sync/KeepSyncStatusBanner";
 import {
+  KeepWorkspace,
+  type KeepWorkspaceModule,
+  type KeepWorkspacePreset,
+  type KeepWorkspaceProps,
+  type KeepWorkspaceSlots,
+  type KeepWorkspaceState,
+} from "./features/workspace/KeepWorkspace";
+import {
   type KeepThemeDensity,
   type KeepThemeMode,
   type KeepThemeName,
@@ -363,6 +371,11 @@ export type {
   KeepUndoState,
   KeepUrlAdapter,
   KeepUrlSyncOptions,
+  KeepWorkspaceModule,
+  KeepWorkspacePreset,
+  KeepWorkspaceProps,
+  KeepWorkspaceSlots,
+  KeepWorkspaceState,
 };
 export {
   createNextPagesRouterAdapter,
@@ -405,6 +418,7 @@ export {
   KeepTourBar,
   KeepUiProvider,
   KeepUndo,
+  KeepWorkspace,
   keepThemeNames,
   useKeepQuickEditor,
   useKeepToastFeedback,
@@ -433,6 +447,7 @@ export type KeepKit<TMeta = Record<string, unknown>> = {
   Button: ComponentType<KeepButtonProps<TMeta>>;
   Backup: ComponentType<KeepBackupProps<TMeta>>;
   Collection: ComponentType<KeepCollectionProps<TMeta>>;
+  Workspace: ComponentType<KeepWorkspaceProps<TMeta>>;
   useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useItem: (item?: KeepItemInput<TMeta>) => ReturnType<typeof useKeepItem<TMeta>>;
   useList: (query?: KeepListQuery<TMeta>) => ReturnType<typeof useKeepList<TMeta>>;
@@ -494,6 +509,19 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
           ...(getTitle ? { getTitle } : {}),
           ...(getImageProps ? { getImageProps } : {}),
           ...props.itemCardProps,
+        }}
+      />
+    ),
+    Workspace: (props) => (
+      <KeepWorkspace<TMeta>
+        {...props}
+        collectionProps={{
+          ...props.collectionProps,
+          itemCardProps: {
+            ...(getTitle ? { getTitle } : {}),
+            ...(getImageProps ? { getImageProps } : {}),
+            ...props.collectionProps?.itemCardProps,
+          },
         }}
       />
     ),

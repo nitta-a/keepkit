@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.23.2では、一覧の標準カードでピン留め・アーカイブ・タグ表示を個別に切り替えられるようにしました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.24.0では、一覧・管理・同期UIをまとめる`KeepWorkspace`と、`createKeepKit()`が返す型付きの`keep.Workspace`を追加しました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。
 
 ### インストール
 
@@ -75,6 +75,16 @@ export function SavedArticle({ article }: { article: Meta & { id: string } }) {
 
 `keep.Collection`は検索、ソート、ページング、タグフィルター、一括操作、loading / empty / error状態、ARIA通知を組み合わせて提供します。検索は既定で300msデバウンスされ、追加機能は`features`で有効化できます。
 
+`KeepWorkspace`は既存プリミティブを組み合わせ、`basic`、`standard`、`management`、`sync`のプリセットでコレクション画面一式を提供します。`createKeepKit()`を利用する場合は同じ実装を`keep.Workspace`から型付きで利用できます。`modules`、`slots`、子コンポーネントごとのpropsで必要な領域だけを上書きできます。
+
+```tsx
+const keep = createKeepKit<ArticleMeta>({ storage, locale: "ja" });
+
+<keep.Provider>
+  <keep.Workspace preset="sync" collectionProps={{ layout: "auto" }} />
+</keep.Provider>;
+```
+
 ```tsx
 <keep.Collection
   query={{ targetType: "article", tags: ["read"] }}
@@ -90,7 +100,7 @@ export function SavedArticle({ article }: { article: Meta & { id: string } }) {
 
 - 保存入力は`{ id, meta, targetType?, note?, tags?, order? }`です。時刻や正規化はKeepKitが管理します。
 - 一覧条件は`query`に統一し、`search`、`sort`、`pagination`を内包します。
-- 型付きAPIは`createKeepKit<TMeta>()`で生成します。`Provider`、`Button`、`Collection`、`useItem`、`useList`、`useNavigator`、`useShortcut`を同じ型で利用できます。
+- 型付きAPIは`createKeepKit<TMeta>()`で生成します。`Provider`、`Button`、`Collection`、`Workspace`、`useItem`、`useList`、`useNavigator`、`useShortcut`を同じ型で利用できます。
 - `KeepSearchInput`、`KeepSortSelect`、`KeepPagination`、`KeepItemCheckbox`、`KeepTagEditor`、`KeepBulkActions`は個別に利用でき、`KeepBulkActions`はrender propsで操作UIを差し替えられます。`KeepBulkActions`の状態には`isAllSelected` / `toggleSelectAll`が含まれ、`isAllSelected` / `toggleSelectAll`ヘルパーも公開しています。
 - `@keepkit/ui`は標準React向けの入口です。フレームワーク中立の処理は`@keepkit/core/core`、低レベルReact APIは`@keepkit/core/react`、adapterは`@keepkit/core/storage`から利用できます。
 - Next.js App RouterのServer Component / client boundary構成は`examples/next-app-router`、Pages Router構成は`examples/next-pages-router`を参照してください。
@@ -137,7 +147,7 @@ JSONバックアップUIは`<KeepBackup />`として利用できます。エク�
 
 Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepPruneStaleButton />`、`<KeepSyncStatusBanner />`、`<KeepSyncRecoveryDialog />`として利用できます。テーマを使う場合は`import "@keepkit/ui/theme.css"`を追加してください。
 
-### v0.23.2のカード機能切替とTailwind v4統合
+### v0.24.0のWorkspaceとTailwind v4統合
 
 `<keep.Collection urlSync layout="grid" />`で検索・タグ・ソート・ページをURL、戻る／進む、共有URLと同期できます。Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`に渡してください。`layout`は`list`、`grid`、`compact`に対応し、`itemCardProps`の`getImageProps`、`renderTags`、`href`、`onOpen`でカード表示と遷移を差し替えられます。
 
@@ -145,7 +155,7 @@ Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepP
 
 ユーザー／テナント分離が必要な場合は、`createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })`を使うとstorage、同期キュー、バックアップの構成をまとめられます。ラベルは16個の組み込みlocale（`en`、`ja`、`ko`、`zh-Hans`、`zh-Hant`、`th`、`fr`、`es`、`pt-BR`、`it`、`de`、`ru`、`fil`、`vi`、`id`、`ms`）で切り替えられ、`labels`で上書きできます。`zh-CN`と`zh-TW`も互換aliasとして利用できます。
 
-### v0.23.2 Tailwind／shadcnテーマ
+### v0.24.0 Tailwind／shadcnテーマ
 
 Tailwind CSS v4ではグローバルCSSで2行読み込み、必要ならテーマ用Providerを配置します。既存のshadcn/ui変数はTailwind v4の`--color-*`経由で`--keep-*`トークンへ継承されます。
 
@@ -169,7 +179,7 @@ shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keep
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. In v0.23.2, standard card pinning, archiving, and tag display can be enabled independently. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.24.0 adds `KeepWorkspace` and the typed `keep.Workspace` returned by `createKeepKit()` to compose collection, management, and sync UI. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
 
 ### Installation
 
@@ -231,15 +241,25 @@ The theme also defines WCAG-oriented `--keep-highlight-bg` / `--keep-highlight-f
 
 `keep.Collection` combines search, sorting, pagination, optional tag filtering and bulk actions, loading/empty/error states, and accessible live announcements. Search is debounced by 300ms by default; enable optional behavior with `features`.
 
+`KeepWorkspace` composes the existing primitives into `basic`, `standard`, `management`, and `sync` collection-screen presets. `createKeepKit()` exposes the same implementation as a typed `keep.Workspace`. Override individual areas through `modules`, `slots`, and child-component props.
+
+```tsx
+const keep = createKeepKit<ArticleMeta>({ storage, locale: "en" });
+
+<keep.Provider>
+  <keep.Workspace preset="sync" collectionProps={{ layout: "auto" }} />
+</keep.Provider>;
+```
+
 Enable only the standard card features you need with `features={{ pin: true, archive: true, tags: false }}`. `pin` and `archive` toggle card action buttons, while `tags` controls tag display inside cards. Tag filtering remains independently controlled by `tagFilter`, tag editing by `KeepTagEditor`, and explicit `itemCardProps` values take precedence over `features`.
 
 Saved inputs contain only `id`, `meta`, `targetType`, `note`, and `tags`; persistence timestamps and normalization are handled by KeepKit. Collection queries use the canonical `query` shape with `search`, `sort`, and `pagination`.
 
-The typed factory returns `Provider`, `Button`, `Collection`, `useItem`, `useList`, `useNavigator`, and `useShortcut`. `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, `KeepTagEditor`, `KeepBulkActions`, `KeepTourBar`, and `KeepReorderableList` are also available as standalone primitives. `KeepBulkActions` exposes `isAllSelected` / `toggleSelectAll` in its render-prop state and as standalone helpers. Use `@keepkit/core/core` for framework-neutral primitives, `@keepkit/core/react` for low-level React bindings, and `@keepkit/core/storage` for adapters.
+The typed factory returns `Provider`, `Button`, `Collection`, `Workspace`, `useItem`, `useList`, `useNavigator`, and `useShortcut`. `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, `KeepTagEditor`, `KeepBulkActions`, `KeepTourBar`, and `KeepReorderableList` are also available as standalone primitives. `KeepBulkActions` exposes `isAllSelected` / `toggleSelectAll` in its render-prop state and as standalone helpers. Use `@keepkit/core/core` for framework-neutral primitives, `@keepkit/core/react` for low-level React bindings, and `@keepkit/core/storage` for adapters.
 
 See `examples/next-app-router` for the Server Component/client boundary pattern and `examples/next-pages-router` for the Pages Router integration.
 
-### v0.23.2 URL, layouts, setup presets, and Tailwind integration
+### v0.24.0 Workspace, URL, layouts, setup presets, and Tailwind integration
 
 Use `<keep.Collection urlSync layout="grid" />` to synchronize search, tags, sorting, and pagination with shareable URLs and browser history. For Next.js Pages Router, pass `createNextPagesRouterAdapter(router)` as `urlAdapter`. Layouts are `list`, `grid`, and `compact`; customize thumbnails, tags, and detail navigation through `itemCardProps`.
 
@@ -252,7 +272,7 @@ Use `createAuthenticatedSyncKit` when the host supplies authentication. It refre
 Use `KeepItemStatusBadge`, `KeepStaleNotice`, and `KeepPruneStaleButton` for unavailable-item recovery. `KeepSyncStatusBanner` and `KeepSyncRecoveryDialog` expose retry, local/server/manual conflict resolution, and backup restoration guidance. Optionally import `@keepkit/ui/theme.css` for CSS-variable theming, dark mode, and mobile typography.
 External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, while the recovery dialog compares local and remote updated dates and notes side by side.
 
-### v0.23.2 Tailwind and shadcn theme
+### v0.24.0 Tailwind and shadcn theme
 
 Tailwind CSS v4 needs two imports in the global CSS entry. The theme is scoped by `KeepThemeProvider`, and its `--keep-*` tokens inherit complete `--color-*` values such as `--color-background`, `--color-primary`, and `--color-ring` when present.
 

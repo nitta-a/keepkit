@@ -38,7 +38,7 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.23.2では、UI層で一覧カードのピン留め・アーカイブ・タグ表示を個別に切り替えられるようにしました。Tailwind CSS v4統合とホストテーマ変数との衝突回避も引き続き利用できます。coreでは既存の保存順プレイリスト、`useKeepNavigator`、`reorderKeepItems` / `moveKeepItem`、URL状態codec、ユーザー／テナント分離、`createKeepKitPreset`、認証付き同期を引き続き利用できます。
+v0.24.0では、UI層に一覧・管理・同期UIをまとめる`KeepWorkspace`と型付きの`keep.Workspace`を追加しました。Tailwind CSS v4統合とホストテーマ変数との衝突回避も引き続き利用できます。coreでは既存の保存順プレイリスト、`useKeepNavigator`、`reorderKeepItems` / `moveKeepItem`、URL状態codec、ユーザー／テナント分離、`createKeepKitPreset`、認証付き同期を引き続き利用できます。
 
 `createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
@@ -83,7 +83,7 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-In v0.23.2, the UI layer can independently enable standard card pinning, archiving, and tag display. Tailwind CSS v4 integration and host-theme isolation remain available. Core continues to provide persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem`, URL state codecs, user/tenant isolation, `createKeepKitPreset({ mode: "local" | "sync" | "backup" })`, and token-aware authenticated sync.
+v0.24.0 adds `KeepWorkspace` and the typed `keep.Workspace` to the UI layer for composed collection, management, and sync interfaces. Tailwind CSS v4 integration and host-theme isolation remain available. Core continues to provide persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem`, URL state codecs, user/tenant isolation, `createKeepKitPreset({ mode: "local" | "sync" | "backup" })`, and token-aware authenticated sync.
 
 `createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 
