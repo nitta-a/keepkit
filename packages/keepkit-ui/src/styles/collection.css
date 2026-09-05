@@ -768,7 +768,21 @@
 :where(.keep-theme, [data-keep-theme])
   :is([data-keep-action="delete-selected"], [data-keep-action="remove-item"], [data-keep-action="prune-stale"]) {
   border-color: color-mix(in srgb, var(--keep-destructive) 30%, var(--keep-border));
+  background: transparent;
   color: var(--keep-destructive);
+  box-shadow: none;
+}
+
+:where(.keep-theme, [data-keep-theme])
+  :is(
+    [data-keep-action="delete-selected"],
+    [data-keep-action="remove-item"],
+    [data-keep-action="prune-stale"]
+  ):hover:not(:disabled):not([aria-disabled="true"]) {
+  border-color: color-mix(in srgb, var(--keep-destructive) 46%, var(--keep-border));
+  background: color-mix(in srgb, var(--keep-destructive) 8%, var(--keep-card));
+  box-shadow: none;
+  filter: none;
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="list"] > ul[data-layout="grid"] [data-keepkit="card"]:has(> img) {
@@ -822,7 +836,10 @@
     align-items: stretch;
     flex-direction: column;
   }
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection"] > :first-child > :is(input, select) {
+  :where(.keep-theme, [data-keep-theme])
+    [data-keepkit="collection"]
+    > :first-child
+    > :is(input, select, [data-keepkit="tag-filter"], [data-keepkit="collection-filter"]):not([aria-hidden]) {
     flex: 0 0 auto;
     width: 100%;
   }
