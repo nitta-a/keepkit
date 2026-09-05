@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,6 +7,9 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const lockDirectory = resolve(repositoryRoot, ".turbo", "keepkit-ui-build.lock");
 const lockOwnerPath = resolve(lockDirectory, "pid");
 const waitMilliseconds = 100;
+const uiPackageRoot = resolve(repositoryRoot, "packages", "keepkit-ui");
+const uiBuildOutputs = ["dist/index.js", "dist/index.d.ts", "dist/theme.css", "dist/styles/workspace.css"];
+const uiBuildInputs = ["package.json", "tsconfig.json", "tsup.config.ts", "scripts/copy-theme.mjs", "src"];
 
 async function isProcessRunning(pid) {
   try {
@@ -40,6 +43,17 @@ async function acquireLock() {
 }
 
 async function runUiBuild() {
+  if (await isUiBuildReady()) return;
+  await acquireLock();
+  try {
+    if (await isUiBuildReady()) return;
+    await runUiBuildCommand();
+  } finally {
+    await rm(lockDirectory, { recursive: true, force: true });
+  }
+}
+
+async function runUiBuildCommand() {
   await new Promise((resolveBuild, rejectBuild) => {
     const child = spawn("pnpm", ["--filter", "@keepkit/ui", "build"], {
       cwd: repositoryRoot,
@@ -58,9 +72,24 @@ async function runUiBuild() {
   });
 }
 
-await acquireLock();
-try {
-  await runUiBuild();
-} finally {
-  await rm(lockDirectory, { recursive: true, force: true });
+async function isUiBuildReady() {
+  try {
+    const outputStats = await Promise.all(uiBuildOutputs.map((path) => stat(resolve(uiPackageRoot, path))));
+    const inputStats = await Promise.all(uiBuildInputs.map((path) => getLatestMtime(resolve(uiPackageRoot, path))));
+    const latestInputMtime = Math.max(...inputStats);
+    return outputStats.every(({ mtimeMs }) => mtimeMs >= latestInputMtime);
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
 }
+
+async function getLatestMtime(path) {
+  const pathStats = await stat(path);
+  if (!pathStats.isDirectory()) return pathStats.mtimeMs;
+  const entries = await readdir(path, { withFileTypes: true });
+  const childMtimes = await Promise.all(entries.map((entry) => getLatestMtime(resolve(path, entry.name))));
+  return Math.max(pathStats.mtimeMs, ...childMtimes);
+}
+
+await runUiBuild();

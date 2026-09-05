@@ -1,5 +1,21 @@
 # Release notes
 
+## [0.26.4] - 2026-09-05
+
+### 日本語
+
+#### 修正
+
+- 複数のdemo buildが同時に実行されても、`@keepkit/ui`の型宣言を競合して削除しないように修正しました。
+- rootのTurbo typecheckでNext.js exampleがUIパッケージのDTS生成完了後に検証されるようにしました。
+
+### English
+
+#### Fixed
+
+- Prevented concurrent demo builds from racing while generating `@keepkit/ui` declarations.
+- Ensured Next.js examples in the root Turbo typecheck see the completed UI package DTS output.
+
 ## [0.26.3] - 2026-09-05
 
 ### 日本語
