@@ -64,6 +64,7 @@ import {
   type KeepCollectionToolbarVariant,
   type KeepLayoutPreset,
 } from "./features/collection/KeepCollection";
+import { KeepCollectionCreate, type KeepCollectionCreateProps } from "./features/collection/KeepCollectionCreate";
 import { KeepLayout, type KeepLayoutProps } from "./features/collection/KeepLayout";
 import { KeepList, type KeepListProps, type KeepListState } from "./features/collection/KeepList";
 import {
@@ -184,12 +185,15 @@ import {
   type KeepUiFeedbackEvent,
   type KeepUiLabelContext,
   type KeepUiLabelKey,
+  type KeepUiLabelOptions,
+  type KeepUiLabelOptionsMap,
   type KeepUiLabels,
   type KeepUiLocale,
   type KeepUiLocaleLabels,
   KeepUiProvider,
   type KeepUiProviderProps,
   useKeepUiLabels,
+  useUiLabelVisibility,
 } from "./foundation/ui-context";
 
 export type { KeepTourShortcutsOptions } from "./features/navigation/hooks/useKeepTourShortcuts";
@@ -202,6 +206,7 @@ export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepPro
 /** Combines the core store, UI labels, and the global live announcer. */
 export function KeepKitProvider<TMeta = Record<string, unknown>>({
   labels,
+  labelOptions,
   locale,
   labelResolver,
   onFeedback,
@@ -220,7 +225,13 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
   ...providerProps
 }: KeepKitProviderProps<TMeta>) {
   return (
-    <KeepUiProvider<TMeta> labels={labels} locale={locale} labelResolver={labelResolver} onFeedback={onFeedback}>
+    <KeepUiProvider<TMeta>
+      labels={labels}
+      labelOptions={labelOptions}
+      locale={locale}
+      labelResolver={labelResolver}
+      onFeedback={onFeedback}
+    >
       <KeepThemeProvider
         theme={theme}
         mode={mode}
@@ -315,6 +326,7 @@ export type {
   KeepButtonLabels,
   KeepButtonProps,
   KeepCollectionControlProps,
+  KeepCollectionCreateProps,
   KeepCollectionFeature,
   KeepCollectionOption,
   KeepCollectionProps,
@@ -387,6 +399,8 @@ export type {
   KeepUiFeedbackEvent,
   KeepUiLabelContext,
   KeepUiLabelKey,
+  KeepUiLabelOptions,
+  KeepUiLabelOptionsMap,
   KeepUiLabels,
   KeepUiLocale,
   KeepUiLocaleLabels,
@@ -416,6 +430,7 @@ export {
   KeepBulkActions,
   KeepButton,
   KeepCollection,
+  KeepCollectionCreate,
   KeepCollectionFilter,
   KeepCollectionSelect,
   KeepEmptyState,
@@ -452,6 +467,7 @@ export {
   useKeepToastFeedback,
   useKeepUiLabels,
   useKeepUrlSync,
+  useUiLabelVisibility,
 };
 
 export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = CoreCreateKeepKitOptions<TMeta> &
@@ -490,6 +506,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
 ): KeepKit<TMeta> {
   const {
     labels,
+    labelOptions,
     locale,
     labelResolver,
     onFeedback,
@@ -513,6 +530,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
       <KeepKitProvider<TMeta>
         {...coreOptions}
         labels={labels}
+        labelOptions={labelOptions}
         locale={locale}
         labelResolver={labelResolver}
         onFeedback={onFeedback}

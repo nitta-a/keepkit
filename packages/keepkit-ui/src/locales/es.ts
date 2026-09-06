@@ -105,4 +105,7 @@ export const ES_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "Buscar y ordenar",
   toolbarFilters: "Filtros",
   toolbarEnd: "Acciones adicionales",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

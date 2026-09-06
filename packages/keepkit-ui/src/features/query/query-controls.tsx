@@ -2,6 +2,7 @@
 
 import type { KeepListQuery } from "@keepkit/core/core";
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepPagination, useKeepSearchInput, useKeepSortSelect } from "./hooks/useQueryControls";
 
 export type KeepSearchInputProps = Omit<
@@ -110,6 +111,8 @@ export function KeepPagination({
   ...props
 }: KeepPaginationProps) {
   const view = useKeepPagination({ totalCount, pageSize, page, maxPageButtons, onPageChange });
+  const showPreviousLabel = useUiLabelVisibility("previousPage");
+  const showNextLabel = useUiLabelVisibility("nextPage");
   const navProps = {
     ...props,
     "data-keepkit": "pagination",
@@ -127,8 +130,9 @@ export function KeepPagination({
         data-keep-action="previous-page"
         onClick={() => view.goToPage(view.currentPage - 1)}
         disabled={view.currentPage <= 1}
+        aria-label={showPreviousLabel ? undefined : view.labels.previous}
       >
-        {view.labels.previous}
+        {showPreviousLabel ? view.labels.previous : null}
       </button>
       {view.visiblePages.map((nextPage) => (
         <button
@@ -147,8 +151,9 @@ export function KeepPagination({
         data-keep-action="next-page"
         onClick={() => view.goToPage(view.currentPage + 1)}
         disabled={view.currentPage >= view.pageCount}
+        aria-label={showNextLabel ? undefined : view.labels.next}
       >
-        {view.labels.next}
+        {showNextLabel ? view.labels.next : null}
       </button>
     </nav>
   );

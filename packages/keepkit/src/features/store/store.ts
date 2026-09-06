@@ -6,8 +6,11 @@ import type {
 } from "../items/revalidation";
 import type { KeepChangeContext, KeepItem, KeepUndoState } from "../items/types";
 
+export type KeepCollectionMeta = { name: string };
+
 export type KeepStoreState<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
+  collections: Record<string, KeepCollectionMeta>;
   isLoading: boolean;
   isHydrated: boolean;
   isMutating: boolean;
@@ -25,6 +28,9 @@ export type KeepStoreActions<TMeta = Record<string, unknown>> = {
   unarchiveItem: (id: string) => Promise<void>;
   togglePin: (id: string) => Promise<void>;
   moveToCollection: (id: string, collectionId?: string) => Promise<void>;
+  createCollection: (id: string, name: string) => Promise<void>;
+  renameCollection: (id: string, name: string) => Promise<void>;
+  removeCollection: (id: string) => Promise<void>;
   updateTagsBatch: (ids: string[], tags?: string[]) => Promise<void>;
   addTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;

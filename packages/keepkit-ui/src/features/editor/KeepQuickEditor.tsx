@@ -13,7 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useUiLabel } from "../../foundation/ui-context";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepQuickEditorState<TMeta = Record<string, unknown>> = {
   item: KeepItem<TMeta>;
@@ -208,11 +208,16 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   const collections = useKeepCollections<TMeta>({ targetType: state.item.targetType, orderBy: "name" });
   const rootRef = useRef<HTMLFormElement>(null);
   const noteLabel = useUiLabel("note");
+  const showNoteLabel = useUiLabelVisibility("note");
   const tagsLabel = useUiLabel("tags");
+  const showTagsLabel = useUiLabelVisibility("tags");
   const collectionLabel = useUiLabel("collection");
+  const showCollectionLabel = useUiLabelVisibility("collection");
   const uncategorizedLabel = useUiLabel("uncategorized");
   const saveLabel = useUiLabel("saveWithNote");
+  const showSaveLabel = useUiLabelVisibility("saveWithNote");
   const closeLabel = useUiLabel("close");
+  const showCloseLabel = useUiLabelVisibility("close");
   const unsavedChangesLabel = useUiLabel("unsavedChanges");
   const savingLabel = useUiLabel("saving");
   const savedLabel = useUiLabel("saved");
@@ -248,14 +253,19 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
       ? children(state)
       : (children ?? (
           <>
-            <label>
-              {noteLabel}
-              <textarea value={state.note} onChange={(event) => state.setNote(event.currentTarget.value)} />
+            <label data-keep-field="note">
+              {showNoteLabel ? <span data-keep-field-icon>{noteLabel}</span> : null}
+              <textarea
+                value={state.note}
+                aria-label={showNoteLabel ? undefined : noteLabel}
+                onChange={(event) => state.setNote(event.currentTarget.value)}
+              />
             </label>
-            <label>
-              {tagsLabel}
+            <label data-keep-field="tags">
+              {showTagsLabel ? <span data-keep-field-icon>{tagsLabel}</span> : null}
               <input
                 value={state.tags.join(", ")}
+                aria-label={showTagsLabel ? undefined : tagsLabel}
                 onChange={(event) =>
                   state.setTags(
                     event.currentTarget.value
@@ -266,10 +276,11 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
                 }
               />
             </label>
-            <label>
-              {collectionLabel}
+            <label data-keep-field="collection">
+              {showCollectionLabel ? <span data-keep-field-icon>{collectionLabel}</span> : null}
               <select
                 value={state.collectionId ?? ""}
+                aria-label={showCollectionLabel ? undefined : collectionLabel}
                 onChange={(event) => state.setCollectionId(event.currentTarget.value || undefined)}
               >
                 <option value="">{uncategorizedLabel}</option>
@@ -292,8 +303,13 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
               </p>
             ) : null}
             {showSaveButton ? (
-              <button type="submit" disabled={state.isSaving} data-keep-action="save-quick-edit">
-                {saveLabel}
+              <button
+                type="submit"
+                disabled={state.isSaving}
+                data-keep-action="save-quick-edit"
+                aria-label={showSaveLabel ? undefined : saveLabel}
+              >
+                {showSaveLabel ? saveLabel : null}
               </button>
             ) : null}
             {onClose ? (
@@ -307,8 +323,9 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
                 }
                 disabled={state.isSaving}
                 data-keep-action="close-quick-edit"
+                aria-label={showCloseLabel ? undefined : closeLabel}
               >
-                {closeLabel}
+                {showCloseLabel ? closeLabel : null}
               </button>
             ) : null}
           </>

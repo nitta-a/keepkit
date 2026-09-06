@@ -258,7 +258,25 @@
 
 :where(.keep-theme, [data-keep-theme]) [data-keep-card-part="actions"] {
   align-items: center;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), max-content));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keep-card-part="actions"] > [data-keepkit="item-edit-dialog"] {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keep-card-part="actions"]:has(> [data-keepkit="item-edit-dialog"]) {
+  justify-content: stretch;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keep-card-part="actions-secondary"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--keep-control-gap);
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keep-card-part="collection-badge"] {

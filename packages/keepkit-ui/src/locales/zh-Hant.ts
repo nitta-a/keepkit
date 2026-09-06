@@ -105,4 +105,7 @@ export const ZH_HANT_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "搜尋與排序",
   toolbarFilters: "篩選",
   toolbarEnd: "其他操作",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

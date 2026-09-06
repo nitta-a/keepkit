@@ -1,6 +1,7 @@
 "use client";
 
 import type { HTMLAttributes, ReactNode } from "react";
+import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepUndo } from "./hooks/useKeepUndo";
 
 export type KeepUndoProps = Omit<HTMLAttributes<HTMLElement>, "children"> & {
@@ -11,6 +12,7 @@ export type KeepUndoProps = Omit<HTMLAttributes<HTMLElement>, "children"> & {
 /** Presents the short-lived undo action created by removeWithUndo/removeBatchWithUndo. */
 export function KeepUndo({ children, label, ...props }: KeepUndoProps) {
   const view = useKeepUndo();
+  const showLabel = useUiLabelVisibility("undo");
   if (!view.canUndo) return null;
   return (
     <div {...props} role="status" aria-live="polite" data-keepkit="undo" data-state="available">
@@ -25,8 +27,13 @@ export function KeepUndo({ children, label, ...props }: KeepUndoProps) {
         aria-label={String(view.label)}
         aria-valuetext={`${view.remainingSeconds}s`}
       />
-      <button type="button" data-keep-action="undo" onClick={() => void view.undo()}>
-        {label ?? view.label}
+      <button
+        type="button"
+        data-keep-action="undo"
+        aria-label={showLabel ? undefined : view.label}
+        onClick={() => void view.undo()}
+      >
+        {showLabel ? (label ?? view.label) : null}
       </button>
     </div>
   );

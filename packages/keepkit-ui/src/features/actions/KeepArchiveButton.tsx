@@ -3,7 +3,7 @@
 import type { KeepItemInput } from "@keepkit/core/core";
 import { useKeepItem } from "@keepkit/core/react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { useUiLabel } from "../../foundation/ui-context";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepArchiveButtonState<TMeta = Record<string, unknown>> = ReturnType<typeof useKeepItem<TMeta>>;
 
@@ -32,6 +32,9 @@ export function KeepArchiveButton<TMeta = Record<string, unknown>>({
   const archive = useUiLabel("archive");
   const unarchive = useUiLabel("unarchive");
   const archivedLabel = useUiLabel("archived");
+  const showArchiveLabel = useUiLabelVisibility("archive");
+  const showUnarchiveLabel = useUiLabelVisibility("unarchive");
+  const showArchivedLabel = useUiLabelVisibility("archived");
   const isArchived = state.item?.archived === true;
   const isDisabled = disabled ?? state.isMutating;
   return (
@@ -42,12 +45,33 @@ export function KeepArchiveButton<TMeta = Record<string, unknown>>({
       aria-pressed={isArchived}
       data-archived={isArchived ? "true" : "false"}
       data-keep-action="toggle-archive"
+      aria-label={
+        props["aria-label"] ??
+        (children === undefined
+          ? isArchived
+            ? showUnarchiveLabel
+              ? undefined
+              : unarchive
+            : showArchiveLabel
+              ? undefined
+              : archive
+          : undefined)
+      }
       onClick={() => void state.toggleArchive().catch((error) => onToggleError?.(error))}
     >
       {typeof children === "function"
         ? children(state)
-        : (children ?? (isArchived ? (unarchiveLabel ?? unarchive) : (archiveLabel ?? archive)))}
-      {isArchived && children === undefined ? <span aria-hidden="true"> ({archivedLabel})</span> : null}
+        : (children ??
+          (isArchived
+            ? showUnarchiveLabel
+              ? (unarchiveLabel ?? unarchive)
+              : null
+            : showArchiveLabel
+              ? (archiveLabel ?? archive)
+              : null))}
+      {isArchived && children === undefined && showArchivedLabel ? (
+        <span aria-hidden="true"> ({archivedLabel})</span>
+      ) : null}
     </button>
   );
 }
@@ -79,6 +103,9 @@ export function KeepPinButton<TMeta = Record<string, unknown>>({
   const pin = useUiLabel("pin");
   const unpin = useUiLabel("unpin");
   const pinnedLabel = useUiLabel("pinned");
+  const showPinLabel = useUiLabelVisibility("pin");
+  const showUnpinLabel = useUiLabelVisibility("unpin");
+  const showPinnedLabel = useUiLabelVisibility("pinned");
   const isPinned = state.item?.pinned === true;
   const isDisabled = disabled ?? state.isMutating;
   return (
@@ -89,12 +116,25 @@ export function KeepPinButton<TMeta = Record<string, unknown>>({
       aria-pressed={isPinned}
       data-pinned={isPinned ? "true" : "false"}
       data-keep-action="toggle-pin"
+      aria-label={
+        props["aria-label"] ??
+        (children === undefined
+          ? isPinned
+            ? showUnpinLabel
+              ? undefined
+              : unpin
+            : showPinLabel
+              ? undefined
+              : pin
+          : undefined)
+      }
       onClick={() => void state.togglePin().catch((error) => onToggleError?.(error))}
     >
       {typeof children === "function"
         ? children(state)
-        : (children ?? (isPinned ? (unpinLabel ?? unpin) : (pinLabel ?? pin)))}
-      {isPinned && children === undefined ? <span aria-hidden="true"> ({pinnedLabel})</span> : null}
+        : (children ??
+          (isPinned ? (showUnpinLabel ? (unpinLabel ?? unpin) : null) : showPinLabel ? (pinLabel ?? pin) : null))}
+      {isPinned && children === undefined && showPinnedLabel ? <span aria-hidden="true"> ({pinnedLabel})</span> : null}
     </button>
   );
 }

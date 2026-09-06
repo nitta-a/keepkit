@@ -3,7 +3,7 @@
 import type { KeepItem } from "@keepkit/core/core";
 import { useKeepCollections, useKeepContext } from "@keepkit/core/react";
 import { type SelectHTMLAttributes, useState } from "react";
-import { useUiLabel } from "../../foundation/ui-context";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepCollectionOption = { id?: string; label: string };
 
@@ -88,6 +88,7 @@ export function KeepCollectionFilter<TMeta = Record<string, unknown>>({
   const collections = useKeepCollections<TMeta>({ orderBy: "name" });
   const options = useCollectionOptions(collectionLabels, collections);
   const collectionLabel = useUiLabel("collection");
+  const showCollectionLabel = useUiLabelVisibility("collection");
   const defaultAllLabel = useUiLabel("allCollections");
   const defaultUncategorizedLabel = useUiLabel("uncategorized");
   const all = allLabel ?? defaultAllLabel;
@@ -100,10 +101,11 @@ export function KeepCollectionFilter<TMeta = Record<string, unknown>>({
   };
   return (
     <label data-keepkit="collection-filter">
-      <span>{collectionLabel}</span>
+      {showCollectionLabel ? <span>{collectionLabel}</span> : null}
       <select
         {...props}
         value={selected}
+        aria-label={props["aria-label"] ?? collectionLabel}
         onChange={(event) => handleChange(event.currentTarget.value)}
         data-keep-action="filter-collection"
       >

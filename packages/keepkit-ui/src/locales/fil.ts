@@ -105,4 +105,7 @@ export const FIL_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "Maghanap at mag-ayos",
   toolbarFilters: "Mga filter",
   toolbarEnd: "Mga karagdagang aksyon",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

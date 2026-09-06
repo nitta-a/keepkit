@@ -105,4 +105,7 @@ export const TH_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "ค้นหาและจัดเรียง",
   toolbarFilters: "ตัวกรอง",
   toolbarEnd: "การดำเนินการเพิ่มเติม",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

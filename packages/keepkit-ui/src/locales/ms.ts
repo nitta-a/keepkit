@@ -105,4 +105,7 @@ export const MS_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "Cari dan susun",
   toolbarFilters: "Penapis",
   toolbarEnd: "Tindakan tambahan",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

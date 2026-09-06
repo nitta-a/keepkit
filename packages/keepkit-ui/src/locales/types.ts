@@ -102,7 +102,18 @@ export type KeepUiLabelKey =
   | "toolbarStart"
   | "toolbarQuery"
   | "toolbarFilters"
-  | "toolbarEnd";
+  | "toolbarEnd"
+  | "createCollection"
+  | "createCollectionSubmit"
+  | "collectionName";
+
+export type KeepUiLabelOptions = {
+  /** Replaces the localized label text. Omit to keep the locale default. */
+  text?: string;
+  /** Controls the visible label. Accessible names remain available when a label is hidden. */
+  visible?: boolean;
+};
 
 export type KeepUiLabels = Partial<Record<KeepUiLabelKey, string>>;
+export type KeepUiLabelOptionsMap = Partial<Record<KeepUiLabelKey, KeepUiLabelOptions>>;
 export type KeepUiLocaleLabels = Record<KeepUiLabelKey, string>;

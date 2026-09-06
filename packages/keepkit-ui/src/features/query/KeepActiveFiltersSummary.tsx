@@ -12,7 +12,7 @@ import {
   useRef,
 } from "react";
 import { type RenderProp, renderRoot } from "../../foundation/shared";
-import { useUiLabel } from "../../foundation/ui-context";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepActiveFiltersSummaryProps<TMeta = Record<string, unknown>> = Omit<
   HTMLAttributes<HTMLElement>,
@@ -55,6 +55,7 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
   const tags = normalizeTags(providedTags ?? query?.tags ?? []);
   const hasFilters = Boolean(search) || tags.length > 0;
   const activeFiltersLabel = useUiLabel("activeFilters");
+  const showActiveFiltersLabel = useUiLabelVisibility("activeFilters");
   const clearAllLabel = useUiLabel("clearAllFilters");
   const clearLabel = useUiLabel("clearFilters");
   const removeLabel = useUiLabel("removeFilter");
@@ -111,7 +112,7 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
       : (contentChildren ??
         (hasFilters ? (
           <>
-            <span data-active-filters-label="true">{activeFiltersLabel}</span>
+            {showActiveFiltersLabel ? <span data-active-filters-label="true">{activeFiltersLabel}</span> : null}
             <ul data-active-filters-list="true">
               {search ? (
                 <li data-filter-kind="search">

@@ -34,6 +34,7 @@ export function useKeepCollection<TMeta>({
     tags: true,
     pin: false,
     archive: false,
+    note: false,
     ...features,
   };
   const [searchValue, setSearchValue] = useState(query.search?.query ?? "");

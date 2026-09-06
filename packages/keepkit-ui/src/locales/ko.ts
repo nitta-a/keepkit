@@ -105,4 +105,7 @@ export const KO_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "검색 및 정렬",
   toolbarFilters: "필터",
   toolbarEnd: "추가 작업",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

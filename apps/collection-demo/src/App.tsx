@@ -88,6 +88,7 @@ function AdvancedCollection() {
       toolbarLayout="grouped"
       archiveScope="all"
       reorderable
+      creatable
       pageSize={4}
       collectionLabels={{ reading: "Reading", research: "Research" }}
       features={{
@@ -99,6 +100,7 @@ function AdvancedCollection() {
         tags: true,
         pin: true,
         archive: true,
+        note: true,
       }}
       itemCardProps={{
         href: (item) => item.meta.url,

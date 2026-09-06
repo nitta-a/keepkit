@@ -3,6 +3,7 @@
 import type { KeepListQuery } from "@keepkit/core/core";
 import { type HTMLAttributes, isValidElement, type ReactNode } from "react";
 import { type RenderProp, renderRoot } from "../../foundation/shared";
+import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepTagFilter } from "./hooks/useKeepTagFilter";
 
 export type KeepTagFilterState = {
@@ -46,21 +47,24 @@ export function KeepTagFilter<TMeta = Record<string, unknown>>({
   ...rootProps
 }: KeepTagFilterProps<TMeta>) {
   const view = useKeepTagFilter<TMeta>({ query, controlledValue, defaultValue, onChange, onValueChange });
+  const showFilterLabel = useUiLabelVisibility("filterTags");
+  const showAllTagsLabel = useUiLabelVisibility("allTags");
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
   const body = render
     ? render(view.state)
     : typeof contentChildren === "function"
       ? contentChildren(view.state)
       : (contentChildren ?? (
-          <fieldset>
-            <legend>{ariaLabel ?? view.labels.aria}</legend>
+          <fieldset aria-label={showFilterLabel ? undefined : (ariaLabel ?? view.labels.aria)}>
+            {showFilterLabel ? <legend>{ariaLabel ?? view.labels.aria}</legend> : null}
             <button
               type="button"
               data-keep-action="filter-all-tags"
               aria-pressed={view.state.value === undefined}
+              aria-label={showAllTagsLabel ? undefined : view.labels.all}
               onClick={() => view.state.select()}
             >
-              {allLabel ?? view.labels.all}
+              {showAllTagsLabel ? (allLabel ?? view.labels.all) : null}
             </button>
             {view.state.tags.map((tag) => (
               <button

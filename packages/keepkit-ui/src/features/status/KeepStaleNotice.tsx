@@ -2,6 +2,7 @@
 
 import type { KeepItem, KeepItemStatus } from "@keepkit/core/core";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
+import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { KeepItemStatusBadge } from "../item/KeepItemStatusBadge";
 import { useKeepPruneStale, useKeepStaleNotice } from "./hooks/useKeepStaleNotice";
 
@@ -26,6 +27,8 @@ export function KeepStaleNotice<TMeta = Record<string, unknown>>({
   ...props
 }: KeepStaleNoticeProps<TMeta>) {
   const view = useKeepStaleNotice<TMeta>({ item, onRetry, onRemoved });
+  const showRetryLabel = useUiLabelVisibility("retry");
+  const showRemoveLabel = useUiLabelVisibility("removeFromList");
 
   return (
     <aside {...props} className={className} data-keepkit="stale-notice" data-state={view.error ? "error" : "stale"}>
@@ -37,16 +40,18 @@ export function KeepStaleNotice<TMeta = Record<string, unknown>>({
           data-keep-action="retry-item"
           onClick={() => void view.retry()}
           disabled={view.isRetrying || view.isMutating}
+          aria-label={showRetryLabel ? undefined : view.labels.retry}
         >
-          {retryLabel ?? view.labels.retry}
+          {showRetryLabel ? (retryLabel ?? view.labels.retry) : null}
         </button>
         <button
           type="button"
           data-keep-action="remove-item"
           onClick={() => void view.remove()}
           disabled={view.isMutating}
+          aria-label={showRemoveLabel ? undefined : view.labels.remove}
         >
-          {removeLabel ?? view.labels.remove}
+          {showRemoveLabel ? (removeLabel ?? view.labels.remove) : null}
         </button>
       </div>
       {view.error ? <p role="alert">{view.error instanceof Error ? view.error.message : view.labels.error}</p> : null}
@@ -71,6 +76,7 @@ export function KeepPruneStaleButton<TMeta = Record<string, unknown>>({
   ...props
 }: KeepPruneStaleButtonProps) {
   const view = useKeepPruneStale<TMeta>({ statuses, onPruned });
+  const showLabel = useUiLabelVisibility("pruneStale");
 
   return (
     <button
@@ -81,9 +87,10 @@ export function KeepPruneStaleButton<TMeta = Record<string, unknown>>({
       data-keep-action="prune-stale"
       data-state={view.staleIds.length > 0 ? "available" : "empty"}
       disabled={view.staleIds.length === 0 || view.isMutating || disabled}
+      aria-label={showLabel ? undefined : view.label}
       onClick={() => void view.prune()}
     >
-      {children ?? label ?? `${view.label} (${view.staleIds.length})`}
+      {showLabel ? (children ?? label ?? `${view.label} (${view.staleIds.length})`) : null}
     </button>
   );
 }

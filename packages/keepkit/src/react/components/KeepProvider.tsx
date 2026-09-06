@@ -40,12 +40,13 @@ import {
   importItems,
 } from "../../features/persistence/backup";
 import { parseKeepMeta } from "../../features/persistence/schema";
-import { KeepStore, type KeepStoreActions } from "../../features/store/store";
+import { type KeepCollectionMeta, KeepStore, type KeepStoreActions } from "../../features/store/store";
 import { createBrowserStorageAdapter } from "../../storage";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "./KeepErrorBoundary";
 
 export type KeepContextValue<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
+  collections: Record<string, KeepCollectionMeta>;
   isLoading: boolean;
   isHydrated: boolean;
   isMutating: boolean;
@@ -61,6 +62,9 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   unarchiveItem: (id: string) => Promise<void>;
   togglePin: (id: string) => Promise<void>;
   moveToCollection: (id: string, collectionId?: string) => Promise<void>;
+  createCollection: (id: string, name: string) => Promise<void>;
+  renameCollection: (id: string, name: string) => Promise<void>;
+  removeCollection: (id: string) => Promise<void>;
   updateTagsBatch: (ids: string[], tags?: string[]) => Promise<void>;
   addTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
@@ -223,6 +227,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   if (!storeRef.current) {
     storeRef.current = new KeepStore<TMeta>({
       items: initialItems ? [...initialItems] : [],
+      collections: {},
       isLoading: true,
       isHydrated: false,
       isMutating: false,
@@ -233,7 +238,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   }
   const store = storeRef.current;
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  const { items, isLoading, isHydrated, isMutating, error, lastChange, undo: storedUndo } = state;
+  const { items, collections, isLoading, isHydrated, isMutating, error, lastChange, undo: storedUndo } = state;
   const undo = storedUndo ?? EMPTY_UNDO_STATE;
   const itemsRef = useRef(items);
   const pluginsRef = useRef(plugins);
@@ -620,6 +625,52 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     [runMutation, storage],
   );
 
+  const createCollection = useCallback(
+    async (id: string, name: string) => {
+      const trimmedId = id.trim();
+      const trimmedName = name.trim();
+      if (!trimmedId || !trimmedName) throw new Error("Collection id and name are required.");
+      const current = store.getSnapshot().collections;
+      if (current[trimmedId]) throw new Error(`Collection "${trimmedId}" already exists.`);
+      store.setState({ collections: { ...current, [trimmedId]: { name: trimmedName } } });
+    },
+    [store],
+  );
+
+  const renameCollection = useCallback(
+    async (id: string, name: string) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) throw new Error("Collection name is required.");
+      const current = store.getSnapshot().collections;
+      if (!current[id]) throw new Error(`Collection "${id}" does not exist.`);
+      store.setState({ collections: { ...current, [id]: { name: trimmedName } } });
+    },
+    [store],
+  );
+
+  const removeCollection = useCallback(
+    async (id: string) => {
+      const current = store.getSnapshot().collections;
+      if (!current[id]) throw new Error(`Collection "${id}" does not exist.`);
+      const { [id]: _removed, ...remaining } = current;
+      store.setState({ collections: remaining });
+      // Move all items in this collection to uncategorized.
+      const affected = itemsRef.current.filter((item) => item.collectionId === id);
+      if (affected.length > 0) {
+        const nextItems = itemsRef.current.map((item) =>
+          item.collectionId === id ? { ...item, collectionId: undefined, updatedAt: Date.now() } : item,
+        );
+        itemsRef.current = nextItems;
+        store.setState({ items: nextItems });
+        for (const item of affected) {
+          const { collectionId: _, ...withoutCollection } = item;
+          await storage.set({ ...withoutCollection, collectionId: undefined, updatedAt: Date.now() });
+        }
+      }
+    },
+    [storage, store],
+  );
+
   const updateTagsBatch = useCallback(
     async (ids: string[], tags?: string[]) => {
       const idSet = new Set(ids);
@@ -972,6 +1023,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   const value = useMemo<KeepContextValue<TMeta>>(
     () => ({
       items,
+      collections,
       isLoading,
       isHydrated,
       isMutating,
@@ -987,6 +1039,9 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       unarchiveItem,
       togglePin,
       moveToCollection,
+      createCollection,
+      renameCollection,
+      removeCollection,
       updateTagsBatch,
       addTagsBatch,
       removeTagsBatch,
@@ -1008,6 +1063,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     }),
     [
       clear,
+      collections,
       error,
       lastChange,
       flushSync,
@@ -1031,6 +1087,9 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       unarchiveItem,
       togglePin,
       moveToCollection,
+      createCollection,
+      renameCollection,
+      removeCollection,
       updateTagsBatch,
       addTagsBatch,
       removeTagsBatch,
@@ -1054,6 +1113,9 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       unarchiveItem,
       togglePin,
       moveToCollection,
+      createCollection,
+      renameCollection,
+      removeCollection,
       updateTagsBatch,
       addTagsBatch,
       removeTagsBatch,
@@ -1072,10 +1134,13 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     [
       addTagsBatch,
       clear,
+      createCollection,
       refresh,
+      removeCollection,
       removeItem,
       removeItems,
       removeTagsBatch,
+      renameCollection,
       saveItem,
       updateNote,
       updateTags,

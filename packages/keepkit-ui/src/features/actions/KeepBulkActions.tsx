@@ -3,6 +3,7 @@
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import type { HTMLAttributes, ReactNode } from "react";
 import { getMetaTitle, type RenderProp } from "../../foundation/shared";
+import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepBulkActions } from "./hooks/useKeepBulkActions";
 import { KeepItemCheckbox } from "./KeepItemCheckbox";
 
@@ -64,18 +65,25 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
     controlledScope,
     onSelectionScopeChange,
   });
+  const showSelectItemsLabel = useUiLabelVisibility("selectItems");
+  const showSelectionScopeLabel = useUiLabelVisibility("selectionScope");
+  const showSelectedCountLabel = useUiLabelVisibility("selectedCount");
+  const showTagsLabel = useUiLabelVisibility("tagsToApply");
+  const showDeleteLabel = useUiLabelVisibility("deleteSelected");
+  const showApplyTagsLabel = useUiLabelVisibility("applyTags");
   const body = render
     ? render(state)
     : typeof children === "function"
       ? children(state)
       : (children ?? (
           <>
-            <fieldset>
-              <legend>{labels.selectItems}</legend>
+            <fieldset aria-label={showSelectItemsLabel ? undefined : labels.selectItems}>
+              {showSelectItemsLabel ? <legend>{labels.selectItems}</legend> : null}
               <label>
-                {labels.selectionScope}
+                {showSelectionScopeLabel ? labels.selectionScope : null}
                 <select
                   data-keep-action="select-scope"
+                  aria-label={showSelectionScopeLabel ? undefined : labels.selectionScope}
                   value={state.selectionScope}
                   onChange={(event) => state.setSelectionScope(event.currentTarget.value as KeepSelectionScope)}
                 >
@@ -92,7 +100,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
                   onChange={state.toggleAll}
                   aria-label={labels.selectItems}
                 />
-                {state.selectedIds.length} {labels.selectedCount}
+                {state.selectedIds.length} {showSelectedCountLabel ? labels.selectedCount : null}
               </label>
               {state.items.map((item) => (
                 <span key={item.id}>
@@ -108,15 +116,17 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
             <button
               type="button"
               data-keep-action="delete-selected"
+              aria-label={showDeleteLabel ? undefined : labels.deleteSelected}
               onClick={() => void state.remove()}
               disabled={state.selectedIds.length === 0 || state.isMutating}
             >
-              {labels.deleteSelected}
+              {showDeleteLabel ? labels.deleteSelected : null}
             </button>
             <label>
-              {labels.tags}
+              {showTagsLabel ? labels.tags : null}
               <input
                 data-keep-action="edit-tags"
+                aria-label={showTagsLabel ? undefined : labels.tags}
                 value={state.tagsInput}
                 onChange={(event) => state.setTagsInput(event.currentTarget.value)}
               />
@@ -124,10 +134,11 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
             <button
               type="button"
               data-keep-action="apply-tags"
+              aria-label={showApplyTagsLabel ? undefined : labels.applyTags}
               onClick={() => void state.updateTags()}
               disabled={state.selectedIds.length === 0 || state.isMutating}
             >
-              {labels.applyTags}
+              {showApplyTagsLabel ? labels.applyTags : null}
             </button>
           </>
         ));

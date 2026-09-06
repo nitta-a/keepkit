@@ -105,4 +105,7 @@ export const VI_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "Tìm kiếm và sắp xếp",
   toolbarFilters: "Bộ lọc",
   toolbarEnd: "Thao tác bổ sung",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

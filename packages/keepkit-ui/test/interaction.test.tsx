@@ -324,6 +324,23 @@ test("removes individual active filters and clears all filters", () => {
   expect(screen.queryByRole("button", { name: "すべての条件をクリア" })).toBeNull();
 });
 
+test("configures label text and visibility without removing the accessible name", () => {
+  render(
+    <KeepUiProvider
+      labels={{
+        clearAllFilters: "Clear everything",
+      }}
+      labelOptions={{ activeFilters: { text: "Applied filters", visible: false } }}
+    >
+      <KeepActiveFiltersSummary search="react" />
+    </KeepUiProvider>,
+  );
+
+  const summary = screen.getByLabelText("Applied filters");
+  expect(summary.querySelector('[data-active-filters-label="true"]')).toBeNull();
+  expect(screen.getByRole("button", { name: "Clear everything" })).not.toBeNull();
+});
+
 test("moves focus to the adjacent chip after removal and falls back to search", async () => {
   function FilterFocusProbe() {
     const [search, setSearch] = useState("react");
@@ -700,9 +717,16 @@ test("provides the standard edit dialog from KeepItemCard", async () => {
   const edit = await screen.findByRole("button", { name: "Edit saved item" });
   expect(edit.getAttribute("data-keep-action")).toBe("edit");
   expect(edit.getAttribute("aria-haspopup")).toBe("dialog");
+  expect(edit.textContent).toBe("Edit saved item");
   fireEvent.click(edit);
   expect(await screen.findByRole("dialog", { name: "Edit saved item" })).not.toBeNull();
   expect(screen.getByRole("textbox", { name: "Note" })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "Edit saved item" })).toBeNull();
+  expect(document.querySelector('[data-keep-field="note"] [data-keep-field-icon]')).not.toBeNull();
+  expect(document.querySelector('[data-keep-field="tags"] [data-keep-field-icon]')).not.toBeNull();
+  expect(document.querySelector('[data-keep-field="collection"] [data-keep-field-icon]')).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(await screen.findByRole("button", { name: "Edit saved item" })).not.toBeNull();
 });
 
 test("switches KeepCollection archive scopes and keeps all items available", async () => {
@@ -1027,6 +1051,14 @@ test("ships dark-mode and reduced-motion CSS contracts", async () => {
   expect(cssText).toContain('[data-keep-action="search"]');
   expect(cssText).toContain('[data-keep-action="toggle-pin"]');
   expect(cssText).toContain('[data-keep-action="toggle-archive"]');
+  expect(cssText).toContain('[data-keep-action="edit"]');
+  expect(cssText).toContain("--keep-icon-edit");
+  expect(cssText).toContain("--keep-icon-collection");
+  expect(cssText).toContain('[data-keep-field="note"]');
+  expect(cssText).toContain('[data-keep-field="tags"]');
+  expect(cssText).toContain('[data-keep-field="collection"]');
+  expect(cssText).toContain("[data-keep-field-icon]");
+  expect(cssText).toContain('[data-keepkit="item-edit-dialog"]');
   expect(cssText).toContain('[data-keepkit="quick-editor"]');
   expect(cssText).toContain('[data-keep-popover-panel="true"]');
   expect(cssText).toContain('[data-keep-card-part="collection-badge"]');
@@ -1216,6 +1248,80 @@ test("enables optional pin, archive, and tag card features from collection confi
   await waitFor(() => expect(pin.getAttribute("aria-pressed")).toBe("true"));
   fireEvent.click(screen.getByRole("button", { name: "Archive" }));
   await waitFor(async () => expect((await storage.getAll())[0]?.archived).toBe(true));
+});
+
+test("enables note editing and memo preview from collection note feature", async () => {
+  const notedItem = { ...item, note: "Remember to read chapter 3" };
+  render(
+    <KeepProvider<Meta> storage={createStorage([notedItem])}>
+      <KeepCollection features={{ search: false, sort: false, pagination: false, note: true, pin: true }} />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+  expect(screen.getByText("Remember to read chapter 3")).not.toBeNull();
+  const pin = screen.getByRole("button", { name: "Pin" });
+  expect(pin.closest('[data-keep-card-part="actions-secondary"]')).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit saved item" }));
+  expect(await screen.findByRole("dialog", { name: "Edit saved item" })).not.toBeNull();
+  const movedPin = await screen.findByRole("button", { name: "Pin" });
+  expect(movedPin.closest('[data-keep-card-part="actions-secondary"]')).not.toBeNull();
+});
+
+test("hides note editing and memo preview when note feature is off", async () => {
+  const notedItem = { ...item, note: "Hidden note" };
+  render(
+    <KeepProvider<Meta> storage={createStorage([notedItem])}>
+      <KeepCollection features={{ search: false, sort: false, pagination: false }} />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "Edit saved item" })).toBeNull();
+  expect(screen.queryByText("Hidden note")).toBeNull();
+});
+
+test("creates a new collection from the toolbar form", async () => {
+  function CollectionProbe() {
+    const collections = useKeepCollections();
+    return <output data-testid="collections">{collections.map((c) => c.name).join(",")}</output>;
+  }
+
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <CollectionProbe />
+      <KeepCollection features={{ search: false, sort: false, pagination: false }} creatable />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+  const input = screen.getByRole("textbox", { name: "Create collection" });
+  const submit = screen.getByRole("button", { name: "Create" });
+
+  fireEvent.change(input, { target: { value: "Favorites" } });
+  fireEvent.click(submit);
+
+  await waitFor(() => expect((input as HTMLInputElement).value).toBe(""));
+  await waitFor(() => expect(screen.getByTestId("collections").textContent).toContain("Favorites"));
+});
+
+test("rejects duplicate collection names", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([{ ...item, collectionId: "reading" }])}>
+      <KeepCollection features={{ search: false, sort: false, pagination: false }} creatable />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+  const input = screen.getByRole("textbox", { name: "Create collection" });
+  const submit = screen.getByRole("button", { name: "Create" });
+
+  fireEvent.change(input, { target: { value: "reading" } });
+  fireEvent.click(submit);
+
+  expect(await screen.findByRole("alert")).not.toBeNull();
+  expect(screen.getByRole("alert").textContent).toContain("already exists");
 });
 
 test("allows explicit item card feature props to override collection defaults", async () => {

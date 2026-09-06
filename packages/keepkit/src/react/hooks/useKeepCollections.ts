@@ -15,14 +15,18 @@ export type UseKeepCollectionsOptions = {
 
 export type UseKeepCollectionsResult = KeepCollectionSummary[];
 
-/** Derive de-duplicated collection choices from the provider's complete saved-item snapshot. */
+/** Derive de-duplicated collection choices from the provider's saved items and explicit collections. */
 export function useKeepCollections<TMeta = Record<string, unknown>>(
   options: UseKeepCollectionsOptions = {},
 ): UseKeepCollectionsResult {
-  const { items } = useKeepContext<TMeta>();
+  const { items, collections: explicitCollections } = useKeepContext<TMeta>();
   const { orderBy = "name", targetType } = options;
   return useMemo(() => {
     const collections = new Map<string, KeepCollectionSummary>();
+    // Merge explicit collections (may have zero items).
+    for (const [id, meta] of Object.entries(explicitCollections ?? {})) {
+      collections.set(id, { id, name: meta.name, count: 0 });
+    }
     for (const item of items) {
       if (targetType !== undefined && item.targetType !== targetType) continue;
       const collection = getCollection(item);
@@ -38,7 +42,7 @@ export function useKeepCollections<TMeta = Record<string, unknown>>(
       if (orderBy === "count" && left.count !== right.count) return right.count - left.count;
       return left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
     });
-  }, [items, orderBy, targetType]);
+  }, [items, explicitCollections, orderBy, targetType]);
 }
 
 function getCollection<TMeta>(item: KeepItem<TMeta>): { id: string; name: string } | undefined {

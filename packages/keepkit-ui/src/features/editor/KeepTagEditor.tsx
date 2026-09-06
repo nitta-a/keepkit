@@ -3,6 +3,7 @@
 import type { KeepItem } from "@keepkit/core/core";
 import type { FormHTMLAttributes } from "react";
 import type { RenderProp } from "../../foundation/shared";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepTagEditor } from "./hooks/useKeepTagEditor";
 
 export type KeepTagEditorState = {
@@ -33,15 +34,20 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
   ...props
 }: KeepTagEditorProps<TMeta>) {
   const view = useKeepTagEditor<TMeta>({ item, onSaved, onSaveError });
+  const showTagsLabel = useUiLabelVisibility("tags");
+  const tagsAccessibleLabel = useUiLabel("tags");
+  const showRemoveLabel = useUiLabelVisibility("remove");
+  const showApplyLabel = useUiLabelVisibility("applyTags");
   const { isSaving, tags } = view.state;
   const body = render ? (
     render(view.state)
   ) : (
     <>
       <label>
-        {view.labels.tags}
+        {showTagsLabel ? view.labels.tags : null}
         <input
           data-keep-action="edit-tags"
+          aria-label={showTagsLabel ? undefined : tagsAccessibleLabel}
           value={view.input}
           list={availableTags.length > 0 ? `keep-tags-${item.id}` : undefined}
           onChange={(event) => view.setInput(event.currentTarget.value)}
@@ -59,14 +65,25 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
         {tags.map((tag) => (
           <li key={tag}>
             {tag}
-            <button type="button" data-keep-action="remove-tag" onClick={() => view.removeTag(tag)}>
-              {view.labels.remove}
+            <button
+              type="button"
+              data-keep-action="remove-tag"
+              aria-label={showRemoveLabel ? undefined : view.labels.remove}
+              onClick={() => view.removeTag(tag)}
+            >
+              {showRemoveLabel ? view.labels.remove : null}
             </button>
           </li>
         ))}
       </ul>
-      <button type="submit" data-keep-action="apply-tags" disabled={isSaving} aria-busy={isSaving}>
-        {view.labels.apply}
+      <button
+        type="submit"
+        data-keep-action="apply-tags"
+        disabled={isSaving}
+        aria-busy={isSaving}
+        aria-label={showApplyLabel ? undefined : view.labels.apply}
+      >
+        {showApplyLabel ? view.labels.apply : null}
       </button>
     </>
   );

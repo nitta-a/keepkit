@@ -27,7 +27,7 @@ import {
   toKeepButtonItem,
   useKeepSearchQuery,
 } from "../../foundation/shared";
-import { useUiLabel } from "../../foundation/ui-context";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import {
   KeepArchiveButton,
   type KeepArchiveButtonProps,
@@ -73,6 +73,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   renderImage?: (props: KeepImageProps, item: KeepItem<TMeta>) => ReactNode;
   renderTags?: (tags: string[], item: KeepItem<TMeta>) => ReactNode;
   showTags?: boolean;
+  showNote?: boolean;
   showSavedAt?: boolean;
   collectionLabels?: Record<string, string>;
   imageAlt?: string;
@@ -123,6 +124,7 @@ type KeepItemCardCompoundContext = {
   image: ReactNode | null;
   imageStatus: "loaded" | "error" | "loading";
   fallbackLabel: string;
+  note: string | undefined;
   tags: string[];
   tagsLabel: string;
   renderedTags: ReactNode | null;
@@ -155,6 +157,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   renderImage,
   renderTags,
   showTags = true,
+  showNote = false,
   showSavedAt = true,
   collectionLabels,
   imageAlt,
@@ -201,6 +204,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   const editTriggerRef = useRef<HTMLButtonElement>(null);
   const editPanelId = useId();
   const editLabel = useUiLabel("editSavedItem");
+  const showEditLabel = useUiLabelVisibility("editSavedItem");
+  const showSavedAtLabel = useUiLabelVisibility("saved");
   const closeEdit = () => setEditOpen(false);
   useEffect(() => {
     if (!isEditOpen) editTriggerRef.current?.focus();
@@ -263,7 +268,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   const renderedTags = showTags && tags.length > 0 ? (renderTags?.(tags, item) ?? null) : null;
   const meta = showSavedAt ? (
     <div data-card-meta>
-      <span>{view.labels.savedAt}:</span>{" "}
+      {showSavedAtLabel ? <span>{view.labels.savedAt}:</span> : null}
+      {showSavedAtLabel ? " " : null}
       <time dateTime={new Date(item.savedAt).toISOString()}>{formatSavedAt(item.savedAt)}</time>
     </div>
   ) : null;
@@ -275,37 +281,46 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   ) : (
     <>
       {showEditButton ? (
-        <>
+        isEditOpen ? (
+          <div id={editPanelId} role="dialog" aria-label={editLabel} data-keepkit="item-edit-dialog">
+            {editSlot ? (
+              editSlot(item, closeEdit)
+            ) : (
+              <KeepQuickEditor item={view.itemState.item ?? item} onClose={closeEdit} />
+            )}
+          </div>
+        ) : (
           <button
             ref={editTriggerRef}
             type="button"
             data-keep-action="edit"
-            aria-label={editLabel}
+            aria-label={showEditLabel ? undefined : editLabel}
             aria-haspopup="dialog"
-            aria-expanded={isEditOpen}
+            aria-expanded={false}
             aria-controls={editPanelId}
             onClick={() => {
               onEdit?.(item);
               setEditOpen(true);
             }}
           >
-            {editLabel}
+            {showEditLabel ? editLabel : null}
           </button>
-          {isEditOpen ? (
-            <div id={editPanelId} role="dialog" aria-label={editLabel} data-keepkit="item-edit-dialog">
-              {editSlot ? (
-                editSlot(item, closeEdit)
-              ) : (
-                <KeepQuickEditor item={view.itemState.item ?? item} onClose={closeEdit} />
-              )}
-            </div>
-          ) : null}
-        </>
+        )
       ) : null}
-      {showSaveButton ? <KeepItemCardSave /> : null}
-      {showPinButton ? <KeepItemCardPin /> : null}
-      {showArchiveButton ? <KeepItemCardArchive /> : null}
-      <KeepItemCardRemove />
+      {isEditOpen ? null : (
+        <>
+          {showSaveButton ? <KeepItemCardSave /> : null}
+          {showPinButton ? <KeepItemCardPin /> : null}
+          {showArchiveButton ? <KeepItemCardArchive /> : null}
+          <KeepItemCardRemove />
+        </>
+      )}
+      {isEditOpen && (showPinButton || showArchiveButton) ? (
+        <div data-keep-card-part="actions-secondary">
+          {showPinButton ? <KeepItemCardPin /> : null}
+          {showArchiveButton ? <KeepItemCardArchive /> : null}
+        </div>
+      ) : null}
     </>
   );
   const compoundValue: KeepItemCardCompoundContext = {
@@ -316,6 +331,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     image: imageStatus === "error" ? null : image,
     imageStatus,
     fallbackLabel: String(view.resolvedTitle),
+    note: showNote ? item.note : undefined,
     tags,
     tagsLabel: view.labels.tags,
     renderedTags,
@@ -384,6 +400,11 @@ function KeepItemCardContent({ children, ...props }: KeepItemCardContentProps) {
         <>
           <KeepItemCardTitle />
           {context.meta}
+          {context.note ? (
+            <p data-keep-card-part="memo-preview" data-line-clamp="2">
+              {context.note}
+            </p>
+          ) : null}
           <KeepItemCardTags />
           {context.error}
         </>

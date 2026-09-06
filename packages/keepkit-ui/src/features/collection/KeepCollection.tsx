@@ -14,6 +14,7 @@ import { KeepCollectionFilter } from "../query/KeepCollectionFilter";
 import { KeepTagFilter } from "../query/KeepTagFilter";
 import { KeepPagination, KeepSearchInput, KeepSortSelect } from "../query/query-controls";
 import { useKeepCollection } from "./hooks/useKeepCollection";
+import { KeepCollectionCreate } from "./KeepCollectionCreate";
 import { KeepList, type KeepListState } from "./KeepList";
 
 export type KeepCollectionFeature =
@@ -25,7 +26,8 @@ export type KeepCollectionFeature =
   | "bulkActions"
   | "tags"
   | "pin"
-  | "archive";
+  | "archive"
+  | "note";
 export type KeepLayoutPreset = "list" | "grid" | "compact" | "auto";
 export type KeepCollectionToolbarVariant = "plain" | "panel";
 export type KeepCollectionToolbarLayout = "flat" | "grouped";
@@ -57,6 +59,8 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   onReorder?: (items: KeepItem<TMeta>[]) => void | Promise<void>;
   features?: Partial<Record<KeepCollectionFeature, boolean>>;
   collectionLabels?: Record<string, string>;
+  /** Shows a collection creation form in the toolbar. */
+  creatable?: boolean;
   renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
   loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
@@ -98,6 +102,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   features,
   slots,
   collectionLabels,
+  creatable = false,
   renderItem,
   itemCardProps,
   loading,
@@ -139,11 +144,14 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
     showTags: itemCardProps?.showTags ?? view.enabled.tags,
     showPinButton: itemCardProps?.showPinButton ?? view.enabled.pin,
     showArchiveButton: itemCardProps?.showArchiveButton ?? view.enabled.archive,
+    showEditButton: itemCardProps?.showEditButton ?? view.enabled.note,
+    showNote: itemCardProps?.showNote ?? view.enabled.note,
   };
   const toolbarId = useId();
   const structuredToolbar =
     toolbarLayout === "grouped" ||
     toolbarVariant === "panel" ||
+    creatable ||
     slots?.toolbarStart !== undefined ||
     slots?.toolbarEnd !== undefined;
   const hasQueryControls = view.enabled.search || view.enabled.sort;
@@ -182,7 +190,9 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   const toolbarFiltersLabel = useUiLabel("toolbarFilters");
   const toolbarEndLabel = useUiLabel("toolbarEnd");
   const toolbarStartContent = slots?.toolbarStart === undefined ? null : resolveContent(slots.toolbarStart, view.list);
-  const toolbarEndContent = slots?.toolbarEnd === undefined ? null : resolveContent(slots.toolbarEnd, view.list);
+  const creatableContent = creatable ? <KeepCollectionCreate /> : null;
+  const toolbarEndContent =
+    creatableContent ?? (slots?.toolbarEnd === undefined ? null : resolveContent(slots.toolbarEnd, view.list));
   const hasToolbarContent =
     hasQueryControls ||
     hasFilterControls ||

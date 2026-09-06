@@ -105,4 +105,7 @@ export const ZH_HANS_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "搜索和排序",
   toolbarFilters: "筛选",
   toolbarEnd: "其他操作",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

@@ -105,4 +105,7 @@ export const RU_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "Поиск и сортировка",
   toolbarFilters: "Фильтры",
   toolbarEnd: "Дополнительные действия",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

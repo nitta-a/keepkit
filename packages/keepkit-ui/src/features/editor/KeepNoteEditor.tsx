@@ -3,6 +3,7 @@
 import type { KeepItem } from "@keepkit/core/core";
 import { type FormHTMLAttributes, isValidElement, type ReactNode } from "react";
 import { type RenderProp, renderRoot } from "../../foundation/shared";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { KeepShortcutHint } from "../navigation/KeepShortcutHint";
 import { useKeepNoteEditor } from "./hooks/useKeepNoteEditor";
 
@@ -51,6 +52,10 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
   ...formProps
 }: KeepNoteEditorProps<TMeta>) {
   const view = useKeepNoteEditor<TMeta>({ item, debounceMs, onSaved, onSaveError });
+  const showNoteLabel = useUiLabelVisibility("note");
+  const noteAccessibleLabel = useUiLabel("note");
+  const showSaveLabel = useUiLabelVisibility("saveNote");
+  const saveAccessibleLabel = useUiLabel("saveNote");
   const { error, isDirty, isSaving, note, setNote } = view.state;
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
   const body = render
@@ -60,9 +65,10 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
       : (contentChildren ?? (
           <>
             <label>
-              {label ?? view.labels.note}
+              {showNoteLabel ? (label ?? view.labels.note) : null}
               <textarea
                 data-keep-action="edit-note"
+                aria-label={showNoteLabel ? undefined : noteAccessibleLabel}
                 value={note}
                 onChange={(event) => setNote(event.currentTarget.value)}
                 placeholder={placeholder}
@@ -70,8 +76,14 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
                 onKeyDown={view.handleKeyDown}
               />
             </label>
-            <button type="submit" data-keep-action="save-note" disabled={isSaving} aria-busy={isSaving}>
-              {saveLabel ?? view.labels.save}
+            <button
+              type="submit"
+              data-keep-action="save-note"
+              disabled={isSaving}
+              aria-busy={isSaving}
+              aria-label={showSaveLabel ? undefined : saveAccessibleLabel}
+            >
+              {showSaveLabel ? (saveLabel ?? view.labels.save) : null}
               {showShortcutHint ? <KeepShortcutHint shortcut="Ctrl+Enter" /> : null}
             </button>
           </>

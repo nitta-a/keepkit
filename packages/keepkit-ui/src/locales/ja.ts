@@ -105,4 +105,7 @@ export const JA_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "検索と並び替え",
   toolbarFilters: "絞り込み",
   toolbarEnd: "追加の操作",
+  createCollection: "コレクションを作成",
+  createCollectionSubmit: "作成",
+  collectionName: "コレクション名",
 };

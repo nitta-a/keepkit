@@ -99,14 +99,14 @@ const keep = createKeepKit<ArticleMeta>({ storage, locale: "ja" });
 </KeepItemCard>
 ```
 
-`KeepKitProvider` / `KeepUiProvider`の`onFeedback`は`item-saved`、`item-removed`、`item-restored`、`sync-completed`、`sync-failed`、`stale-pruned`を通知します。削除系イベントには`undo`と現在ロケールの`undoLabel`が含まれます。Sonner互換の関数なら次の1行で接続できます（ライブラリ依存は追加されません）。
+`KeepKitProvider` / `KeepUiProvider`の`onFeedback`は`item-saved`、`item-removed`、`item-restored`、`sync-completed`、`sync-failed`、`stale-pruned`を通知します。削除系イベントには`undo`と現在ロケールの`undoLabel`が含まれます。ラベルは既存の`labels: { save: "保存" }`形式で内容を上書きし、`labelOptions: { collection: { text: "カテゴリ", visible: false } }`で内容と表示／非表示を設定できます。非表示の表示ラベルでも、操作に必要なARIA名は維持されます。Sonner互換の関数なら次の1行で接続できます（ライブラリ依存は追加されません）。
 
 ```tsx
 const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.26.4では`KeepCollection`の最小構成と高度な操作を確認できる`apps/collection-demo`を追加しました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。
+v0.27.0では`KeepCollection`の最小構成と高度な操作を確認できる`apps/collection-demo`を追加しました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -236,14 +236,14 @@ Use the compound parts to rearrange only the card regions you own while preservi
 </KeepItemCard>
 ```
 
-`onFeedback` on `KeepKitProvider` / `KeepUiProvider` receives `item-saved`, `item-removed`, `item-restored`, `sync-completed`, `sync-failed`, and `stale-pruned`. Removal events include an `undo` function and locale-aware `undoLabel`. Connect a Sonner-compatible function without adding a package dependency:
+`onFeedback` on `KeepKitProvider` / `KeepUiProvider` receives `item-saved`, `item-removed`, `item-restored`, `sync-completed`, `sync-failed`, and `stale-pruned`. Override text with the existing `labels: { save: "Save" }` form and configure text or visibility with `labelOptions: { collection: { text: "Category", visible: false } }`; required ARIA names remain available when visible text is hidden. Removal events include an `undo` function and locale-aware `undoLabel`. Connect a Sonner-compatible function without adding a package dependency:
 
 ```tsx
 const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.26.4 adds `apps/collection-demo` for exploring minimal and advanced `KeepCollection` configurations. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
+v0.27.0 adds `apps/collection-demo` for exploring minimal and advanced `KeepCollection` configurations. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme

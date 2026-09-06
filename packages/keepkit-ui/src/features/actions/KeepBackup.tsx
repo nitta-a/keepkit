@@ -2,6 +2,7 @@
 
 import type { ImportItemsResult } from "@keepkit/core/core";
 import type { HTMLAttributes } from "react";
+import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepBackup } from "./hooks/useKeepBackup";
 
 export type KeepBackupProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
@@ -18,6 +19,9 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
   ...props
 }: KeepBackupProps<TMeta>) {
   const view = useKeepBackup<TMeta>({ filename, onExport, onImported });
+  const showExportLabel = useUiLabelVisibility("exportData");
+  const showImportModeLabel = useUiLabelVisibility("importMode");
+  const showImportLabel = useUiLabelVisibility("importData");
 
   return (
     <section
@@ -31,22 +35,30 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
         data-keep-action="export-backup"
         onClick={() => void view.exportBackup()}
         disabled={view.isMutating}
+        aria-label={showExportLabel ? undefined : view.labels.export}
       >
-        {view.labels.export}
+        {showExportLabel ? view.labels.export : null}
       </button>
       <label>
-        {view.labels.importMode}
+        {showImportModeLabel ? view.labels.importMode : null}
         <select
           data-keep-action="select-import-mode"
           value={view.mode}
+          aria-label={showImportModeLabel ? undefined : view.labels.importMode}
           onChange={(event) => view.setMode(event.currentTarget.value as "merge" | "replace")}
         >
           <option value="merge">{view.labels.merge}</option>
           <option value="replace">{view.labels.replace}</option>
         </select>
       </label>
-      <button type="button" data-keep-action="import-backup" onClick={view.openFilePicker} disabled={view.isMutating}>
-        {view.labels.import}
+      <button
+        type="button"
+        data-keep-action="import-backup"
+        onClick={view.openFilePicker}
+        disabled={view.isMutating}
+        aria-label={showImportLabel ? undefined : view.labels.import}
+      >
+        {showImportLabel ? view.labels.import : null}
       </button>
       <input
         ref={view.inputRef}

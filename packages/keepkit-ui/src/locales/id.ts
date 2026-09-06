@@ -105,4 +105,7 @@ export const ID_LABELS: KeepUiLocaleLabels = {
   toolbarQuery: "Cari dan urutkan",
   toolbarFilters: "Filter",
   toolbarEnd: "Tindakan tambahan",
+  createCollection: "Create collection",
+  createCollectionSubmit: "Create",
+  collectionName: "Collection name",
 };

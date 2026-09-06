@@ -7,6 +7,7 @@ import {
 } from "@keepkit/core/react";
 import { createElement, type MouseEvent, type ReactNode, type Ref, useEffect, useRef } from "react";
 import type { KeepButtonIcon, KeepButtonIcons, KeepButtonLabels } from "../../foundation/shared";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepButton } from "./hooks/useKeepButton";
 
 export type { KeepButtonIcon, KeepButtonIconProps, KeepButtonIcons, KeepButtonLabels } from "../../foundation/shared";
@@ -32,6 +33,11 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   ...props
 }: KeepButtonProps<TMeta>) {
   const view = useKeepButton<TMeta>({ item: props.item, labels, icons, children: props.children });
+  const removeLabel = useUiLabel("remove");
+  const showSaveLabel = useUiLabelVisibility("save");
+  const showSavedLabel = useUiLabelVisibility("saved");
+  const showLoadingLabel = useUiLabelVisibility("loading");
+  const showErrorLabel = useUiLabelVisibility("error");
   const pendingToggle = useRef<{ wasSaved: boolean; item: KeepButtonState<TMeta>["item"] } | null>(null);
   useEffect(() => {
     const pending = pendingToggle.current;
@@ -69,7 +75,14 @@ export function KeepButton<TMeta = Record<string, unknown>>({
         : state.isSaved
           ? (labels?.saved ?? view.labels.saved)
           : (labels?.unsaved ?? view.labels.save);
-    if (!icons) return label;
+    const showStateLabel = state.error
+      ? showErrorLabel
+      : state.isMutating
+        ? showLoadingLabel
+        : state.isSaved
+          ? showSavedLabel
+          : showSaveLabel;
+    if (!icons) return showStateLabel ? label : null;
     const icon = state.error
       ? icons.error
       : state.isMutating
@@ -80,7 +93,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     return (
       <>
         {renderIcon(icon, iconClassName)}
-        {showLabel && !iconOnly ? label : null}
+        {showLabel && showStateLabel && !iconOnly ? label : null}
       </>
     );
   };
@@ -101,10 +114,16 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     "data-has-custom-icon": icons ? "true" : undefined,
     "data-icon-only": iconOnly ? "true" : undefined,
     "aria-busy": props["aria-busy"] ?? (view.buttonState.isLoading || view.buttonState.isMutating),
-    savedLabel: labels?.saved ?? props.savedLabel ?? view.labels.saved,
-    unsavedLabel: labels?.unsaved ?? props.unsavedLabel ?? view.labels.save,
-    savedAriaLabel: labels?.savedAriaLabel ?? props.savedAriaLabel,
-    unsavedAriaLabel: labels?.unsavedAriaLabel ?? props.unsavedAriaLabel,
+    savedLabel: showSavedLabel ? (labels?.saved ?? props.savedLabel ?? view.labels.saved) : null,
+    unsavedLabel: showSaveLabel ? (labels?.unsaved ?? props.unsavedLabel ?? view.labels.save) : null,
+    savedAriaLabel:
+      labels?.savedAriaLabel ??
+      props.savedAriaLabel ??
+      (props.children === undefined && !showSavedLabel ? removeLabel : undefined),
+    unsavedAriaLabel:
+      labels?.unsavedAriaLabel ??
+      props.unsavedAriaLabel ??
+      (props.children === undefined && !showSaveLabel ? view.labels.save : undefined),
   };
   if (!view.customStateLabel) return <CoreKeepButton<TMeta> {...sharedProps} />;
   return (

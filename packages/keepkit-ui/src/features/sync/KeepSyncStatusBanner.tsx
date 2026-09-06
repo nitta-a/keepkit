@@ -1,6 +1,7 @@
 "use client";
 
 import type { HTMLAttributes, ReactNode } from "react";
+import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepSyncStatusBanner } from "./hooks/useKeepSyncStatusBanner";
 
 export type KeepSyncStatusBannerProps = Omit<HTMLAttributes<HTMLElement>, "children"> & {
@@ -18,6 +19,8 @@ export function KeepSyncStatusBanner({
   ...props
 }: KeepSyncStatusBannerProps) {
   const view = useKeepSyncStatusBanner({ onRetry, children });
+  const showRetryLabel = useUiLabelVisibility("retrySync");
+  const showResolveLabel = useUiLabelVisibility("resolveSync");
   if (view.status === "idle" && !view.hasConflicts) return null;
 
   return (
@@ -36,8 +39,9 @@ export function KeepSyncStatusBanner({
           data-keep-action="retry-sync"
           onClick={() => void view.retry()}
           disabled={view.isMutating}
+          aria-label={showRetryLabel ? undefined : view.retryLabel}
         >
-          {view.retryLabel}
+          {showRetryLabel ? view.retryLabel : null}
         </button>
       ) : null}
       {view.hasConflicts ? (
@@ -46,8 +50,9 @@ export function KeepSyncStatusBanner({
           data-keep-action="resolve-conflicts"
           onClick={onResolveConflicts}
           disabled={!onResolveConflicts}
+          aria-label={showResolveLabel ? undefined : view.resolveLabel}
         >
-          {view.resolveLabel}
+          {showResolveLabel ? view.resolveLabel : null}
         </button>
       ) : null}
     </aside>
