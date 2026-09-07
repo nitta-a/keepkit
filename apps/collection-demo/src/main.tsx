@@ -12,7 +12,8 @@ export type DemoMeta = {
   url: string;
   description: string;
   image: string;
-  collection: string;
+  /** Resource seed data uses this to assign the saved item, not as metadata fallback. */
+  collection?: string;
 };
 
 const local = createBrowserStorageAdapter<DemoMeta>({

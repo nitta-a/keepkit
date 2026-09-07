@@ -20,6 +20,7 @@ import {
   KeepButton,
   KeepCollection,
   KeepCollectionFilter,
+  KeepCollectionManager,
   KeepCollectionSelect,
   KeepEmptyState,
   KeepErrorBoundary,
@@ -1134,6 +1135,24 @@ test("debounces note persistence and saves with Ctrl+Enter", async () => {
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith("keyboard note"));
 });
 
+test("keeps a trailing tag separator editable while quick editor autosaves", async () => {
+  const taggedItem = { ...item, tags: ["one"] };
+  const storage = createStorage([taggedItem]);
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepQuickEditor item={taggedItem} debounceMs={20} />
+    </KeepProvider>,
+  );
+
+  const tags = await screen.findByRole("textbox", { name: "Tags" });
+  fireEvent.change(tags, { target: { value: "one," } });
+  expect((tags as HTMLInputElement).value).toBe("one,");
+
+  fireEvent.change(tags, { target: { value: "one, two" } });
+  await waitFor(async () => expect((await storage.getAll())[0]?.tags).toEqual(["one", "two"]));
+  expect((tags as HTMLInputElement).value).toBe("one, two");
+});
+
 test("does not add a tag while an IME composition is active", async () => {
   render(
     <KeepProvider<Meta> storage={createStorage([item])}>
@@ -1304,6 +1323,46 @@ test("creates a new collection from the toolbar form", async () => {
 
   await waitFor(() => expect((input as HTMLInputElement).value).toBe(""));
   await waitFor(() => expect(screen.getByTestId("collections").textContent).toContain("Favorites"));
+});
+
+test("manages collections with create, rename, and delete actions", async () => {
+  const storage = createStorage([{ ...item, collectionId: "reading" }]);
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepCollectionManager />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Manage collections" })).not.toBeNull();
+  const createInput = screen.getByRole("textbox", { name: "Create collection" });
+  fireEvent.change(createInput, { target: { value: "Favorites" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+  expect(await screen.findByText("Favorites")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Rename Favorites" }));
+  const renameInput = screen.getByRole("textbox", { name: "Rename: Favorites" });
+  fireEvent.change(renameInput, { target: { value: "Starred" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+  expect(await screen.findByText("Starred")).not.toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete Starred" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete collection" }));
+  await waitFor(() => expect(screen.queryByText("Starred")).toBeNull());
+});
+
+test("shows collection counts and removes item-derived collections", async () => {
+  const storage = createStorage([{ ...item, collectionId: "reading" }]);
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepCollectionManager />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByText("1 item")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Delete reading" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete collection" }));
+  await waitFor(() => expect(screen.queryByText("reading")).toBeNull());
+  expect((await storage.getAll())[0]?.collectionId).toBeUndefined();
 });
 
 test("rejects duplicate collection names", async () => {

@@ -108,4 +108,13 @@ export const JA_LABELS: KeepUiLocaleLabels = {
   createCollection: "コレクションを作成",
   createCollectionSubmit: "作成",
   collectionName: "コレクション名",
+  manageCollections: "コレクションを管理",
+  renameCollection: "名前を変更",
+  renameCollectionSubmit: "名前を保存",
+  deleteCollection: "削除",
+  deleteCollectionConfirm: "アイテムを未分類へ移動しますか？",
+  deleteCollectionSubmit: "コレクションを削除",
+  cancel: "キャンセル",
+  collectionItem: "件",
+  collectionItems: "件",
 };

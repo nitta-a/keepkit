@@ -77,3 +77,56 @@ test("switches to advanced controls without losing saved items", async () => {
   expect(screen.getByRole("combobox", { name: "Archive scope" })).toBeInTheDocument();
   expect(screen.getByRole("searchbox", { name: "Search saved items" })).toBeInTheDocument();
 });
+
+test("commits quick edits only when the save button is pressed", async () => {
+  const { getItems } = renderDemo([savedArticle]);
+
+  fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit saved item" }));
+
+  const tags = await screen.findByRole("textbox", { name: "Tags" });
+  fireEvent.change(tags, { target: { value: "Article, work" } });
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  expect(getItems()[0]?.tags).toEqual(savedArticle.tags);
+
+  fireEvent.click(screen.getByRole("button", { name: "Save with note" }));
+  await waitFor(() => expect(getItems()[0]?.tags).toEqual(["Article", "work"]));
+});
+
+test("creates, renames, and deletes collections", async () => {
+  const { getItems } = renderDemo([savedArticle]);
+
+  const nameInput = await screen.findByRole("textbox", { name: "Create collection" });
+  fireEvent.change(nameInput, { target: { value: "Favorites" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+  expect(await screen.findByText("Favorites")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Rename Favorites" }));
+  const renameInput = screen.getByRole("textbox", { name: "Rename: Favorites" });
+  fireEvent.change(renameInput, { target: { value: "Starred" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+
+  expect(await screen.findByText("Starred")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Delete Starred" }));
+  expect(screen.getByRole("group", { name: "Move its items to Uncategorized?" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Delete collection" }));
+
+  await waitFor(() => expect(screen.queryByText("Starred")).toBeNull());
+  expect(getItems()).toHaveLength(1);
+});
+
+test("can manage an item-derived collection", async () => {
+  const { getItems } = renderDemo([savedArticle]);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Rename reading" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Rename: reading" }), {
+    target: { value: "Reading list" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+  expect(await screen.findByText("Reading list")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete Reading list" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete collection" }));
+  await waitFor(() => expect(screen.queryByText("Reading list")).toBeNull());
+  expect(getItems()[0]?.collectionId).toBeUndefined();
+});

@@ -235,10 +235,14 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   const savingLabel = useUiLabel("saving");
   const savedLabel = useUiLabel("saved");
   const errorLabel = useUiLabel("error");
+  const [tagsInput, setTagsInput] = useState(() => formatTags(state.tags));
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void state.flush().catch(() => undefined);
   };
+  useEffect(() => {
+    if (!sameTags(parseTags(tagsInput), state.tags)) setTagsInput(formatTags(state.tags));
+  }, [state.tags, tagsInput]);
   const onKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     props.onKeyDown?.(event);
     if (event.defaultPrevented) return;
@@ -265,90 +269,87 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
     typeof children === "function"
       ? children(state)
       : (children ?? (
-          <>
-            {enabled.note ? (
-              <label data-keep-field="note">
-                {showNoteLabel ? <span data-keep-field-icon>{noteLabel}</span> : null}
-                <textarea
-                  value={state.note}
-                  aria-label={showNoteLabel ? undefined : noteLabel}
-                  onChange={(event) => state.setNote(event.currentTarget.value)}
-                />
-              </label>
-            ) : null}
-            {enabled.tags ? (
-              <label data-keep-field="tags">
-                {showTagsLabel ? <span data-keep-field-icon>{tagsLabel}</span> : null}
-                <input
-                  value={state.tags.join(", ")}
-                  aria-label={showTagsLabel ? undefined : tagsLabel}
-                  onChange={(event) =>
-                    state.setTags(
-                      event.currentTarget.value
-                        .split(",")
-                        .map((tag) => tag.trim())
-                        .filter(Boolean),
-                    )
-                  }
-                />
-              </label>
-            ) : null}
-            {enabled.collection ? (
-              <label data-keep-field="collection">
-                {showCollectionLabel ? <span data-keep-field-icon>{collectionLabel}</span> : null}
-                <select
-                  value={state.collectionId ?? ""}
-                  aria-label={showCollectionLabel ? undefined : collectionLabel}
-                  onChange={(event) => state.setCollectionId(event.currentTarget.value || undefined)}
-                >
-                  <option value="">{uncategorizedLabel}</option>
-                  {(collectionIds ?? collections.map((collection) => collection.id)).map((id) => (
-                    <option key={id} value={id}>
-                      {collectionLabels?.[id] ?? id}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            {statusMessage ? (
-              <p
-                role={state.saveStatus === "error" ? "alert" : "status"}
-                aria-live={state.saveStatus === "error" ? "assertive" : "polite"}
-                tabIndex={state.saveStatus === "error" ? -1 : undefined}
-                data-keep-editor-status="true"
-                data-state={state.saveStatus}
+        <>
+          {enabled.note ? (
+            <label data-keep-field="note">
+              {showNoteLabel ? <span data-keep-field-icon>{noteLabel}</span> : null}
+              <textarea
+                value={state.note}
+                aria-label={showNoteLabel ? undefined : noteLabel}
+                onChange={(event) => state.setNote(event.currentTarget.value)}
+              />
+            </label>
+          ) : null}
+          {enabled.tags ? (
+            <label data-keep-field="tags">
+              {showTagsLabel ? <span data-keep-field-icon>{tagsLabel}</span> : null}
+              <input
+                value={tagsInput}
+                aria-label={showTagsLabel ? undefined : tagsLabel}
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  setTagsInput(value);
+                  state.setTags(parseTags(value));
+                }}
+              />
+            </label>
+          ) : null}
+          {enabled.collection ? (
+            <label data-keep-field="collection">
+              {showCollectionLabel ? <span data-keep-field-icon>{collectionLabel}</span> : null}
+              <select
+                value={state.collectionId ?? ""}
+                aria-label={showCollectionLabel ? undefined : collectionLabel}
+                onChange={(event) => state.setCollectionId(event.currentTarget.value || undefined)}
               >
-                {statusMessage}
-              </p>
-            ) : null}
-            {showSaveButton ? (
-              <button
-                type="submit"
-                disabled={state.isSaving}
-                data-keep-action="save-quick-edit"
-                aria-label={showSaveLabel ? undefined : saveLabel}
-              >
-                {showSaveLabel ? saveLabel : null}
-              </button>
-            ) : null}
-            {onClose ? (
-              <button
-                type="button"
-                onClick={() =>
-                  void state
-                    .flush()
-                    .then(onClose)
-                    .catch(() => undefined)
-                }
-                disabled={state.isSaving}
-                data-keep-action="close-quick-edit"
-                aria-label={showCloseLabel ? undefined : closeLabel}
-              >
-                {showCloseLabel ? closeLabel : null}
-              </button>
-            ) : null}
-          </>
-        ));
+                <option value="">{uncategorizedLabel}</option>
+                {(collectionIds ?? collections.map((collection) => collection.id)).map((id) => (
+                  <option key={id} value={id}>
+                    {collectionLabels?.[id] ?? id}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {statusMessage ? (
+            <p
+              role={state.saveStatus === "error" ? "alert" : "status"}
+              aria-live={state.saveStatus === "error" ? "assertive" : "polite"}
+              tabIndex={state.saveStatus === "error" ? -1 : undefined}
+              data-keep-editor-status="true"
+              data-state={state.saveStatus}
+            >
+              {statusMessage}
+            </p>
+          ) : null}
+          {showSaveButton ? (
+            <button
+              type="submit"
+              disabled={state.isSaving}
+              data-keep-action="save-quick-edit"
+              aria-label={showSaveLabel ? undefined : saveLabel}
+            >
+              {showSaveLabel ? saveLabel : null}
+            </button>
+          ) : null}
+          {onClose ? (
+            <button
+              type="button"
+              onClick={() =>
+                void state
+                  .flush()
+                  .then(onClose)
+                  .catch(() => undefined)
+              }
+              disabled={state.isSaving}
+              data-keep-action="close-quick-edit"
+              aria-label={showCloseLabel ? undefined : closeLabel}
+            >
+              {showCloseLabel ? closeLabel : null}
+            </button>
+          ) : null}
+        </>
+      ));
   return (
     <form
       {...props}
@@ -378,6 +379,17 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 function sameTags(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((tag, index) => tag === right[index]);
+}
+
+function parseTags(value: string): string[] {
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function formatTags(tags: string[]): string {
+  return tags.join(", ");
 }
 
 function trapFocus(event: KeyboardEvent<HTMLElement>, root: HTMLElement | null): void {

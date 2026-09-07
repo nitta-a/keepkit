@@ -105,7 +105,16 @@ export type KeepUiLabelKey =
   | "toolbarEnd"
   | "createCollection"
   | "createCollectionSubmit"
-  | "collectionName";
+  | "collectionName"
+  | "manageCollections"
+  | "renameCollection"
+  | "renameCollectionSubmit"
+  | "deleteCollection"
+  | "deleteCollectionConfirm"
+  | "deleteCollectionSubmit"
+  | "cancel"
+  | "collectionItem"
+  | "collectionItems";
 
 export type KeepUiLabelOptions = {
   /** Replaces the localized label text. Omit to keep the locale default. */

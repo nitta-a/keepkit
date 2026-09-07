@@ -65,6 +65,7 @@ import {
   type KeepLayoutPreset,
 } from "./features/collection/KeepCollection";
 import { KeepCollectionCreate, type KeepCollectionCreateProps } from "./features/collection/KeepCollectionCreate";
+import { KeepCollectionManager, type KeepCollectionManagerProps } from "./features/collection/KeepCollectionManager";
 import { KeepLayout, type KeepLayoutProps } from "./features/collection/KeepLayout";
 import { KeepList, type KeepListProps, type KeepListState } from "./features/collection/KeepList";
 import {
@@ -329,6 +330,7 @@ export type {
   KeepCollectionControlProps,
   KeepCollectionCreateProps,
   KeepCollectionFeature,
+  KeepCollectionManagerProps,
   KeepCollectionOption,
   KeepCollectionProps,
   KeepCollectionSlots,
@@ -434,6 +436,7 @@ export {
   KeepCollection,
   KeepCollectionCreate,
   KeepCollectionFilter,
+  KeepCollectionManager,
   KeepCollectionSelect,
   KeepEmptyState,
   KeepItemCard,
@@ -493,6 +496,7 @@ export type KeepKit<TMeta = Record<string, unknown>> = {
   Button: ComponentType<KeepButtonProps<TMeta>>;
   Backup: ComponentType<KeepBackupProps<TMeta>>;
   Collection: ComponentType<KeepCollectionProps<TMeta>>;
+  CollectionManager: ComponentType<KeepCollectionManagerProps>;
   Workspace: ComponentType<KeepWorkspaceProps<TMeta>>;
   useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useItem: (item?: KeepItemInput<TMeta>) => ReturnType<typeof useKeepItem<TMeta>>;
@@ -561,6 +565,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
         }}
       />
     ),
+    CollectionManager: (props) => <KeepCollectionManager<TMeta> {...props} />,
     Workspace: (props) => (
       <KeepWorkspace<TMeta>
         {...props}

@@ -14,6 +14,7 @@ import {
   KeepButton,
   KeepCollection,
   KeepCollectionFilter,
+  KeepCollectionManager,
   KeepCollectionSelect,
   KeepEmptyState,
   KeepItemCard,
@@ -100,6 +101,7 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepUiProvider, "function");
   assert.equal(typeof KeepKitProvider, "function");
   assert.equal(typeof KeepCollection, "function");
+  assert.equal(typeof KeepCollectionManager, "function");
   assert.equal(typeof KeepWorkspace, "function");
   assert.equal(typeof createKeepKit, "function");
   assert.equal(typeof KeepThemeProvider, "function");

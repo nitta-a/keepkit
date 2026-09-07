@@ -6,6 +6,119 @@
   color: var(--keep-foreground);
 }
 
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager"] {
+  display: grid;
+  gap: var(--keep-card-gap);
+  color: var(--keep-foreground);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-heading"] {
+  display: grid;
+  gap: 0.375rem;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-heading"] :where(h2, p) {
+  margin: 0;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-heading"] p {
+  color: var(--keep-muted-foreground);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager"] > [data-keepkit="collection-create"] {
+  display: grid;
+  gap: 0.375rem;
+  max-width: 36rem;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager"] [data-keepkit="collection-create-row"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--keep-control-gap);
+}
+
+:where(.keep-theme, [data-keep-theme])
+  [data-keepkit="collection-manager"]
+  [data-keepkit="collection-create-row"]
+  > input {
+  min-width: min(100%, 14rem);
+  flex: 1 1 14rem;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-list"] {
+  display: grid;
+  gap: var(--keep-control-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-item"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--keep-control-gap);
+  border: 1px solid var(--keep-surface-border);
+  border-radius: var(--keep-radius);
+  padding: var(--keep-card-padding);
+  background: var(--keep-surface-background);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-summary"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-count"] {
+  color: var(--keep-muted-foreground);
+  font-size: var(--keep-tag-size);
+}
+
+:where(.keep-theme, [data-keep-theme])
+  :is([data-keepkit="collection-manager-actions"], [data-keepkit="collection-manager-delete-confirmation"]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--keep-control-gap);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-rename"] {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--keep-control-gap);
+}
+
+:where(.keep-theme, [data-keep-theme])
+  [data-keepkit="collection-manager"]
+  [data-keepkit="collection-manager-rename"]
+  > input {
+  min-width: min(100%, 14rem);
+  flex: 1 1 14rem;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-delete-confirmation"] {
+  min-width: min(100%, 20rem);
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-delete-confirmation"] legend {
+  padding: 0;
+  color: var(--keep-muted-foreground);
+  font-size: var(--keep-tag-size);
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="collection-manager-error"] {
+  margin: 0;
+  color: var(--keep-danger, #b42318);
+}
+
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="collection"] > :first-child {
   display: flex;
   flex-wrap: wrap;

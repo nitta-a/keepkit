@@ -109,4 +109,13 @@ export const DE_LABELS: KeepUiLocaleLabels = {
   createCollection: "Create collection",
   createCollectionSubmit: "Create",
   collectionName: "Collection name",
+  manageCollections: "Manage collections",
+  renameCollection: "Rename",
+  renameCollectionSubmit: "Save name",
+  deleteCollection: "Delete",
+  deleteCollectionConfirm: "Move its items to Uncategorized?",
+  deleteCollectionSubmit: "Delete collection",
+  cancel: "Cancel",
+  collectionItem: "item",
+  collectionItems: "items",
 };

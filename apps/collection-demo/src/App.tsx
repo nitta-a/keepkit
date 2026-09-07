@@ -1,5 +1,5 @@
 import type { KeepItem } from "@keepkit/core/core";
-import { KeepButton, KeepCollection, KeepEmptyState } from "@keepkit/ui";
+import { KeepButton, KeepCollection, KeepCollectionManager, KeepEmptyState, KeepQuickEditor } from "@keepkit/ui";
 import { useState } from "react";
 import type { DemoMeta } from "./main";
 
@@ -52,12 +52,14 @@ const resources: Array<DemoItem & { label: string }> = [
 ];
 
 function toButtonItem(resource: DemoItem & { label: string }) {
+  const collection = resource.meta.collection;
+  const { collection: _collection, ...meta } = resource.meta;
   return {
     id: resource.id,
     targetType: resource.targetType ?? "resource",
-    meta: resource.meta,
-    tags: [resource.label, resource.meta.collection],
-    collectionId: resource.meta.collection,
+    meta,
+    tags: [resource.label, ...(collection ? [collection] : [])],
+    ...(collection ? { collectionId: collection } : {}),
   };
 }
 
@@ -88,7 +90,6 @@ function AdvancedCollection() {
       toolbarLayout="grouped"
       archiveScope="all"
       reorderable
-      creatable
       pageSize={4}
       collectionLabels={{ reading: "Reading", research: "Research" }}
       features={{
@@ -106,6 +107,7 @@ function AdvancedCollection() {
         href: (item) => item.meta.url,
         title: (item) => item.meta.title,
         getImageProps: (item) => ({ src: item.meta.image, alt: "" }),
+        editSlot: (item, close) => <KeepQuickEditor item={item} debounceMs={0} onClose={close} />,
         collectionLabels: { reading: "Reading", research: "Research" },
       }}
       empty={<KeepEmptyState title="No matching items" description="Try another filter or save a resource above." />}
@@ -173,6 +175,16 @@ export function App() {
           ))}
         </div>
       </section>
+
+      <KeepCollectionManager<DemoMeta>
+        title="Your collections"
+        description="Names and membership stay local."
+        allowCreate
+        allowRename
+        allowDelete
+        showCounts
+        empty="Create a collection, then assign saved resources to it from Advanced mode."
+      />
 
       <section className="collection-section" aria-labelledby="collection-heading">
         <div className="section-heading">
