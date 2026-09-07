@@ -1324,6 +1324,51 @@ test("rejects duplicate collection names", async () => {
   expect(screen.getByRole("alert").textContent).toContain("already exists");
 });
 
+test("shows only note field when quick editor features are limited", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepItemCard item={item} showEditButton editFeatures={{ tags: false, collection: false }} />
+    </KeepProvider>,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Edit saved item" }));
+  expect(await screen.findByRole("dialog", { name: "Edit saved item" })).not.toBeNull();
+
+  expect(screen.getByRole("textbox", { name: "Note" })).not.toBeNull();
+  expect(screen.queryByRole("textbox", { name: "Tags" })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Collection" })).toBeNull();
+});
+
+test("shows only collection field when quick editor features are limited to collection", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([{ ...item, collectionId: "reading" }])}>
+      <KeepItemCard item={item} showEditButton editFeatures={{ note: false, tags: false }} />
+    </KeepProvider>,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Edit saved item" }));
+  expect(await screen.findByRole("dialog", { name: "Edit saved item" })).not.toBeNull();
+
+  expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull();
+  expect(screen.queryByRole("textbox", { name: "Tags" })).toBeNull();
+  expect(screen.getByRole("combobox", { name: "Collection" })).not.toBeNull();
+});
+
+test("shows all fields by default when no features prop is set", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepItemCard item={item} showEditButton />
+    </KeepProvider>,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Edit saved item" }));
+  expect(await screen.findByRole("dialog", { name: "Edit saved item" })).not.toBeNull();
+
+  expect(screen.getByRole("textbox", { name: "Note" })).not.toBeNull();
+  expect(screen.getByRole("textbox", { name: "Tags" })).not.toBeNull();
+  expect(screen.getByRole("combobox", { name: "Collection" })).not.toBeNull();
+});
+
 test("allows explicit item card feature props to override collection defaults", async () => {
   render(
     <KeepProvider<Meta> storage={createStorage([{ ...item, tags: ["read"] }])}>

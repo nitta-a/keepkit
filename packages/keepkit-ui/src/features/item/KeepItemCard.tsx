@@ -36,7 +36,7 @@ import {
 } from "../actions/KeepArchiveButton";
 import { KeepButton, type KeepButtonLabels, type KeepButtonProps } from "../actions/KeepButton";
 import type { KeepLayoutPreset } from "../collection/KeepCollection";
-import { KeepQuickEditor } from "../editor/KeepQuickEditor";
+import { KeepQuickEditor, type KeepQuickEditorFeature } from "../editor/KeepQuickEditor";
 import { KeepStaleNotice } from "../status/KeepStaleNotice";
 import { useKeepItemCard } from "./hooks/useKeepItemCard";
 
@@ -89,6 +89,8 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   showEditButton?: boolean;
   onEdit?: (item: KeepItem<TMeta>) => void;
   editSlot?: (item: KeepItem<TMeta>, close: () => void) => ReactNode;
+  /** Controls which fields are visible in the default quick editor. */
+  editFeatures?: Partial<Record<KeepQuickEditorFeature, boolean>>;
   saveButtonLabels?: KeepButtonLabels;
   asChild?: boolean;
   href?: string | ((item: KeepItem<TMeta>) => string | undefined);
@@ -173,6 +175,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   showEditButton = false,
   onEdit,
   editSlot,
+  editFeatures,
   saveButtonLabels,
   asChild = false,
   href: hrefOption,
@@ -286,7 +289,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
             {editSlot ? (
               editSlot(item, closeEdit)
             ) : (
-              <KeepQuickEditor item={view.itemState.item ?? item} onClose={closeEdit} />
+              <KeepQuickEditor item={view.itemState.item ?? item} onClose={closeEdit} features={editFeatures} />
             )}
           </div>
         ) : (

@@ -75,6 +75,7 @@ import {
 import { KeepNoteEditor, type KeepNoteEditorProps, type KeepNoteEditorState } from "./features/editor/KeepNoteEditor";
 import {
   KeepQuickEditor,
+  type KeepQuickEditorFeature,
   type KeepQuickEditorProps,
   type KeepQuickEditorState,
   useKeepQuickEditor,
@@ -366,6 +367,7 @@ export type {
   KeepPinButtonProps,
   KeepPinButtonState,
   KeepPruneStaleButtonProps,
+  KeepQuickEditorFeature,
   KeepQuickEditorProps,
   KeepQuickEditorState,
   KeepReorderableItemState,

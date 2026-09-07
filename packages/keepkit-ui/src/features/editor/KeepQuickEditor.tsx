@@ -159,6 +159,8 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
   };
 }
 
+export type KeepQuickEditorFeature = "note" | "tags" | "collection";
+
 export type KeepQuickEditorProps<TMeta = Record<string, unknown>> = Omit<
   FormHTMLAttributes<HTMLFormElement>,
   "children" | "onSubmit"
@@ -168,6 +170,8 @@ export type KeepQuickEditorProps<TMeta = Record<string, unknown>> = Omit<
   collectionIds?: string[];
   collectionLabels?: Record<string, string>;
   showSaveButton?: boolean;
+  /** Controls which fields are visible. Defaults to all fields shown. */
+  features?: Partial<Record<KeepQuickEditorFeature, boolean>>;
   children?: ReactNode | ((state: KeepQuickEditorState<TMeta>) => ReactNode);
   onClose?: () => void;
   onSaved?: (item: KeepItem<TMeta>) => void;
@@ -180,10 +184,11 @@ export function KeepQuickEditor<TMeta = Record<string, unknown>>({
   debounceMs = 300,
   onSaved,
   onSaveError,
+  features,
   ...props
 }: KeepQuickEditorProps<TMeta>) {
   const view = useKeepQuickEditor(item, { debounceMs, onSaved, onSaveError });
-  return <KeepQuickEditorView {...props} state={view.state} />;
+  return <KeepQuickEditorView {...props} features={features} state={view.state} />;
 }
 
 type KeepQuickEditorViewProps<TMeta> = Omit<
@@ -194,17 +199,25 @@ type KeepQuickEditorViewProps<TMeta> = Omit<
   focusScopeRef?: RefObject<HTMLElement | null>;
 };
 
+const DEFAULT_FEATURES: Record<KeepQuickEditorFeature, boolean> = {
+  note: true,
+  tags: true,
+  collection: true,
+};
+
 /** Internal view used by KeepSavePopover so close requests can await the same editor state. */
 export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   state,
   collectionIds,
   collectionLabels,
   showSaveButton = true,
+  features,
   children,
   onClose,
   focusScopeRef,
   ...props
 }: KeepQuickEditorViewProps<TMeta>) {
+  const enabled = { ...DEFAULT_FEATURES, ...features };
   const collections = useKeepCollections<TMeta>({ targetType: state.item.targetType, orderBy: "name" });
   const rootRef = useRef<HTMLFormElement>(null);
   const noteLabel = useUiLabel("note");
@@ -253,44 +266,50 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
       ? children(state)
       : (children ?? (
           <>
-            <label data-keep-field="note">
-              {showNoteLabel ? <span data-keep-field-icon>{noteLabel}</span> : null}
-              <textarea
-                value={state.note}
-                aria-label={showNoteLabel ? undefined : noteLabel}
-                onChange={(event) => state.setNote(event.currentTarget.value)}
-              />
-            </label>
-            <label data-keep-field="tags">
-              {showTagsLabel ? <span data-keep-field-icon>{tagsLabel}</span> : null}
-              <input
-                value={state.tags.join(", ")}
-                aria-label={showTagsLabel ? undefined : tagsLabel}
-                onChange={(event) =>
-                  state.setTags(
-                    event.currentTarget.value
-                      .split(",")
-                      .map((tag) => tag.trim())
-                      .filter(Boolean),
-                  )
-                }
-              />
-            </label>
-            <label data-keep-field="collection">
-              {showCollectionLabel ? <span data-keep-field-icon>{collectionLabel}</span> : null}
-              <select
-                value={state.collectionId ?? ""}
-                aria-label={showCollectionLabel ? undefined : collectionLabel}
-                onChange={(event) => state.setCollectionId(event.currentTarget.value || undefined)}
-              >
-                <option value="">{uncategorizedLabel}</option>
-                {(collectionIds ?? collections.map((collection) => collection.id)).map((id) => (
-                  <option key={id} value={id}>
-                    {collectionLabels?.[id] ?? id}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {enabled.note ? (
+              <label data-keep-field="note">
+                {showNoteLabel ? <span data-keep-field-icon>{noteLabel}</span> : null}
+                <textarea
+                  value={state.note}
+                  aria-label={showNoteLabel ? undefined : noteLabel}
+                  onChange={(event) => state.setNote(event.currentTarget.value)}
+                />
+              </label>
+            ) : null}
+            {enabled.tags ? (
+              <label data-keep-field="tags">
+                {showTagsLabel ? <span data-keep-field-icon>{tagsLabel}</span> : null}
+                <input
+                  value={state.tags.join(", ")}
+                  aria-label={showTagsLabel ? undefined : tagsLabel}
+                  onChange={(event) =>
+                    state.setTags(
+                      event.currentTarget.value
+                        .split(",")
+                        .map((tag) => tag.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                />
+              </label>
+            ) : null}
+            {enabled.collection ? (
+              <label data-keep-field="collection">
+                {showCollectionLabel ? <span data-keep-field-icon>{collectionLabel}</span> : null}
+                <select
+                  value={state.collectionId ?? ""}
+                  aria-label={showCollectionLabel ? undefined : collectionLabel}
+                  onChange={(event) => state.setCollectionId(event.currentTarget.value || undefined)}
+                >
+                  <option value="">{uncategorizedLabel}</option>
+                  {(collectionIds ?? collections.map((collection) => collection.id)).map((id) => (
+                    <option key={id} value={id}>
+                      {collectionLabels?.[id] ?? id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             {statusMessage ? (
               <p
                 role={state.saveStatus === "error" ? "alert" : "status"}
