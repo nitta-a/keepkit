@@ -787,14 +787,35 @@
   background: var(--keep-surface);
   box-shadow: var(--keep-shadow);
 }
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"].keep-floating-tour--bottom-center { left: 50%; transform: translateX(-50%); }
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"].keep-floating-tour--bottom-left { left: var(--keep-tour-offset, 16px); }
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"].keep-floating-tour--bottom-right { right: var(--keep-tour-offset, 16px); }
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__bar { margin: 0; }
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__bar > [data-keep-action^="tour-"] { min-width: 5.5rem; }
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] button { min-height: 2.75rem; }
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__control { min-width: 2.75rem; }
-:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__expand { border: 0; background: transparent; }
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"].keep-floating-tour--bottom-center {
+  left: 50%;
+  transform: translateX(-50%);
+}
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"].keep-floating-tour--bottom-left {
+  left: var(--keep-tour-offset, 16px);
+}
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"].keep-floating-tour--bottom-right {
+  right: var(--keep-tour-offset, 16px);
+}
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__bar {
+  margin: 0;
+}
+:where(.keep-theme, [data-keep-theme])
+  [data-keepkit="floating-tour"]
+  .keep-floating-tour__bar
+  > [data-keep-action^="tour-"] {
+  min-width: 5.5rem;
+}
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] button {
+  min-height: 2.75rem;
+}
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__control {
+  min-width: 2.75rem;
+}
+:where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__expand {
+  border: 0;
+  background: transparent;
+}
 @media (max-width: 32rem) {
   :where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] {
     right: var(--keep-tour-offset, 16px);
@@ -802,9 +823,20 @@
     max-width: none;
     transform: none;
   }
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__bar { flex: 1; min-width: 0; }
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__bar > [data-keep-action^="tour-"] { min-width: 0; flex: 1; }
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] [data-tour-preview] { display: none; }
+  :where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] .keep-floating-tour__bar {
+    flex: 1;
+    min-width: 0;
+  }
+  :where(.keep-theme, [data-keep-theme])
+    [data-keepkit="floating-tour"]
+    .keep-floating-tour__bar
+    > [data-keep-action^="tour-"] {
+    min-width: 0;
+    flex: 1;
+  }
+  :where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] [data-tour-preview] {
+    display: none;
+  }
 }
 
 :where(.keep-theme, [data-keep-theme]) [data-keepkit="card-skeleton"][data-layout="compact"] {
