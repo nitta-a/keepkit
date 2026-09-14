@@ -24,6 +24,7 @@ import {
   KeepCollectionSelect,
   KeepEmptyState,
   KeepErrorBoundary,
+  KeepFloatingTour,
   KeepItemCard,
   KeepItemCardSkeleton,
   KeepItemCheckbox,
@@ -54,7 +55,9 @@ import {
   KeepWorkspace,
   mergeProps,
   useKeepCollections,
+  useKeepList,
   useKeepToastFeedback,
+  useKeepTour,
 } from "../src/index";
 
 type Meta = { title: string };
@@ -581,6 +584,34 @@ test("navigates a saved tour with progress, links, and keyboard shortcuts", asyn
   expect(screen.getByRole("button", { name: "Next page" }).getAttribute("disabled")).toBeNull();
   fireEvent.keyDown(window, { key: "j" });
   await waitFor(() => expect(screen.getByText("2 / 2")).not.toBeNull());
+});
+
+test("starts a floating tour, preserves custom order, and collapses through a portal", async () => {
+  function StartTour() {
+    const tour = useKeepTour<Meta>();
+    const list = useKeepList<Meta>();
+    return (
+      <>
+        <span data-testid="tour-ready">{list.isHydrated ? "ready" : "loading"}</span>
+        <button type="button" onClick={() => tour.start({ itemIds: [secondItem.id, item.id] })}>
+          Start tour
+        </button>
+      </>
+    );
+  }
+  sessionStorage.clear();
+  render(
+    <KeepKitProvider<Meta> storage={createStorage([item, secondItem])}>
+      <StartTour />
+      <KeepFloatingTour<Meta> />
+    </KeepKitProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId("tour-ready").textContent).toBe("ready"));
+  fireEvent.click(screen.getByRole("button", { name: "Start tour" }));
+  expect(await waitFor(() => document.querySelector('[data-keepkit="floating-tour"]'))).toBeTruthy();
+  expect(screen.getByText("1 / 2")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Collapse tour" }));
+  expect(document.querySelector('[data-keepkit="floating-tour"]')?.getAttribute("data-state")).toBe("collapsed");
 });
 
 test("previews the adjacent item title without changing navigation labels", async () => {

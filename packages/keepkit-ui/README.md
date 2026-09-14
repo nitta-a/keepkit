@@ -107,7 +107,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.27.3では`KeepCollection`の最小構成と高度な操作を確認できる`apps/collection-demo`を追加しました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。
+v0.28.0では、レイアウト領域を消費しないPortalベースのフローティング巡回UIを追加しました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -216,7 +216,9 @@ Set `toolbarLayout="grouped"` and `toolbarVariant="panel"` to render host `slots
 The opt-in theme adds neutral borders, surfaces, shadows, focus treatment, and decorative action icons without changing accessible names. Regular remove, bulk-delete, and stale-prune actions use a subtle red outline and text with a light hover surface; solid red is reserved for error states that need confirmation. Target individual controls with `data-keep-action`, or override `--keep-icon-size`, `--keep-control-gap`, `--keep-shadow`, `--keep-success`, and `--keep-warning`. Consumers that omit the CSS keep the headless markup, and `KeepButton icons` continues to take precedence over the built-in icon.
 `KeepItemCard` accepts `href`, `onOpen`, `linkTarget`, and `linkComponent` for detail-page navigation. Links are disabled for unavailable `status` values such as private or expired. `KeepBackup` provides JSON export, merge/replace import, result counts, and quota-error messaging.
 `KeepTourBar` (aliased as `KeepNavigator`) provides progress, previous/next, and return-to-list actions through URLs or callbacks. Inject host routing with `getItemHref`, `getBackHref`, and `onNavigate`. Adjacent item titles are previewed below the navigation labels; customize them with `getItemTitle`. Set `keyboardShortcuts` for J/K or ]/[ tour navigation, or use `useKeepTourShortcuts` for custom bindings. `KeepReorderableList` supports drag and keyboard reordering and shows the active insertion position; `KeepCollection reorderable` includes that path and standard undo without a slot replacement.
+`KeepTourProvider` / `useKeepTour` manage a session-scoped tour, and `KeepFloatingTour` renders controls in a body portal so the host layout needs no reserved space. Start with `start({ itemIds })`, configure `position`, `offset`, `zIndex`, and routing callbacks. Same-tab state resumes from `sessionStorage`; set `tour={{ sessionKey }}` on `KeepKitProvider` to namespace it.
 `KeepShortcutHint` renders semantic `<kbd>` badges. `KeepTourBar showShortcutHint` displays the previous/next keys, while `KeepNoteEditor showShortcutHint` displays `Ctrl+Enter` in the save button. `mergeProps` / `createSlot` compose className, style, ARIA, events, and child/parent refs for `asChild` slots; `composeRefs` combines callback and object refs. Filter chips restore focus to an adjacent chip after removal and support ArrowLeft / ArrowRight navigation.
+`KeepFloatingTour` is a fixed portal-rendered tour control that does not consume page layout space. Use `KeepTourProvider` / `useKeepTour` to start an ordered session with `start({ itemIds })` and configure host routing with `getItemHref`, `getBackHref`, or `onNavigate`.
 Cards rendered by `KeepList` and `KeepCollection` highlight case-insensitive search matches with `<mark class="keep-highlight" data-highlight="true">`. Use `highlightQuery` on a standalone `KeepItemCard` or `KeepHighlight` for arbitrary text. `KeepItemCard.Media` exposes its loading state through `data-media-status` and replaces failed images with `fallback` or the built-in SVG placeholder.
 The theme defines WCAG-oriented `--keep-highlight-bg` / `--keep-highlight-fg` pairs for light and dark modes, clamps titles to two lines and memo previews to three, and reserves a stable media aspect ratio. `KeepItemStatusBadge` combines visible status text with check, clock, ban, or lock SVG icons; import `@keepkit/ui/styles/status.css` when using the status styles independently.
 External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, and the sync recovery dialog compares local and remote updated dates and notes side by side.
@@ -245,7 +247,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.27.3 adds `apps/collection-demo` for exploring minimal and advanced `KeepCollection` configurations. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
+v0.28.0 adds a portal-rendered floating tour UI that does not consume host layout space. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme

@@ -111,8 +111,18 @@ import {
   KeepItemStatusBadge,
   type KeepItemStatusBadgeProps,
 } from "./features/item/KeepItemStatusBadge";
+import { KeepFloatingTour, type KeepFloatingTourProps } from "./features/navigation/KeepFloatingTour";
 import { KeepShortcutHint, type KeepShortcutHintProps } from "./features/navigation/KeepShortcutHint";
 import { KeepNavigator, KeepTourBar, type KeepTourBarProps } from "./features/navigation/KeepTourBar";
+import {
+  type KeepTourContextValue,
+  type KeepTourPersistenceStatus,
+  type KeepTourPosition,
+  KeepTourProvider,
+  type KeepTourProviderProps,
+  type KeepTourStartOptions,
+  useKeepTour,
+} from "./features/navigation/tour-context";
 import {
   KeepActiveFiltersSummary,
   type KeepActiveFiltersSummaryProps,
@@ -203,7 +213,10 @@ export { useKeepTourShortcuts } from "./features/navigation/hooks/useKeepTourSho
 
 export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children"> &
   Omit<KeepUiProviderProps<TMeta>, "children"> &
-  Omit<KeepThemeProviderProps, "children"> & { children?: ReactNode };
+  Omit<KeepThemeProviderProps, "children"> & {
+    children?: ReactNode;
+    tour?: Omit<KeepTourProviderProps<TMeta>, "children">;
+  };
 
 /** Combines the core store, UI labels, and the global live announcer. */
 export function KeepKitProvider<TMeta = Record<string, unknown>>({
@@ -223,6 +236,7 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
   className: themeClassName,
   style: themeStyle,
   asChild: themeAsChild,
+  tour,
   children,
   ...providerProps
 }: KeepKitProviderProps<TMeta>) {
@@ -249,7 +263,7 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
       >
         <CoreKeepProvider<TMeta> {...providerProps}>
           <KeepSyncFeedbackObserver />
-          {children}
+          <KeepTourProvider<TMeta> {...tour}>{children}</KeepTourProvider>
           <KeepAnnouncements />
         </CoreKeepProvider>
       </KeepThemeProvider>
@@ -340,6 +354,7 @@ export type {
   KeepCollectionToolbarVariant,
   KeepDisplayStatus,
   KeepEmptyStateProps,
+  KeepFloatingTourProps,
   KeepImageProps,
   KeepItemCardActionSlotProps,
   KeepItemCardActionsProps,
@@ -400,6 +415,11 @@ export type {
   KeepToastFeedbackOptions,
   KeepToastHandler,
   KeepTourBarProps,
+  KeepTourContextValue,
+  KeepTourPersistenceStatus,
+  KeepTourPosition,
+  KeepTourProviderProps,
+  KeepTourStartOptions,
   KeepUiFeedbackEvent,
   KeepUiLabelContext,
   KeepUiLabelKey,
@@ -439,6 +459,7 @@ export {
   KeepCollectionManager,
   KeepCollectionSelect,
   KeepEmptyState,
+  KeepFloatingTour,
   KeepItemCard,
   KeepItemCardSkeleton,
   KeepItemCheckbox,
@@ -464,12 +485,14 @@ export {
   KeepTagFilter,
   KeepThemeProvider,
   KeepTourBar,
+  KeepTourProvider,
   KeepUiProvider,
   KeepUndo,
   KeepWorkspace,
   keepThemeNames,
   useKeepQuickEditor,
   useKeepToastFeedback,
+  useKeepTour,
   useKeepUiLabels,
   useKeepUrlSync,
   useUiLabelVisibility,
@@ -487,6 +510,7 @@ export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = CoreCreateKe
     variables?: KeepThemeVariables;
     themeClassName?: string;
     themeStyle?: KeepThemeProviderProps["style"];
+    tour?: Omit<KeepTourProviderProps<TMeta>, "children">;
     getTitle?: (item: KeepItem<TMeta>) => ReactNode;
     getImageProps?: (item: KeepItem<TMeta>, title: ReactNode) => KeepImageProps | undefined;
   };
@@ -504,6 +528,9 @@ export type KeepKit<TMeta = Record<string, unknown>> = {
   useCollections: (options?: { targetType?: string; orderBy?: "name" | "count" }) => UseKeepCollectionsResult;
   useNavigator: (options?: UseKeepNavigatorOptions<TMeta>) => UseKeepNavigatorResult<TMeta>;
   useShortcut: (options: KeepShortcutOptions<TMeta>) => void;
+  FloatingTour: ComponentType<KeepFloatingTourProps<TMeta>>;
+  TourProvider: ComponentType<KeepTourProviderProps<TMeta>>;
+  useTour: (options?: { currentId?: string }) => ReturnType<typeof useKeepTour<TMeta>>;
 };
 
 /** Create one typed application API for the core and standard UI layer. */
@@ -526,6 +553,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     variables,
     themeClassName,
     themeStyle,
+    tour,
     getTitle,
     getImageProps,
     ...coreOptions
@@ -550,6 +578,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
         variables={variables}
         className={themeClassName}
         style={themeStyle}
+        tour={tour}
         {...props}
       />
     ),
@@ -585,5 +614,8 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     useCollections: (collectionsOptions) => coreKit.useCollections(collectionsOptions),
     useNavigator: (navigatorOptions) => coreKit.useNavigator(navigatorOptions),
     useShortcut: (shortcutOptions) => coreKit.useShortcut(shortcutOptions),
+    FloatingTour: (props) => <KeepFloatingTour<TMeta> {...props} />,
+    TourProvider: (props) => <KeepTourProvider<TMeta> {...props} />,
+    useTour: (tourOptions) => useKeepTour<TMeta>(tourOptions),
   };
 }

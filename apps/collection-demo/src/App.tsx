@@ -1,5 +1,15 @@
 import type { KeepItem } from "@keepkit/core/core";
-import { KeepButton, KeepCollection, KeepCollectionManager, KeepEmptyState, KeepQuickEditor } from "@keepkit/ui";
+import {
+  KeepButton,
+  KeepCollection,
+  KeepCollectionManager,
+  KeepEmptyState,
+  KeepFloatingTour,
+  KeepQuickEditor,
+  KeepTourProvider,
+  useKeepList,
+  useKeepTour,
+} from "@keepkit/ui";
 import { useState } from "react";
 import type { DemoMeta } from "./main";
 
@@ -82,36 +92,60 @@ function MinimalCollection() {
 }
 
 function AdvancedCollection() {
+  const { items } = useKeepList<DemoMeta>();
+  const tour = useKeepTour<DemoMeta>();
+  const currentItem = items.find((item) => item.id === tour.currentId);
   return (
-    <KeepCollection<DemoMeta>
-      className="collection"
-      layout="auto"
-      toolbarVariant="panel"
-      toolbarLayout="grouped"
-      archiveScope="all"
-      reorderable
-      pageSize={4}
-      collectionLabels={{ reading: "Reading", research: "Research" }}
-      features={{
-        search: true,
-        sort: true,
-        tagFilter: true,
-        collectionFilter: true,
-        bulkActions: true,
-        tags: true,
-        pin: true,
-        archive: true,
-        note: true,
-      }}
-      itemCardProps={{
-        href: (item) => item.meta.url,
-        title: (item) => item.meta.title,
-        getImageProps: (item) => ({ src: item.meta.image, alt: "" }),
-        editSlot: (item, close) => <KeepQuickEditor item={item} debounceMs={0} onClose={close} />,
-        collectionLabels: { reading: "Reading", research: "Research" },
-      }}
-      empty={<KeepEmptyState title="No matching items" description="Try another filter or save a resource above." />}
-    />
+    <>
+      <button
+        type="button"
+        className="mode-button"
+        onClick={() => tour.start({ itemIds: items.map((item) => item.id) })}
+        disabled={!items.length}
+      >
+        順番に見る
+      </button>
+      {currentItem ? (
+        <article id="tour-detail" className="tour-detail" aria-live="polite">
+          <p className="kicker">順番に見る</p>
+          <h3>{currentItem.meta.title}</h3>
+          <p>{currentItem.meta.description}</p>
+          <a href={currentItem.meta.url} target="_blank" rel="noreferrer">
+            元のページを開く ↗
+          </a>
+        </article>
+      ) : null}
+      <KeepCollection<DemoMeta>
+        className="collection"
+        layout="auto"
+        toolbarVariant="panel"
+        toolbarLayout="grouped"
+        archiveScope="all"
+        reorderable
+        pageSize={4}
+        collectionLabels={{ reading: "Reading", research: "Research" }}
+        features={{
+          search: true,
+          sort: true,
+          tagFilter: true,
+          collectionFilter: true,
+          bulkActions: true,
+          tags: true,
+          pin: true,
+          archive: true,
+          note: true,
+        }}
+        itemCardProps={{
+          href: (item) => item.meta.url,
+          title: (item) => item.meta.title,
+          getImageProps: (item) => ({ src: item.meta.image, alt: "" }),
+          editSlot: (item, close) => <KeepQuickEditor item={item} debounceMs={0} onClose={close} />,
+          collectionLabels: { reading: "Reading", research: "Research" },
+        }}
+        empty={<KeepEmptyState title="No matching items" description="Try another filter or save a resource above." />}
+      />
+      <KeepFloatingTour<DemoMeta> getItemHref={() => "#tour-detail"} getBackHref={() => "#collection-heading"} />
+    </>
   );
 }
 
@@ -119,83 +153,85 @@ export function App() {
   const [mode, setMode] = useState<ViewMode>("minimal");
 
   return (
-    <main className="page-shell">
-      <header className="intro">
-        <p className="kicker">KeepCollection lab</p>
-        <h1>One collection, two levels of control.</h1>
-        <p className="intro-copy">
-          Start with the smallest useful collection, then turn on the controls your product actually needs.
-        </p>
-        <fieldset className="mode-switch">
-          <legend>Collection example mode</legend>
-          <button
-            className={mode === "minimal" ? "mode-button active" : "mode-button"}
-            type="button"
-            aria-pressed={mode === "minimal"}
-            onClick={() => setMode("minimal")}
-          >
-            Minimal
-          </button>
-          <button
-            className={mode === "advanced" ? "mode-button active" : "mode-button"}
-            type="button"
-            aria-pressed={mode === "advanced"}
-            onClick={() => setMode("advanced")}
-          >
-            Advanced
-          </button>
-        </fieldset>
-      </header>
+    <KeepTourProvider sessionKey="keepkit:collection-demo:tour">
+      <main className="page-shell">
+        <header className="intro">
+          <p className="kicker">KeepCollection lab</p>
+          <h1>One collection, two levels of control.</h1>
+          <p className="intro-copy">
+            Start with the smallest useful collection, then turn on the controls your product actually needs.
+          </p>
+          <fieldset className="mode-switch">
+            <legend>Collection example mode</legend>
+            <button
+              className={mode === "minimal" ? "mode-button active" : "mode-button"}
+              type="button"
+              aria-pressed={mode === "minimal"}
+              onClick={() => setMode("minimal")}
+            >
+              Minimal
+            </button>
+            <button
+              className={mode === "advanced" ? "mode-button active" : "mode-button"}
+              type="button"
+              aria-pressed={mode === "advanced"}
+              onClick={() => setMode("advanced")}
+            >
+              Advanced
+            </button>
+          </fieldset>
+        </header>
 
-      <section className="resource-section" aria-labelledby="resources-heading">
-        <div className="section-heading">
-          <div>
-            <p className="kicker">Try it</p>
-            <h2 id="resources-heading">Save a resource</h2>
+        <section className="resource-section" aria-labelledby="resources-heading">
+          <div className="section-heading">
+            <div>
+              <p className="kicker">Try it</p>
+              <h2 id="resources-heading">Save a resource</h2>
+            </div>
+            <span className="section-note">Stored locally in your browser</span>
           </div>
-          <span className="section-note">Stored locally in your browser</span>
-        </div>
-        <div className="resource-grid">
-          {resources.map((resource) => (
-            <article className="resource-card" key={resource.id}>
-              <img src={resource.meta.image} alt="" />
-              <div className="resource-card-body">
-                <span className="resource-label">{resource.label}</span>
-                <h3>{resource.meta.title}</h3>
-                <p>{resource.meta.description}</p>
-                <KeepButton
-                  item={toButtonItem(resource)}
-                  savedLabel="Saved"
-                  unsavedLabel="Save resource"
-                  savedAriaLabel="Saved resource"
-                  unsavedAriaLabel="Save resource"
-                />
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <KeepCollectionManager<DemoMeta>
-        title="Your collections"
-        description="Names and membership stay local."
-        allowCreate
-        allowRename
-        allowDelete
-        showCounts
-        empty="Create a collection, then assign saved resources to it from Advanced mode."
-      />
-
-      <section className="collection-section" aria-labelledby="collection-heading">
-        <div className="section-heading">
-          <div>
-            <p className="kicker">The component</p>
-            <h2 id="collection-heading">Saved resources</h2>
+          <div className="resource-grid">
+            {resources.map((resource) => (
+              <article className="resource-card" key={resource.id}>
+                <img src={resource.meta.image} alt="" />
+                <div className="resource-card-body">
+                  <span className="resource-label">{resource.label}</span>
+                  <h3>{resource.meta.title}</h3>
+                  <p>{resource.meta.description}</p>
+                  <KeepButton
+                    item={toButtonItem(resource)}
+                    savedLabel="Saved"
+                    unsavedLabel="Save resource"
+                    savedAriaLabel="Saved resource"
+                    unsavedAriaLabel="Save resource"
+                  />
+                </div>
+              </article>
+            ))}
           </div>
-          <span className="mode-label">{mode === "minimal" ? "Minimal setup" : "Advanced setup"}</span>
-        </div>
-        {mode === "minimal" ? <MinimalCollection /> : <AdvancedCollection />}
-      </section>
-    </main>
+        </section>
+
+        <KeepCollectionManager<DemoMeta>
+          title="Your collections"
+          description="Names and membership stay local."
+          allowCreate
+          allowRename
+          allowDelete
+          showCounts
+          empty="Create a collection, then assign saved resources to it from Advanced mode."
+        />
+
+        <section className="collection-section" aria-labelledby="collection-heading">
+          <div className="section-heading">
+            <div>
+              <p className="kicker">The component</p>
+              <h2 id="collection-heading">Saved resources</h2>
+            </div>
+            <span className="mode-label">{mode === "minimal" ? "Minimal setup" : "Advanced setup"}</span>
+          </div>
+          {mode === "minimal" ? <MinimalCollection /> : <AdvancedCollection />}
+        </section>
+      </main>
+    </KeepTourProvider>
   );
 }

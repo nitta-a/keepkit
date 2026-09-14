@@ -1,6 +1,13 @@
 "use client";
 
-import { type CSSProperties, isValidElement, type ReactElement, type ReactNode } from "react";
+import {
+  type CSSProperties,
+  createContext,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  useContext,
+} from "react";
 import { createSlot } from "./shared";
 
 export const keepThemeNames = [
@@ -47,6 +54,15 @@ export type KeepThemeProviderProps = {
   asChild?: boolean;
 };
 
+export type KeepThemeContextValue = Pick<
+  KeepThemeProviderProps,
+  "theme" | "mode" | "density" | "radius" | "accentColor" | "highContrast" | "reducedMotion" | "variables" | "style"
+>;
+const KeepThemeContext = createContext<KeepThemeContextValue>({});
+export function useKeepTheme(): KeepThemeContextValue {
+  return useContext(KeepThemeContext);
+}
+
 /** Scopes KeepKit tokens and opt-in component styles to one subtree. */
 export function KeepThemeProvider({
   children,
@@ -92,10 +108,20 @@ export function KeepThemeProvider({
     "data-reduced-motion": reducedMotion ? "true" : undefined,
   };
 
-  if (asChild) {
-    if (!isValidElement(children))
-      throw new Error("KeepThemeProvider with asChild requires a single React element child.");
-    return createSlot(children as ReactElement<Record<string, unknown>>, rootProps);
-  }
-  return <div {...rootProps}>{children}</div>;
+  const content = asChild ? (
+    (() => {
+      if (!isValidElement(children))
+        throw new Error("KeepThemeProvider with asChild requires a single React element child.");
+      return createSlot(children as ReactElement<Record<string, unknown>>, rootProps);
+    })()
+  ) : (
+    <div {...rootProps}>{children}</div>
+  );
+  return (
+    <KeepThemeContext.Provider
+      value={{ theme, mode, density, radius, accentColor, highContrast, reducedMotion, variables, style }}
+    >
+      {content}
+    </KeepThemeContext.Provider>
+  );
 }

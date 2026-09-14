@@ -6,5 +6,5 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
-  external: ["@keepkit/core", "react", "react/jsx-runtime"],
+  external: ["@keepkit/core", "react", "react-dom", "react/jsx-runtime"],
 });

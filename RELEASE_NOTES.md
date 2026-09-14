@@ -1,5 +1,23 @@
 # Release notes
 
+## [0.28.0] - 2026-09-14
+
+### 日本語
+
+#### 追加
+
+- `KeepTourProvider`、`useKeepTour`、`KeepFloatingTour`を追加しました。
+- Portal固定UI、折りたたみ、位置調整、同一タブの巡回状態復元に対応しました。
+- `collection-demo`に「順番に見る」導線と詳細表示を追加しました。
+
+### English
+
+#### Added
+
+- Added `KeepTourProvider`, `useKeepTour`, and `KeepFloatingTour`.
+- Added a portal-rendered fixed UI with collapse, placement controls, and same-tab tour recovery.
+- Added a “順番に見る” entry point and detail view to `collection-demo`.
+
 ## [0.26.4] - 2026-09-05
 
 ### 日本語
