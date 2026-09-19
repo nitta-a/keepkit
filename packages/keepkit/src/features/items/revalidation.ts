@@ -1,3 +1,4 @@
+import { persistKeepItems, removeKeepItems } from "../persistence/helpers";
 import type { KeepItem, KeepItemStatus, StorageAdapter } from "./types";
 
 export type { KeepItemStatus } from "./types";
@@ -137,25 +138,9 @@ export async function reconcileKeepItems<TMeta = Record<string, unknown>>(
 ): Promise<KeepItemRevalidationSummary<TMeta>> {
   const source = await storage.getAll();
   const summary = await revalidateKeepItems(source, revalidator, options);
-  if (summary.updatedItems.length > 0) await persistItems(storage, summary.updatedItems);
-  if (summary.removedIds.length > 0) await removeItems(storage, summary.removedIds);
+  if (summary.updatedItems.length > 0) await persistKeepItems(storage, summary.updatedItems);
+  if (summary.removedIds.length > 0) await removeKeepItems(storage, summary.removedIds);
   return summary;
-}
-
-async function persistItems<TMeta>(storage: StorageAdapter<TMeta>, items: KeepItem<TMeta>[]): Promise<void> {
-  if (storage.setMany) {
-    await storage.setMany(items);
-    return;
-  }
-  for (const item of items) await storage.set(item);
-}
-
-async function removeItems<TMeta>(storage: StorageAdapter<TMeta>, ids: string[]): Promise<void> {
-  if (storage.removeMany) {
-    await storage.removeMany(ids);
-    return;
-  }
-  for (const id of ids) await storage.remove(id);
 }
 
 function clearItemStatus<TMeta>(item: KeepItem<TMeta>): KeepItem<TMeta> {

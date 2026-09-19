@@ -2,6 +2,7 @@
 
 import { useKeepCollections, useKeepContext } from "@keepkit/core/react";
 import { type FormEvent, type InputHTMLAttributes, type ReactNode, useId, useState } from "react";
+import { getErrorMessage } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepCollectionCreateProps = Omit<InputHTMLAttributes<HTMLInputElement>, "onSubmit" | "onChange"> & {
@@ -67,7 +68,7 @@ export function KeepCollectionCreate({
       setName("");
       onCreated?.(normalizedId);
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Failed to create collection.";
+      const message = getErrorMessage(cause, "Failed to create collection.");
       setError(message);
       onError?.(cause);
     } finally {

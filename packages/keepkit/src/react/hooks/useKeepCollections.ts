@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { KeepItem } from "../../features/items/types";
+import { isRecord } from "../../features/persistence/helpers";
 import { useKeepContext } from "../components/KeepProvider";
 
 export type KeepCollectionSummary = {
@@ -69,8 +70,4 @@ function getCollection<TMeta>(item: KeepItem<TMeta>): { id: string; name: string
 function getCollectionName(value: unknown, fallback: string): string {
   if (isRecord(value) && typeof value.name === "string" && value.name.trim()) return value.name.trim();
   return fallback;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

@@ -39,6 +39,7 @@ import {
   type ImportItemsResult,
   importItems,
 } from "../../features/persistence/backup";
+import { persistKeepItems, removeKeepItems } from "../../features/persistence/helpers";
 import { parseKeepMeta } from "../../features/persistence/schema";
 import { type KeepCollectionMeta, KeepStore, type KeepStoreActions } from "../../features/store/store";
 import { createBrowserStorageAdapter } from "../../storage";
@@ -55,6 +56,7 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   syncState: KeepSyncState<TMeta>;
   undo: KeepUndoState;
   saveItem: (item: KeepItem<TMeta>) => Promise<void>;
+  recordOpen: (id: string, openedAt?: number) => Promise<void>;
   updateNote: (id: string, note?: string) => Promise<void>;
   updateTags: (id: string, tags?: string[]) => Promise<void>;
   toggleArchive: (id: string) => Promise<void>;
@@ -142,6 +144,8 @@ type MutationPlan<TMeta> = {
     items?: KeepItem<TMeta>[];
   };
 };
+
+type ItemUpdateAction = "updateNote" | "updateTags" | "archive" | "pin" | "open" | "collection";
 
 export function KeepProvider<TMeta = Record<string, unknown>>({
   storage = defaultStorage as StorageAdapter<TMeta>,
@@ -349,8 +353,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
             next = validated;
           }
           if (needsMigrationPersist) {
-            if (storage.setMany) await storage.setMany(next);
-            else for (const item of next) await storage.set(item);
+            await persistKeepItems(storage, next);
           }
           setItems(next);
           store.setState({ error: null });
@@ -428,6 +431,27 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     [enqueueOperation, reportError, runAfterPlugins, runBeforePlugins, setItems, store],
   );
 
+  const updateItem = useCallback(
+    (
+      action: ItemUpdateAction,
+      id: string,
+      update: (current: KeepItem<TMeta>) => KeepItem<TMeta>,
+      onSuccess?: (next: KeepItem<TMeta>) => void,
+    ) =>
+      runMutation(action, id, (previous) => {
+        const current = previous.find((item) => item.id === id);
+        if (!current) return undefined;
+        const next = update(current);
+        return {
+          next: previous.map((item) => (item.id === id ? next : item)),
+          persist: () => storage.set(next),
+          onSuccess: () => onSuccess?.(next),
+          pluginContext: { action, id, item: next },
+        };
+      }),
+    [runMutation, storage],
+  );
+
   const saveItem = useCallback(
     async (item: KeepItem<TMeta>) => {
       let normalizedItem: KeepItem<TMeta>;
@@ -486,8 +510,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
           next,
           persist: async () => {
             try {
-              if (storage.setMany) await storage.setMany(changedItems);
-              else for (const item of changedItems) await storage.set(item);
+              await persistKeepItems(storage, changedItems);
             } catch (cause) {
               await restoreItems(storage, previous);
               throw cause;
@@ -511,8 +534,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
           next,
           persist: async () => {
             try {
-              if (storage.setMany) await storage.setMany(changedItems);
-              else for (const item of changedItems) await storage.set(item);
+              await persistKeepItems(storage, changedItems);
             } catch (cause) {
               await restoreItems(storage, previous);
               throw cause;
@@ -528,53 +550,40 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   const updateNote = useCallback(
     async (id: string, note?: string) => {
       const nextNote = note?.trim() || undefined;
-      await runMutation("updateNote", id, (previous) => {
-        const current = previous.find((item) => item.id === id);
-        if (!current) return undefined;
-        const next = { ...current, note: nextNote, updatedAt: Date.now() };
-        return {
-          next: previous.map((item) => (item.id === id ? next : item)),
-          persist: () => storage.set(next),
-          onSuccess: () => handlersRef.current.onNoteUpdate?.(id, nextNote),
-          pluginContext: { action: "updateNote", id, item: next },
-        };
-      });
+      await updateItem(
+        "updateNote",
+        id,
+        (current) => ({ ...current, note: nextNote, updatedAt: Date.now() }),
+        () => handlersRef.current.onNoteUpdate?.(id, nextNote),
+      );
     },
-    [runMutation, storage],
+    [updateItem],
   );
 
   const updateTags = useCallback(
     async (id: string, tags?: string[]) => {
       const nextTags = normalizeKeepTags(tags);
-      await runMutation("updateTags", id, (previous) => {
-        const current = previous.find((item) => item.id === id);
-        if (!current) return undefined;
-        const next = { ...current, tags: nextTags, updatedAt: Date.now() };
-        return {
-          next: previous.map((item) => (item.id === id ? next : item)),
-          persist: () => storage.set(next),
-          onSuccess: () => handlersRef.current.onTagsUpdate?.(id, nextTags),
-          pluginContext: { action: "updateTags", id, item: next },
-        };
-      });
+      await updateItem(
+        "updateTags",
+        id,
+        (current) => ({ ...current, tags: nextTags, updatedAt: Date.now() }),
+        () => handlersRef.current.onTagsUpdate?.(id, nextTags),
+      );
     },
-    [runMutation, storage],
+    [updateItem],
+  );
+
+  const recordOpen = useCallback(
+    (id: string, openedAt = Date.now()) =>
+      updateItem("open", id, (current) => ({ ...current, lastOpenedAt: openedAt, updatedAt: Date.now() })),
+    [updateItem],
   );
 
   const setArchive = useCallback(
     async (id: string, archived: boolean) => {
-      await runMutation("archive", id, (previous) => {
-        const current = previous.find((item) => item.id === id);
-        if (!current) return undefined;
-        const next = { ...current, archived, updatedAt: Date.now() };
-        return {
-          next: previous.map((item) => (item.id === id ? next : item)),
-          persist: () => storage.set(next),
-          pluginContext: { action: "archive", id, item: next },
-        };
-      });
+      await updateItem("archive", id, (current) => ({ ...current, archived, updatedAt: Date.now() }));
     },
-    [runMutation, storage],
+    [updateItem],
   );
 
   const toggleArchive = useCallback(
@@ -589,40 +598,28 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
 
   const togglePin = useCallback(
     async (id: string) => {
-      await runMutation("pin", id, (previous) => {
-        const current = previous.find((item) => item.id === id);
-        if (!current) return undefined;
-        const next = { ...current, pinned: current.pinned !== true, updatedAt: Date.now() };
-        return {
-          next: previous.map((item) => (item.id === id ? next : item)),
-          persist: () => storage.set(next),
-          pluginContext: { action: "pin", id, item: next },
-        };
-      });
+      await updateItem("pin", id, (current) => ({
+        ...current,
+        pinned: current.pinned !== true,
+        updatedAt: Date.now(),
+      }));
     },
-    [runMutation, storage],
+    [updateItem],
   );
 
   const moveToCollection = useCallback(
     async (id: string, collectionId?: string) => {
       const nextCollectionId = collectionId?.trim() || undefined;
-      await runMutation("collection", id, (previous) => {
-        const current = previous.find((item) => item.id === id);
-        if (!current) return undefined;
+      await updateItem("collection", id, (current) => {
         const { collectionId: _oldCollectionId, ...withoutCollection } = current;
-        const next = {
+        return {
           ...withoutCollection,
           ...(nextCollectionId ? { collectionId: nextCollectionId } : {}),
           updatedAt: Date.now(),
         };
-        return {
-          next: previous.map((item) => (item.id === id ? next : item)),
-          persist: () => storage.set(next),
-          pluginContext: { action: "collection", id, item: next },
-        };
       });
     },
-    [runMutation, storage],
+    [updateItem],
   );
 
   const createCollection = useCallback(
@@ -853,8 +850,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       return {
         next,
         persist: async () => {
-          if (storage.setMany) await storage.setMany(pending.items);
-          else for (const item of pending.items) await storage.set(item);
+          await persistKeepItems(storage, pending.items);
         },
         onSuccess: () => handlersRef.current.onUndo?.(pending.items),
         pluginContext: { action: "undo", items: pending.items },
@@ -899,13 +895,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
           await runBeforePlugins(pluginContext);
           if (summary.updatedItems.length > 0) {
             persistenceStarted = true;
-            if (storage.setMany) await storage.setMany(summary.updatedItems);
-            else for (const item of summary.updatedItems) await storage.set(item);
+            await persistKeepItems(storage, summary.updatedItems);
           }
           if (summary.removedIds.length > 0) {
             persistenceStarted = true;
-            if (storage.removeMany) await storage.removeMany(summary.removedIds);
-            else for (const id of summary.removedIds) await storage.remove(id);
+            await removeKeepItems(storage, summary.removedIds);
           }
           setItems(summary.items);
           store.setState({ error: null });
@@ -1032,6 +1026,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       syncState,
       undo,
       saveItem,
+      recordOpen,
       updateNote,
       updateTags,
       toggleArchive,
@@ -1077,6 +1072,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       refresh,
       removeItem,
       saveItem,
+      recordOpen,
       removeItemWithUndo,
       removeItemsWithUndo,
       undoLastRemoval,
@@ -1106,6 +1102,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   const actions = useMemo<KeepStoreActions<TMeta>>(
     () => ({
       saveItem,
+      recordOpen,
       updateNote,
       updateTags,
       toggleArchive,
@@ -1142,6 +1139,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       removeTagsBatch,
       renameCollection,
       saveItem,
+      recordOpen,
       updateNote,
       updateTags,
       toggleArchive,
@@ -1200,11 +1198,7 @@ async function parseKeepMetaItem<TMeta>(item: KeepItem<unknown>, schema: KeepSch
 
 async function restoreItems<TMeta>(storage: StorageAdapter<TMeta>, items: KeepItem<TMeta>[]): Promise<void> {
   try {
-    if (storage.setMany) {
-      await storage.setMany(items);
-      return;
-    }
-    for (const item of items) await storage.set(item);
+    await persistKeepItems(storage, items);
   } catch {
     // The original operation's error is more useful to the caller than a best-effort rollback error.
   }

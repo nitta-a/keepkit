@@ -123,11 +123,17 @@ export function getMetaTitle<TMeta>(meta: TMeta): string | undefined {
   return typeof title === "string" && title.trim() ? title.trim() : undefined;
 }
 
-export function normalizeUiTags(tags: string[]): string[] {
+export function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+export function normalizeUiTags(tags: readonly string[]): string[] {
   return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
 }
 
-export function sortToValue(sort: KeepListQuery["sort"]): `${"savedAt" | "updatedAt"}:${"asc" | "desc"}` {
+export function sortToValue(
+  sort: KeepListQuery["sort"],
+): `${"savedAt" | "updatedAt" | "lastOpenedAt"}:${"asc" | "desc"}` {
   return `${sort?.by ?? "updatedAt"}:${sort?.direction ?? "desc"}`;
 }
 

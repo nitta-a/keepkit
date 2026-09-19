@@ -1,13 +1,14 @@
 import type { RemoteSyncDriver } from "@keepkit/core/core";
 import { createBrowserStorageAdapter, SyncStorageAdapter } from "@keepkit/core/storage";
 import {
+  type KeepCollectionRevealResult,
   KeepKitProvider,
   type KeepThemeName,
   type KeepToastFeedbackOptions,
   type KeepUiFeedbackEvent,
   useKeepToastFeedback,
 } from "@keepkit/ui";
-import { StrictMode, useCallback, useState } from "react";
+import { StrictMode, useCallback, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "@keepkit/ui/theme.css";
@@ -49,6 +50,8 @@ function isDemoTheme(value: string): value is (typeof demoThemes)[number] {
 function Demo() {
   const [theme, setTheme] = useState<(typeof demoThemes)[number]>("default");
   const [toast, setToast] = useState<{ message: string; options?: KeepToastFeedbackOptions }>();
+  const [revealRequest, setRevealRequest] = useState<{ requestId: number; itemId: string }>();
+  const revealId = useRef(0);
   const showToast = useCallback((message: string, options?: KeepToastFeedbackOptions) => {
     setToast({ message, ...(options ? { options } : {}) });
   }, []);
@@ -64,16 +67,34 @@ function Demo() {
         action: {
           label: "View in collection",
           onClick: () => {
-            const card = document.getElementById(`saved-item-${encodeURIComponent(event.item.id)}`);
-            const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-            card?.scrollIntoView?.({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
-            window.requestAnimationFrame(() => card?.focus());
-            setToast(undefined);
+            revealId.current += 1;
+            setRevealRequest({ requestId: revealId.current, itemId: event.item.id });
           },
         },
       });
     },
     [showDefaultFeedback, showToast],
+  );
+
+  const onRevealResult = useCallback(
+    (result: KeepCollectionRevealResult) => {
+      if (result.status === "not-found") {
+        showToast("This item is no longer saved.");
+        return;
+      }
+      if (result.status === "excluded") {
+        showToast("This item cannot be shown with the current collection scope.");
+        return;
+      }
+      window.requestAnimationFrame(() => {
+        const card = document.getElementById(`saved-item-${encodeURIComponent(result.itemId)}`);
+        const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+        card?.scrollIntoView?.({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+        card?.focus();
+        setToast(undefined);
+      });
+    },
+    [showToast],
   );
 
   return (
@@ -95,7 +116,7 @@ function Demo() {
           ))}
         </select>
       </label>
-      <App />
+      <App {...(revealRequest ? { revealRequest } : {})} onRevealResult={onRevealResult} />
       {toast ? (
         <aside className="demo-toast" role="status" aria-live="polite">
           <span>{toast.message}</span>

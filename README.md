@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.0では、レイアウト領域を消費しないPortalベースのフローティング巡回UIを追加しました。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.1では、利用履歴とRediscovery query、カード開封追跡を追加しました。Portalベースのフローティング巡回UIも引き続き利用できます。
 
 ### インストール
 
@@ -120,6 +120,8 @@ const storage = new SyncStorageAdapter({ local, remote: { push: (operation) => a
 
 バックアップには`exportItems(adapter)` / `importItems(adapter, json, { mode: "replace" | "merge" })`を利用できます。
 
+保存済みアイテムの再発見には、`useKeepItem(item).recordOpen()`で`lastOpenedAt`を記録し、`activity`クエリの`opened`、`lastOpenedBefore`、`lastOpenedAfter`、`inactiveForMs`で絞り込めます。`createRediscoveryQuery()`と`useKeepRediscovery()`は`never-opened`、`forgotten`、`recently-opened`のプリセットを提供し、UIでは`<KeepRediscovery strategy="forgotten" limit={5} />`を利用できます。`KeepItemCard trackOpen`は既定動作を変えずに開封記録を有効化します。
+
 ### v0.4.xからの移行
 
 - `createKeepKit`の戻り値は`KeepProvider` / `KeepButton` / `useKeepList`ではなく、`Provider` / `Button` / `useList`です。
@@ -150,15 +152,17 @@ JSONバックアップUIは`<KeepBackup />`として利用できます。エク�
 
 Phase 4の状態UIは`<KeepItemStatusBadge />`、`<KeepStaleNotice />`、`<KeepPruneStaleButton />`、`<KeepSyncStatusBanner />`、`<KeepSyncRecoveryDialog />`として利用できます。テーマを使う場合は`import "@keepkit/ui/theme.css"`を追加してください。
 
-### v0.28.0のCollection demoとWorkspace
+### v0.28.1のCollection demoとWorkspace
 
 `<keep.Collection urlSync layout="grid" />`で検索・タグ・ソート・ページをURL、戻る／進む、共有URLと同期できます。Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`に渡してください。`layout`は`list`、`grid`、`compact`に対応し、`itemCardProps`の`getImageProps`、`renderTags`、`href`、`onOpen`でカード表示と遷移を差し替えられます。
 
 `KeepBulkActions`の`selectionScope="page" | "query" | "all"`で一括操作の範囲を変更できます。削除を`useKeepList().removeWithUndo`または`removeBatchWithUndo`で実行し、`<KeepUndo />`を配置すると期限内の復元操作を表示できます。`KeepProvider autoRevalidation={{ intervalMs: 60000 }}`は一覧表示後、間隔経過後、オンライン復帰時に再検証します。
 
+保存後の通知から一覧の項目へ戻す場合は、`KeepCollection`の`revealRequest={{ requestId, itemId }}`を更新します。検索・タグ・保存先フィルターとページを調整して対象を表示し、`onRevealResult`で`visible`、`not-found`、`excluded`を受け取れます。ブラウザー内保存の範囲を利用者へ示す場合は`<KeepBackup />`を同じProvider内に配置してください。
+
 ユーザー／テナント分離が必要な場合は、`createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })`を使うとstorage、同期キュー、バックアップの構成をまとめられます。UIのラベルは16個の組み込みlocale（`en`、`ja`、`ko`、`zh-Hans`、`zh-Hant`、`th`、`fr`、`es`、`pt-BR`、`it`、`de`、`ru`、`fil`、`vi`、`id`、`ms`）で切り替えられ、`labels`で内容を、`labelOptions`で表示／非表示と追加の内容を設定できます。`labelOptions: { collection: { text: "カテゴリ", visible: false } }`のように`KeepKitProvider`または`KeepUiProvider`へ指定し、非表示にした場合も必要なARIA名は維持されます。`zh-CN`と`zh-TW`も互換aliasとして利用できます。
 
-### v0.28.0 Tailwind／shadcnテーマ
+### v0.28.1 Tailwind／shadcnテーマ
 
 Tailwind CSS v4ではグローバルCSSで2行読み込み、必要ならテーマ用Providerを配置します。既存のshadcn/ui変数はTailwind v4の`--color-*`経由で`--keep-*`トークンへ継承されます。
 
@@ -182,7 +186,7 @@ shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keep
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.0 adds a portal-rendered floating tour UI that does not consume host layout space.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.1 adds activity tracking and Rediscovery queries; the portal-rendered floating tour UI remains available.
 
 ### Installation
 
@@ -261,15 +265,19 @@ Enable only the standard card features you need with `features={{ pin: true, arc
 
 Saved inputs contain only `id`, `meta`, `targetType`, `note`, and `tags`; persistence timestamps and normalization are handled by KeepKit. Collection queries use the canonical `query` shape with `search`, `sort`, and `pagination`.
 
+For rediscovery, call `useKeepItem(item).recordOpen()` to persist `lastOpenedAt`, then filter with `activity.opened`, `lastOpenedBefore`, `lastOpenedAfter`, or `inactiveForMs`. `createRediscoveryQuery()` and `useKeepRediscovery()` provide `never-opened`, `forgotten`, and `recently-opened` presets; the UI package also exposes `<KeepRediscovery strategy="forgotten" limit={5} />`. `KeepItemCard trackOpen` opts a card into open tracking without changing the default behavior.
+
 The typed factory returns `Provider`, `Button`, `Collection`, `Workspace`, `useItem`, `useList`, `useCollections`, `useNavigator`, and `useShortcut`. `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, `KeepTagEditor`, `KeepBulkActions`, `KeepTourBar`, and `KeepReorderableList` are also available as standalone primitives. `KeepBulkActions` exposes `isAllSelected` / `toggleSelectAll` in its render-prop state and as standalone helpers. Use `@keepkit/core/core` for framework-neutral primitives, `@keepkit/core/react` for low-level React bindings, and `@keepkit/core/storage` for adapters.
 
 See `examples/next-app-router` for the Server Component/client boundary pattern and `examples/next-pages-router` for the Pages Router integration.
 
-### v0.28.0 Collection demo, Workspace, URL, layouts, setup presets, and Tailwind integration
+### v0.28.1 Collection demo, Workspace, URL, layouts, setup presets, and Tailwind integration
 
 Use `<keep.Collection urlSync layout="grid" />` to synchronize search, tags, sorting, and pagination with shareable URLs and browser history. For Next.js Pages Router, pass `createNextPagesRouterAdapter(router)` as `urlAdapter`. Layouts are `list`, `grid`, and `compact`; customize thumbnails, tags, and detail navigation through `itemCardProps`.
 
 Set `selectionScope="page" | "query" | "all"` on `KeepBulkActions` to choose the bulk-action range. Use `useKeepList().removeWithUndo` or `removeBatchWithUndo`, and mount `<KeepUndo />` for timed restoration. `KeepProvider autoRevalidation={{ intervalMs: 60000 }}` revalidates after hydration, on an interval, and after reconnecting.
+
+To return to an item from a save confirmation, update `KeepCollection` with `revealRequest={{ requestId, itemId }}`. It clears local search, tag, collection, and pagination state as needed, then reports `visible`, `not-found`, or `excluded` through `onRevealResult`. Mount `<KeepBackup />` inside the same provider when the product needs to explain browser-local storage and offer JSON export/import.
 
 Use `createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })` to compose isolated storage, sync queues, and backups for a user/tenant. UI labels support the 16 built-in locales; pass `labels` for text overrides and `labelOptions` for visibility or an additional text override to `KeepKitProvider` or `KeepUiProvider`, for example `{ collection: { text: "Category", visible: false } }`. Required ARIA names remain available when visible text is hidden.
 
@@ -278,7 +286,7 @@ Use `createAuthenticatedSyncKit` when the host supplies authentication. It refre
 Use `KeepItemStatusBadge`, `KeepStaleNotice`, and `KeepPruneStaleButton` for unavailable-item recovery. `KeepSyncStatusBanner` and `KeepSyncRecoveryDialog` expose retry, local/server/manual conflict resolution, and backup restoration guidance. Optionally import `@keepkit/ui/theme.css` for CSS-variable theming, dark mode, and mobile typography.
 External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, while the recovery dialog compares local and remote updated dates and notes side by side.
 
-### v0.28.0 Tailwind and shadcn theme
+### v0.28.1 Tailwind and shadcn theme
 
 Tailwind CSS v4 needs two imports in the global CSS entry. The theme is scoped by `KeepThemeProvider`, and its `--keep-*` tokens inherit complete `--color-*` values such as `--color-background`, `--color-primary`, and `--color-ring` when present.
 

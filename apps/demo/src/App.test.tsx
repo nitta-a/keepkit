@@ -1,6 +1,7 @@
 import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
 import { KeepProvider } from "@keepkit/core/react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import { expect, test } from "vitest";
 import { App } from "./App";
 import type { DemoMeta } from "./main";
@@ -73,10 +74,26 @@ function renderDemo(initialItems: KeepItem<DemoMeta>[] = []) {
   return storage;
 }
 
+function RevealHarness() {
+  const [request, setRequest] = useState<{ requestId: number; itemId: string }>();
+  const [status, setStatus] = useState<string>("");
+  return (
+    <>
+      <button type="button" onClick={() => setRequest({ requestId: 1, itemId: firstArticle.id })}>
+        Reveal first article
+      </button>
+      <App {...(request ? { revealRequest: request } : {})} onRevealResult={(result) => setStatus(result.status)} />
+      <output aria-label="Reveal status">{status}</output>
+    </>
+  );
+}
+
 test("saves a resource and displays it in the collection", async () => {
   const { getItems } = renderDemo();
 
   expect(await screen.findByRole("heading", { name: "Nothing here yet" })).toBeInTheDocument();
+  expect(screen.getByText("Storage and backup")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Export JSON" })).toBeInTheDocument();
   fireEvent.click(screen.getAllByText("Save for later")[0]);
 
   await waitFor(() => {
@@ -105,6 +122,29 @@ test("filters the collection by resource type", async () => {
     expect(within(collection).queryByText(firstArticle.meta.title)).not.toBeInTheDocument();
   });
   expect(await storage.getAll()).toHaveLength(2);
+});
+
+test("reveals a saved item after a filter hides it", async () => {
+  const { storage } = createStorage([toSavedItem(firstArticle), toSavedItem(product, 2)]);
+  render(
+    <KeepProvider<DemoMeta> storage={storage}>
+      <RevealHarness />
+    </KeepProvider>,
+  );
+  const collection = await findCollectionList();
+  fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+  fireEvent.click(screen.getByRole("button", { name: /Product/ }));
+  await waitFor(() => expect(within(collection).queryByText(firstArticle.meta.title)).not.toBeInTheDocument());
+
+  fireEvent.click(screen.getByRole("button", { name: "Reveal first article" }));
+  await waitFor(() => {
+    expect(screen.getByLabelText("Reveal status")).toHaveTextContent("visible");
+    expect(
+      within(document.querySelector('[data-keepkit="list"][data-state="ready"]') as HTMLElement).getByRole("heading", {
+        name: firstArticle.meta.title,
+      }),
+    ).toBeInTheDocument();
+  });
 });
 
 test("adds and saves a note for an existing resource", async () => {

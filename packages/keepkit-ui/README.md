@@ -57,6 +57,8 @@ function SavedArticles() {
 ```
 
 `keep.Collection`は検索、ソート、ページング、loading / empty / error、ARIA live通知を標準で提供します。検索は既定で300msデバウンスされます。`features={{ tagFilter: true, bulkActions: true }}`でタグフィルターと一括操作も有効にできます。個別の`KeepList`、`KeepSearchInput`、`KeepSortSelect`、`KeepPagination`、`KeepItemCheckbox`、`KeepTagEditor`などは高度なレイアウト用に利用できます。`KeepBulkActions`はrender propsで操作UIを差し替えられ、`isAllSelected` / `toggleSelectAll`で表示中アイテムを一括操作できます。`KeepNoteEditor`は既定300msのデバウンス保存に対応し、`debounceMs={0}`でフォーム送信のみへ戻せます。通知領域だけを明示的に置く場合は`KeepAnnouncer`（`KeepAnnouncements`のalias）を使えます。
+再発見には`useKeepItem(item).recordOpen()`で`lastOpenedAt`を記録し、`activity`クエリまたは`createRediscoveryQuery()` / `useKeepRediscovery()`を利用できます。`<KeepRediscovery strategy="forgotten" limit={5} />`は既存の`KeepList`を組み合わせた標準プリセットです。カード単位では`trackOpen`を指定したときだけ開封記録を有効にします。
+保存確認から対象へ戻すには`revealRequest={{ requestId, itemId }}`を渡し、`onRevealResult`で結果を受け取れます。検索・タグ・保存先フィルターとページを調整して対象を表示します。
 `KeepWorkspace`はこれらのプリミティブを一つにまとめ、`basic`、`standard`、`management`、`sync`のプリセットを提供します。`createKeepKit()`を利用する場合は同じ実装を`keep.Workspace`から型付きで利用できます。`modules`、`slots`、子コンポーネントごとのpropsで部分的に差し替えられます。
 `KeepCollectionManager`は作成・名前変更・削除・件数表示をまとめたheadless UIです。`allowCreate`、`allowRename`、`allowDelete`、`showCounts`で機能を個別に切り替えられ、`collectionLabels`、`title`、`description`、`empty`で表示を差し替えられます。
 画面領域を明示する場合は`surface="panel"`または領域別の`surface`と、`sectionGap="compact" | "comfortable"`を指定できます。空のslotは枠を生成せず、未指定時と`surface="plain"`では従来のDOM順序を維持します。
@@ -107,7 +109,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.0では、レイアウト領域を消費しないPortalベースのフローティング巡回UIを追加しました。Tailwind CSS v4との統合、ホストテーマ変数との衝突回避、CSS cascade layer対応も引き続き利用できます。
+v0.28.1では、利用履歴とRediscovery query、カード開封追跡を追加しました。レイアウト領域を消費しないPortalベースのフローティング巡回UI、Tailwind CSS v4との統合、ホストテーマ変数との衝突回避も引き続き利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -198,6 +200,7 @@ function SavedArticles() {
 ```
 
 `keep.Collection` includes search, sorting, pagination, loading/empty/error states, and polite live announcements. Search is debounced by 300ms by default. Enable `features={{ tagFilter: true, bulkActions: true }}` for tag filtering and bulk operations. Use the individual `KeepList`, `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, and `KeepTagEditor` primitives when you need a custom layout. `KeepBulkActions` supports render props and exposes `isAllSelected` / `toggleSelectAll` for visible-item selection. `KeepNoteEditor` auto-saves dirty notes after 300ms by default; set `debounceMs={0}` to use form submission only. Mount `KeepAnnouncer` (`KeepAnnouncements` alias) when you need the live region explicitly.
+Pass `revealRequest={{ requestId, itemId }}` to return to an item from a save confirmation; `onRevealResult` reports the outcome after search, tag, collection, and pagination state is adjusted.
 `KeepWorkspace` composes these primitives into `basic`, `standard`, `management`, and `sync` presets. `createKeepKit()` exposes the same implementation as a typed `keep.Workspace`. Override individual areas through `modules`, `slots`, and child-component props.
 `KeepCollectionManager` is a headless collection-management UI for creating, renaming, deleting, and counting collections. Toggle each capability with `allowCreate`, `allowRename`, `allowDelete`, and `showCounts`; customize `collectionLabels`, `title`, `description`, and `empty`.
 Use `surface="panel"` or a per-region `surface` map together with `sectionGap="compact" | "comfortable"` to make workspace boundaries explicit. Empty slots do not create frames, and omitted `surface` or `surface="plain"` preserves the existing DOM order.
@@ -247,7 +250,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.0 adds a portal-rendered floating tour UI that does not consume host layout space. Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
+v0.28.1 adds activity tracking, Rediscovery queries, and opt-in card open tracking. The portal-rendered floating tour UI, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme
@@ -291,6 +294,7 @@ import { KeepItemCard, KeepThemeProvider } from "@keepkit/ui";
 Use `[data-state="saved"]`, `[data-state="unsaved"]`, `[data-loading="true"]`, `[data-state="error"]`, `[data-state="empty"]`, `[data-state="stale"]`, `[data-status="expired"]`, `[data-status="removed"]`, and `[data-state="selected"]` from host CSS or Tailwind data variants. For migration, keep importing `@keepkit/ui/theme.css` while replacing direct `--keepkit-*` references with `--keep-*`. In the Pages Router, inject `createNextPagesRouterAdapter(router)` into `urlAdapter`.
 
 Collection queries use one canonical shape: `targetType`, `tags`, `search`, `sort`, `pagination`, `filter`, and `savedBetween`. Saved item inputs contain only `id`, `meta`, `targetType`, `note`, and `tags`; KeepKit owns persistence timestamps.
+For rediscovery, use `useKeepItem(item).recordOpen()` to persist `lastOpenedAt`, then query `activity` with `opened`, `lastOpenedBefore`, `lastOpenedAfter`, or `inactiveForMs`. `createRediscoveryQuery()` / `useKeepRediscovery()` provide standard `never-opened`, `forgotten`, and `recently-opened` views, while `<KeepRediscovery strategy="forgotten" limit={5} />` composes the UI list. `KeepItemCard trackOpen` opts into tracking without changing existing cards.
 
 Framework-neutral APIs remain available from `@keepkit/core/core`, low-level React bindings from `@keepkit/core/react`, and storage adapters from `@keepkit/core/storage`.
 

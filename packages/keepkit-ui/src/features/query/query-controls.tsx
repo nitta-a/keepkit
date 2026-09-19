@@ -44,7 +44,13 @@ export function KeepSearchInput({
   );
 }
 
-export type KeepSortValue = "savedAt:desc" | "savedAt:asc" | "updatedAt:desc" | "updatedAt:asc";
+export type KeepSortValue =
+  | "savedAt:desc"
+  | "savedAt:asc"
+  | "updatedAt:desc"
+  | "updatedAt:asc"
+  | "lastOpenedAt:desc"
+  | "lastOpenedAt:asc";
 
 export type KeepSortSelectProps = Omit<
   SelectHTMLAttributes<HTMLSelectElement>,

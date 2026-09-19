@@ -1,5 +1,6 @@
 import { useKeepContext } from "@keepkit/core/react";
 import type { ReactNode } from "react";
+import { getErrorMessage } from "../../../foundation/shared";
 import { useUiLabel } from "../../../foundation/ui-context";
 
 type KeepSyncStatusBannerOptions = {
@@ -14,12 +15,13 @@ export function useKeepSyncStatusBanner({ onRetry, children }: KeepSyncStatusBan
   const conflictLabel = useUiLabel("syncConflict");
   const pendingLabel = useUiLabel("syncPending");
   const syncedLabel = useUiLabel("syncSynced");
+  const failedLabel = useUiLabel("syncFailedMessage");
   const status = context.syncState.status;
   const hasConflicts = (context.syncState.conflicts?.length ?? 0) > 0 || context.syncState.conflictIds.length > 0;
   const message =
     children ??
     (status === "error"
-      ? getErrorMessage(context.syncState.error)
+      ? getErrorMessage(context.syncState.error, failedLabel)
       : status === "conflict" || hasConflicts
         ? conflictLabel
         : status === "pending" || status === "syncing"
@@ -43,8 +45,4 @@ export function useKeepSyncStatusBanner({ onRetry, children }: KeepSyncStatusBan
       await context.flushSync();
     },
   };
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Sync failed.";
 }

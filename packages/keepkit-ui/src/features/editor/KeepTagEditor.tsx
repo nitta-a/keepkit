@@ -2,7 +2,7 @@
 
 import type { KeepItem } from "@keepkit/core/core";
 import type { FormHTMLAttributes } from "react";
-import type { RenderProp } from "../../foundation/shared";
+import { getErrorMessage, type RenderProp } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepTagEditor } from "./hooks/useKeepTagEditor";
 
@@ -101,8 +101,4 @@ export function KeepTagEditor<TMeta = Record<string, unknown>>({
       {view.error ? <p role="alert">{getErrorMessage(view.error, view.labels.error)}</p> : null}
     </form>
   );
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
 }

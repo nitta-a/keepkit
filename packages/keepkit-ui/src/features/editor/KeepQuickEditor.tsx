@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { getErrorMessage } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepQuickEditorState<TMeta = Record<string, unknown>> = {
@@ -371,10 +372,6 @@ function sameDraft(
   right: { note: string; tags: string[]; collectionId?: string },
 ): boolean {
   return left.note === right.note && sameTags(left.tags, right.tags) && left.collectionId === right.collectionId;
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
 }
 
 function sameTags(left: string[], right: string[]): boolean {

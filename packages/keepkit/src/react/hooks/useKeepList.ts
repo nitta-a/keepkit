@@ -54,6 +54,7 @@ export function useKeepList<TMeta = Record<string, unknown>>(
   const { store, actions } = useKeepStore<TMeta>();
   const {
     archiveScope,
+    activity,
     archived,
     collectionId,
     filter,
@@ -68,6 +69,7 @@ export function useKeepList<TMeta = Record<string, unknown>>(
   const queryOptions = useMemo<KeepListQuery<TMeta>>(
     () => ({
       archiveScope,
+      activity,
       archived,
       collectionId,
       filter,
@@ -81,6 +83,7 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     }),
     [
       archiveScope,
+      activity,
       archived,
       collectionId,
       filter,

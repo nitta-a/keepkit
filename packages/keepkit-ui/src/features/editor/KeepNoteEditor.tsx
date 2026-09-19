@@ -2,7 +2,7 @@
 
 import type { KeepItem } from "@keepkit/core/core";
 import { type FormHTMLAttributes, isValidElement, type ReactNode } from "react";
-import { type RenderProp, renderRoot } from "../../foundation/shared";
+import { getErrorMessage, type RenderProp, renderRoot } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { KeepShortcutHint } from "../navigation/KeepShortcutHint";
 import { useKeepNoteEditor } from "./hooks/useKeepNoteEditor";
@@ -121,8 +121,4 @@ export function KeepNoteEditor<TMeta = Record<string, unknown>>({
     body,
     "KeepNoteEditor",
   );
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
 }

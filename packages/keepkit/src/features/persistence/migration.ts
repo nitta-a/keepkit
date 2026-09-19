@@ -1,4 +1,5 @@
 import type { KeepItem, StorageAdapter } from "../items/types";
+import { mergeKeepItemLists } from "./helpers";
 
 /** Merge anonymous local items into a signed-in or remote adapter. */
 export async function mergeKeepItems<TMeta>(
@@ -7,16 +8,7 @@ export async function mergeKeepItems<TMeta>(
 ): Promise<KeepItem<TMeta>[]> {
   if (target.merge) return target.merge(localItems);
 
-  const remoteItems = await target.getAll();
-  const byId = new Map(remoteItems.map((item) => [item.id, item]));
-  for (const localItem of localItems) {
-    const remoteItem = byId.get(localItem.id);
-    if (!remoteItem || localItem.updatedAt > remoteItem.updatedAt) {
-      byId.set(localItem.id, localItem);
-    }
-  }
-
-  const merged = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  const merged = mergeKeepItemLists(await target.getAll(), localItems);
   await Promise.all(merged.map((item) => target.set(item)));
   return merged;
 }

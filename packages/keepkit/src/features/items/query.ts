@@ -10,8 +10,14 @@ export type KeepListQuery<TMeta = Record<string, unknown>> = {
   archiveScope?: "active" | "archived" | "all";
   collectionId?: string;
   pinnedFirst?: boolean;
+  activity?: {
+    opened?: "ever" | "never";
+    lastOpenedBefore?: number;
+    lastOpenedAfter?: number;
+    inactiveForMs?: number;
+  };
   sort?: {
-    by: "savedAt" | "updatedAt";
+    by: "savedAt" | "updatedAt" | "lastOpenedAt";
     direction?: "asc" | "desc";
   };
   search?: {
@@ -38,6 +44,26 @@ export type QueryKeepItemsResult<TMeta = Record<string, unknown>> = {
   hasPreviousPage: boolean;
 };
 
+export type KeepRediscoveryStrategy = "never-opened" | "forgotten" | "recently-opened";
+
+export type KeepRediscoveryOptions = {
+  strategy: KeepRediscoveryStrategy;
+  inactiveForMs?: number;
+};
+
+const DEFAULT_REDISCOVERY_INACTIVE_FOR_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Build a serializable query for common rediscovery views. */
+export function createRediscoveryQuery<TMeta = Record<string, unknown>>(
+  options: KeepRediscoveryOptions,
+): KeepListQuery<TMeta> {
+  if (options.strategy === "never-opened") return { activity: { opened: "never" } };
+  if (options.strategy === "recently-opened") {
+    return { activity: { opened: "ever" }, sort: { by: "lastOpenedAt", direction: "desc" } };
+  }
+  return { activity: { inactiveForMs: options.inactiveForMs ?? DEFAULT_REDISCOVERY_INACTIVE_FOR_MS } };
+}
+
 /** Apply the collection query and one-based pagination without React. */
 export function queryKeepItems<TMeta = Record<string, unknown>>(
   source: KeepItem<TMeta>[],
@@ -53,6 +79,7 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
       (query.tags === undefined || query.tags.every((tag) => item.tags?.includes(tag))) &&
       matchesArchiveScope(item, query) &&
       (query.collectionId === undefined || item.collectionId === query.collectionId) &&
+      matchesActivity(item, query.activity) &&
       (lowerBound === undefined || savedAt >= lowerBound) &&
       (upperBound === undefined || savedAt <= upperBound) &&
       matchesSearch(item, query.search) &&
@@ -65,7 +92,7 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
   const sortedBase = sortBy
     ? filtered
         .map((item, index) => ({ item, index }))
-        .sort((a, b) => (a.item[sortBy] - b.item[sortBy]) * direction || a.index - b.index)
+        .sort((a, b) => compareSortValues(a.item[sortBy], b.item[sortBy], direction) || a.index - b.index)
         .map(({ item }) => item)
     : orderKeepItems(filtered);
   const sorted = query.pinnedFirst
@@ -85,6 +112,28 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
     hasNextPage: page < pageCount,
     hasPreviousPage: page > 1,
   };
+}
+
+function matchesActivity<TMeta>(item: KeepItem<TMeta>, activity?: KeepListQuery<TMeta>["activity"]): boolean {
+  if (!activity) return true;
+  const lastOpenedAt = item.lastOpenedAt;
+  const opened = lastOpenedAt !== undefined;
+  if (activity.opened === "ever" && !opened) return false;
+  if (activity.opened === "never" && opened) return false;
+  if (activity.lastOpenedBefore !== undefined && (!opened || lastOpenedAt >= activity.lastOpenedBefore)) return false;
+  if (activity.lastOpenedAfter !== undefined && (!opened || lastOpenedAt <= activity.lastOpenedAfter)) return false;
+  if (activity.inactiveForMs !== undefined) {
+    const cutoff = Date.now() - activity.inactiveForMs;
+    if (opened && lastOpenedAt > cutoff) return false;
+  }
+  return true;
+}
+
+function compareSortValues(left: number | undefined, right: number | undefined, direction: 1 | -1): number {
+  if (left === undefined && right === undefined) return 0;
+  if (left === undefined) return 1;
+  if (right === undefined) return -1;
+  return (left - right) * direction;
 }
 
 function matchesArchiveScope<TMeta>(item: KeepItem<TMeta>, query: KeepListQuery<TMeta>): boolean {

@@ -21,6 +21,7 @@ export type KeepStoreState<TMeta = Record<string, unknown>> = {
 
 export type KeepStoreActions<TMeta = Record<string, unknown>> = {
   saveItem: (item: KeepItem<TMeta>) => Promise<void>;
+  recordOpen: (id: string, openedAt?: number) => Promise<void>;
   updateNote: (id: string, note?: string) => Promise<void>;
   updateTags: (id: string, tags?: string[]) => Promise<void>;
   toggleArchive: (id: string) => Promise<void>;

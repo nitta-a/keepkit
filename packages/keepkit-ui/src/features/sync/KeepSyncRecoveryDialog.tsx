@@ -2,7 +2,7 @@
 
 import type { KeepItem, KeepSyncConflict } from "@keepkit/core/core";
 import type { HTMLAttributes, ReactNode } from "react";
-import { getMetaTitle } from "../../foundation/shared";
+import { getErrorMessage, getMetaTitle } from "../../foundation/shared";
 import { KeepBackup } from "../actions/KeepBackup";
 import { useKeepSyncRecoveryDialog } from "./hooks/useKeepSyncRecoveryDialog";
 
@@ -117,7 +117,7 @@ export function KeepSyncRecoveryDialog<TMeta = Record<string, unknown>>({
       ) : null}
       {view.error ? (
         <p id="keepkit-sync-recovery-error" role="alert" aria-live="assertive">
-          {view.error instanceof Error ? view.error.message : view.labels.error}
+          {getErrorMessage(view.error, view.labels.error)}
         </p>
       ) : null}
     </section>

@@ -13,6 +13,7 @@ import type {
   SyncScope,
 } from "../features/items/types";
 import { isKeepSyncAuthError } from "../features/items/types";
+import { isRecord, mergeKeepItemLists, persistKeepItems, removeKeepItems } from "../features/persistence/helpers";
 
 export type LocalStorageSyncQueueOptions = {
   key?: string;
@@ -303,8 +304,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     const operations = scopedItems.map((item) => this.createOperation("upsert", item.id, item));
     await this.enqueueManyBeforeLocalWrite(operations);
     try {
-      if (this.local.setMany) await this.local.setMany(scopedItems);
-      else for (const item of scopedItems) await this.local.set(item);
+      await persistKeepItems(this.local, scopedItems);
     } catch (cause) {
       await this.removeQueued(operations.map((operation) => operation.operationId));
       throw cause;
@@ -330,8 +330,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     const operations = [...new Set(ids)].map((id) => this.createOperation("remove", id));
     await this.enqueueManyBeforeLocalWrite(operations);
     try {
-      if (this.local.removeMany) await this.local.removeMany(ids);
-      else for (const id of ids) await this.local.remove(id);
+      await removeKeepItems(this.local, ids);
     } catch (cause) {
       await this.removeQueued(operations.map((operation) => operation.operationId));
       throw cause;
@@ -349,7 +348,8 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   async merge(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
     const merged = this.local.merge
       ? await this.local.merge(localItems)
-      : await mergeLocalItems(localItems, this.local);
+      : mergeKeepItemLists(await this.local.getAll(), localItems);
+    if (!this.local.merge) await persistKeepItems(this.local, merged);
     await this.setMany(localItems);
     return merged;
   }
@@ -606,8 +606,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
         })
         .map((item) => this.applyScope(item));
       if (incoming.length === 0) return true;
-      if (this.local.setMany) await this.local.setMany(incoming);
-      else for (const item of incoming) await this.local.set(item);
+      await persistKeepItems(this.local, incoming);
       this.notifyDataListeners();
       return true;
     } catch (error) {
@@ -630,22 +629,6 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   }
 }
 
-async function mergeLocalItems<TMeta>(
-  localItems: KeepItem<TMeta>[],
-  target: StorageAdapter<TMeta>,
-): Promise<KeepItem<TMeta>[]> {
-  const remoteItems = await target.getAll();
-  const byId = new Map(remoteItems.map((item) => [item.id, item]));
-  for (const item of localItems) {
-    const current = byId.get(item.id);
-    if (!current || item.updatedAt > current.updatedAt) byId.set(item.id, item);
-  }
-  const merged = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
-  if (target.setMany) await target.setMany(merged);
-  else for (const item of merged) await target.set(item);
-  return merged;
-}
-
 function isSyncOperation(value: unknown): value is SyncOperation {
   if (!isRecord(value)) return false;
   return (
@@ -654,10 +637,6 @@ function isSyncOperation(value: unknown): value is SyncOperation {
     typeof value.id === "string" &&
     typeof value.createdAt === "number"
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function createId(): string {

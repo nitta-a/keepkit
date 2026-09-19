@@ -17,6 +17,8 @@ import {
   type UseKeepCollectionsResult,
   type UseKeepNavigatorOptions,
   type UseKeepNavigatorResult,
+  type UseKeepRediscoveryOptions,
+  type UseKeepRediscoveryResult,
   type useKeepContext,
   type useKeepItem,
   type useKeepList,
@@ -57,6 +59,8 @@ import {
   KeepCollection,
   type KeepCollectionFeature,
   type KeepCollectionProps,
+  type KeepCollectionRevealRequest,
+  type KeepCollectionRevealResult,
   type KeepCollectionSlots,
   type KeepCollectionToolbarContent,
   type KeepCollectionToolbarGroup,
@@ -150,6 +154,7 @@ import {
   type KeepSortSelectProps,
   type KeepSortValue,
 } from "./features/query/query-controls";
+import { KeepRediscovery, type KeepRediscoveryProps } from "./features/rediscovery/KeepRediscovery";
 import {
   KeepPruneStaleButton,
   type KeepPruneStaleButtonProps,
@@ -280,6 +285,7 @@ export type {
   KeepItem,
   KeepItemInput,
   KeepListQuery,
+  KeepRediscoveryStrategy,
   KeepSyncConflict,
   KeepSyncResolution,
   KeepSyncState,
@@ -301,6 +307,7 @@ export {
   useKeepItem,
   useKeepList,
   useKeepNavigator,
+  useKeepRediscovery,
   useKeepShortcut,
 } from "@keepkit/core/react";
 export {
@@ -347,6 +354,8 @@ export type {
   KeepCollectionManagerProps,
   KeepCollectionOption,
   KeepCollectionProps,
+  KeepCollectionRevealRequest,
+  KeepCollectionRevealResult,
   KeepCollectionSlots,
   KeepCollectionToolbarContent,
   KeepCollectionToolbarGroup,
@@ -387,6 +396,7 @@ export type {
   KeepQuickEditorFeature,
   KeepQuickEditorProps,
   KeepQuickEditorState,
+  KeepRediscoveryProps,
   KeepReorderableItemState,
   KeepReorderableListProps,
   KeepSavePopoverProps,
@@ -472,6 +482,7 @@ export {
   KeepPinButton,
   KeepPruneStaleButton,
   KeepQuickEditor,
+  KeepRediscovery,
   KeepReorderableList,
   KeepSavePopover,
   KeepSearchInput,
@@ -525,6 +536,7 @@ export type KeepKit<TMeta = Record<string, unknown>> = {
   useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useItem: (item?: KeepItemInput<TMeta>) => ReturnType<typeof useKeepItem<TMeta>>;
   useList: (query?: KeepListQuery<TMeta>) => ReturnType<typeof useKeepList<TMeta>>;
+  useRediscovery: (options: UseKeepRediscoveryOptions) => UseKeepRediscoveryResult<TMeta>;
   useCollections: (options?: { targetType?: string; orderBy?: "name" | "count" }) => UseKeepCollectionsResult;
   useNavigator: (options?: UseKeepNavigatorOptions<TMeta>) => UseKeepNavigatorResult<TMeta>;
   useShortcut: (options: KeepShortcutOptions<TMeta>) => void;
@@ -611,6 +623,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     useContext: () => coreKit.useContext(),
     useItem: (item) => coreKit.useItem(item),
     useList: (query) => coreKit.useList(query),
+    useRediscovery: (rediscoveryOptions) => coreKit.useRediscovery(rediscoveryOptions),
     useCollections: (collectionsOptions) => coreKit.useCollections(collectionsOptions),
     useNavigator: (navigatorOptions) => coreKit.useNavigator(navigatorOptions),
     useShortcut: (shortcutOptions) => coreKit.useShortcut(shortcutOptions),

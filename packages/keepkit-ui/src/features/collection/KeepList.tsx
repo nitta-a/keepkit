@@ -227,6 +227,7 @@ function hasActiveQueryFilters<TMeta>(query: KeepListQuery<TMeta> | undefined): 
       query.savedBetween ||
       (query.archiveScope !== undefined && query.archiveScope !== "active") ||
       query.collectionId ||
+      query.activity ||
       query.filter,
   );
 }

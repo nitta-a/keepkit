@@ -50,7 +50,7 @@ export function useKeepSortSelect(options: KeepSortSelectOptions) {
     change: (event: ChangeEvent<HTMLSelectElement>) => {
       const nextValue = event.currentTarget.value as KeepSortValue;
       if (controlledValue === undefined) setUncontrolledValue(nextValue);
-      const [by, direction] = nextValue.split(":") as ["savedAt" | "updatedAt", "asc" | "desc"];
+      const [by, direction] = nextValue.split(":") as ["savedAt" | "updatedAt" | "lastOpenedAt", "asc" | "desc"];
       onValueChange?.(nextValue, { by, direction });
     },
     labels: {

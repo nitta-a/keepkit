@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createKeepInvalidationPlugin,
+  createRediscoveryQuery,
   createScopedStorageAdapter,
   createStorageAdapter,
   decodeKeepListQuery,
@@ -48,6 +49,15 @@ test("encodes and decodes shareable list URL state", () => {
     sort: { by: "updatedAt", direction: "asc" },
     pagination: { page: 3 },
   });
+});
+
+test("encodes and decodes rediscovery activity URL state", () => {
+  const query = {
+    activity: { opened: "ever" as const, lastOpenedBefore: 100, lastOpenedAfter: 10, inactiveForMs: 30_000 },
+    sort: { by: "lastOpenedAt" as const, direction: "desc" as const },
+  };
+  const params = encodeKeepListQuery(query);
+  assert.deepEqual(decodeKeepListQuery(params), query);
 });
 
 test("encodes archive scopes and preserves the legacy archived URL parameter", () => {
@@ -575,6 +585,33 @@ test("supports every list filter, search field, sorting, and pagination boundary
   assert.deepEqual(queryKeepItems(items, { pagination: { pageSize: 1, page: 1 } }).items.length, 1);
 });
 
+test("filters and sorts activity for rediscovery", () => {
+  const now = Date.now();
+  const items = [
+    { ...itemA, id: "never" },
+    { ...itemB, id: "old", lastOpenedAt: now - 60_000 },
+    { ...itemA, id: "recent", lastOpenedAt: now - 1_000 },
+  ];
+  assert.deepEqual(
+    queryKeepItems(items, createRediscoveryQuery({ strategy: "never-opened" })).items.map((item) => item.id),
+    ["never"],
+  );
+  assert.deepEqual(
+    queryKeepItems(items, createRediscoveryQuery({ strategy: "recently-opened" })).items.map((item) => item.id),
+    ["recent", "old"],
+  );
+  assert.deepEqual(
+    queryKeepItems(items, createRediscoveryQuery({ strategy: "forgotten", inactiveForMs: 30_000 })).items.map(
+      (item) => item.id,
+    ),
+    ["never", "old"],
+  );
+  assert.deepEqual(
+    queryKeepItems(items, { activity: { lastOpenedAfter: now - 10_000 } }).items.map((item) => item.id),
+    ["recent"],
+  );
+});
+
 test("parses metadata with parse, safeParse, and Standard Schema contracts", async () => {
   assert.equal(await parseKeepMeta({ parse: (value) => String(value).trim() }, " value "), "value");
   assert.equal(await parseKeepMeta({ safeParse: (value) => ({ success: true, data: Number(value) }) }, "42"), 42);
@@ -870,9 +907,11 @@ test("accepts new backup fields and rejects malformed values while preserving le
     format: "keepkit",
     version: 1,
     exportedAt: 1,
-    items: [{ ...itemA, archived: true, pinned: false, collectionId: "read" }],
+    items: [{ ...itemA, archived: true, pinned: false, collectionId: "read", lastOpenedAt: 42 }],
   });
-  assert.equal((await importItems(storage, valid)).items[0]?.collectionId, "read");
+  const imported = await importItems(storage, valid);
+  assert.equal(imported.items[0]?.collectionId, "read");
+  assert.equal(imported.items[0]?.lastOpenedAt, 42);
   const legacy = JSON.stringify({ format: "keepkit", version: 1, exportedAt: 1, items: [itemA] });
   assert.equal((await importItems(storage, legacy)).items[0]?.id, "a");
   const malformed = JSON.stringify({
@@ -882,6 +921,13 @@ test("accepts new backup fields and rejects malformed values while preserving le
     items: [{ ...itemA, pinned: "yes" }],
   });
   await assert.rejects(() => importItems(storage, malformed), KeepBackupParseError);
+  const malformedActivity = JSON.stringify({
+    format: "keepkit",
+    version: 1,
+    exportedAt: 1,
+    items: [{ ...itemA, lastOpenedAt: "yesterday" }],
+  });
+  await assert.rejects(() => importItems(storage, malformedActivity), KeepBackupParseError);
 });
 
 test("rejects unknown and duplicate ids while preserving legacy order", () => {

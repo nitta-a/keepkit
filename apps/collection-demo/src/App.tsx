@@ -1,5 +1,6 @@
 import type { KeepItem } from "@keepkit/core/core";
 import {
+  KeepBackup,
   KeepButton,
   KeepCollection,
   KeepCollectionManager,
@@ -220,6 +221,15 @@ export function App() {
           showCounts
           empty="Create a collection, then assign saved resources to it from Advanced mode."
         />
+
+        <details className="storage-details">
+          <summary>Storage and backup</summary>
+          <p>
+            This demo stores items in this browser. Sync status is simulated and does not write to a remote service.
+          </p>
+          <p>Merge adds items from a backup; Replace replaces the current browser data.</p>
+          <KeepBackup<DemoMeta> />
+        </details>
 
         <section className="collection-section" aria-labelledby="collection-heading">
           <div className="section-heading">

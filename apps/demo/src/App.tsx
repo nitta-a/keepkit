@@ -1,17 +1,25 @@
 import type { KeepItem } from "@keepkit/core/core";
 import {
+  KeepBackup,
   KeepBulkActions,
   KeepButton,
   KeepCollection,
+  type KeepCollectionRevealRequest,
+  type KeepCollectionRevealResult,
   KeepEmptyState,
   KeepItemCard,
   KeepNoteEditor,
   KeepUndo,
 } from "@keepkit/ui";
+import { useEffect } from "react";
 import type { DemoMeta } from "./main";
 import { useAppView } from "./useAppView";
 
 type Content = KeepItem<DemoMeta> & { kindLabel: string };
+type AppProps = {
+  revealRequest?: KeepCollectionRevealRequest;
+  onRevealResult?: (result: KeepCollectionRevealResult) => void;
+};
 
 const content: Content[] = [
   {
@@ -72,7 +80,7 @@ const content: Content[] = [
   },
 ];
 
-export function App() {
+export function App({ revealRequest, onRevealResult }: AppProps) {
   const {
     isOnline,
     savedItemCount,
@@ -87,6 +95,10 @@ export function App() {
     openNoteId,
     setOpenNoteId,
   } = useAppView(content[0]);
+
+  useEffect(() => {
+    if (revealRequest) setIsManaging(false);
+  }, [revealRequest, setIsManaging]);
 
   return (
     <main className="shell">
@@ -183,6 +195,15 @@ export function App() {
           </div>
         </div>
 
+        <details className="storage-details">
+          <summary>Storage and backup</summary>
+          <p>
+            This demo stores items in this browser. Sync status is simulated and does not write to a remote service.
+          </p>
+          <p>Merge adds items from a backup; Replace replaces the current browser data.</p>
+          <KeepBackup<DemoMeta> />
+        </details>
+
         {isManaging ? (
           <div id="collection-manager" className="collection-manager">
             <p>Select the items you want to update or remove. Removed items can be restored with Undo.</p>
@@ -200,6 +221,8 @@ export function App() {
             loadingCount={6}
             pageSize={6}
             query={{ archived: showArchived, pinnedFirst: true }}
+            {...(revealRequest ? { revealRequest } : {})}
+            {...(onRevealResult ? { onRevealResult } : {})}
             collectionLabels={{ reading: "Reading", shopping: "Shopping", work: "Work" }}
             features={{ tagFilter: true, collectionFilter: true }}
             empty={

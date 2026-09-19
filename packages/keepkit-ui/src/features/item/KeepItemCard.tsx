@@ -21,6 +21,7 @@ import {
   useState,
 } from "react";
 import {
+  getErrorMessage,
   KeepHighlight,
   type RenderProp,
   renderRoot,
@@ -95,6 +96,8 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   asChild?: boolean;
   href?: string | ((item: KeepItem<TMeta>) => string | undefined);
   onOpen?: (item: KeepItem<TMeta>, event: MouseEvent<HTMLElement>) => void;
+  /** Records an open through KeepKit before invoking `onOpen`. */
+  trackOpen?: boolean;
   linkTarget?: "title" | "card";
   linkComponent?: ComponentType<KeepItemCardLinkProps>;
   linkTargetAttribute?: HTMLAttributeAnchorTarget;
@@ -180,6 +183,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   asChild = false,
   href: hrefOption,
   onOpen,
+  trackOpen = false,
   linkTarget = "title",
   linkComponent: LinkComponent,
   linkTargetAttribute,
@@ -220,7 +224,10 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
       href: view.href,
       target: view.resolvedLinkTarget,
       rel: view.resolvedLinkRel,
-      onClick: (event) => onOpen?.(item, event),
+      onClick: (event) => {
+        if (trackOpen) void view.itemState.recordOpen();
+        onOpen?.(item, event);
+      },
       children: content,
     };
     return LinkComponent ? <LinkComponent {...linkProps} /> : <a {...linkProps} />;
@@ -560,8 +567,4 @@ export function KeepItemCardSkeleton({ layout = "list", ...props }: KeepItemCard
 
 function formatSavedAt(timestamp: number): string {
   return new Date(timestamp).toISOString().slice(0, 10);
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
 }

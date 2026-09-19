@@ -9,6 +9,10 @@ export type KeepUrlParamNames = {
   archiveScope: string;
   collection: string;
   pinnedFirst: string;
+  activityOpened?: string;
+  lastOpenedBefore?: string;
+  lastOpenedAfter?: string;
+  inactiveForMs?: string;
 };
 
 export type KeepUrlSyncOptions = {
@@ -20,7 +24,7 @@ export type KeepUrlSyncOptions = {
   url?: string;
 };
 
-export const DEFAULT_KEEP_URL_PARAMS: KeepUrlParamNames = {
+export const DEFAULT_KEEP_URL_PARAMS: Required<KeepUrlParamNames> = {
   search: "q",
   tags: "tag",
   sort: "sort",
@@ -29,11 +33,15 @@ export const DEFAULT_KEEP_URL_PARAMS: KeepUrlParamNames = {
   archiveScope: "archiveScope",
   collection: "collection",
   pinnedFirst: "pinned",
+  activityOpened: "opened",
+  lastOpenedBefore: "openedBefore",
+  lastOpenedAfter: "openedAfter",
+  inactiveForMs: "inactiveFor",
 };
 
 export type KeepUrlState = Pick<
   KeepListQuery,
-  "search" | "tags" | "sort" | "pagination" | "archived" | "archiveScope" | "collectionId" | "pinnedFirst"
+  "search" | "tags" | "sort" | "pagination" | "archived" | "archiveScope" | "collectionId" | "pinnedFirst" | "activity"
 >;
 
 /** Convert a list query to stable URLSearchParams without serializing functions or unsupported filters. */
@@ -41,7 +49,7 @@ export function encodeKeepListQuery<TMeta = Record<string, unknown>>(
   query: KeepListQuery<TMeta> = {},
   options: Pick<KeepUrlSyncOptions, "params"> = {},
 ): URLSearchParams {
-  const params = { ...DEFAULT_KEEP_URL_PARAMS, ...options.params };
+  const params: Required<KeepUrlParamNames> = { ...DEFAULT_KEEP_URL_PARAMS, ...options.params };
   const result = new URLSearchParams();
   const search = query.search?.query?.trim();
   if (search) result.set(params.search, search);
@@ -56,6 +64,14 @@ export function encodeKeepListQuery<TMeta = Record<string, unknown>>(
   else if (query.archived !== undefined) result.set(params.archived, query.archived ? "true" : "false");
   if (query.collectionId) result.set(params.collection, query.collectionId);
   if (query.pinnedFirst) result.set(params.pinnedFirst, "true");
+  if (query.activity?.opened) result.set(params.activityOpened, query.activity.opened);
+  for (const [key, value] of [
+    [params.lastOpenedBefore, query.activity?.lastOpenedBefore],
+    [params.lastOpenedAfter, query.activity?.lastOpenedAfter],
+    [params.inactiveForMs, query.activity?.inactiveForMs],
+  ] as const) {
+    if (value !== undefined && Number.isFinite(value)) result.set(key, String(value));
+  }
   return result;
 }
 
@@ -64,7 +80,7 @@ export function decodeKeepListQuery(
   input: string | URL | URLSearchParams,
   options: Pick<KeepUrlSyncOptions, "params"> = {},
 ): KeepUrlState {
-  const params = { ...DEFAULT_KEEP_URL_PARAMS, ...options.params };
+  const params: Required<KeepUrlParamNames> = { ...DEFAULT_KEEP_URL_PARAMS, ...options.params };
   const searchParams = input instanceof URLSearchParams ? input : new URL(input, "http://keepkit.invalid").searchParams;
   const search = searchParams.get(params.search)?.trim();
   const tags = [
@@ -77,7 +93,7 @@ export function decodeKeepListQuery(
   ];
   const sortValue = searchParams.get(params.sort)?.split(":");
   const sort: KeepListQuery["sort"] =
-    sortValue?.[0] === "savedAt" || sortValue?.[0] === "updatedAt"
+    sortValue?.[0] === "savedAt" || sortValue?.[0] === "updatedAt" || sortValue?.[0] === "lastOpenedAt"
       ? {
           by: sortValue[0],
           direction: sortValue[1] === "asc" ? ("asc" as const) : ("desc" as const),
@@ -99,6 +115,30 @@ export function decodeKeepListQuery(
         : undefined;
   const collectionId = searchParams.get(params.collection)?.trim() || undefined;
   const pinnedFirst = searchParams.get(params.pinnedFirst) === "true" ? true : undefined;
+  const activityOpenedValue = searchParams.get(params.activityOpened);
+  const activityOpened: "ever" | "never" | undefined =
+    activityOpenedValue === "ever" || activityOpenedValue === "never" ? activityOpenedValue : undefined;
+  const parseActivityNumber = (name: string): number | undefined => {
+    const rawValue = searchParams.get(name);
+    if (rawValue === null || rawValue.trim() === "") return undefined;
+    const value = Number(rawValue);
+    return Number.isFinite(value) ? value : undefined;
+  };
+  const lastOpenedBefore = parseActivityNumber(params.lastOpenedBefore);
+  const lastOpenedAfter = parseActivityNumber(params.lastOpenedAfter);
+  const inactiveForMs = parseActivityNumber(params.inactiveForMs);
+  const activity =
+    activityOpened !== undefined ||
+    lastOpenedBefore !== undefined ||
+    lastOpenedAfter !== undefined ||
+    inactiveForMs !== undefined
+      ? {
+          ...(activityOpened === undefined ? {} : { opened: activityOpened }),
+          ...(lastOpenedBefore === undefined ? {} : { lastOpenedBefore }),
+          ...(lastOpenedAfter === undefined ? {} : { lastOpenedAfter }),
+          ...(inactiveForMs === undefined ? {} : { inactiveForMs }),
+        }
+      : undefined;
   return {
     ...(search ? { search: { query: search } } : {}),
     ...(tags.length > 0 ? { tags } : {}),
@@ -108,6 +148,7 @@ export function decodeKeepListQuery(
     ...(archiveScope === undefined ? {} : { archiveScope }),
     ...(collectionId ? { collectionId } : {}),
     ...(pinnedFirst ? { pinnedFirst } : {}),
+    ...(activity === undefined ? {} : { activity }),
   };
 }
 
@@ -134,5 +175,6 @@ export function mergeKeepListQueryFromUrl<TMeta = Record<string, unknown>>(
     pagination: decoded.pagination ? { ...query.pagination, ...decoded.pagination } : query.pagination,
     archived: decoded.archived ?? query.archived,
     archiveScope: decoded.archiveScope ?? query.archiveScope,
+    activity: decoded.activity ?? query.activity,
   };
 }

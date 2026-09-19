@@ -1,6 +1,11 @@
 "use client";
 
-export type { KeepListQuery } from "./features/items/query";
+export type {
+  KeepListQuery,
+  KeepRediscoveryOptions,
+  KeepRediscoveryStrategy,
+} from "./features/items/query";
+export { createRediscoveryQuery } from "./features/items/query";
 export type {
   KeepAutoRevalidationOptions,
   KeepItemMetadataRefresher,
@@ -36,5 +41,10 @@ export type { UseKeepListResult } from "./react/hooks/useKeepList";
 export { useKeepList } from "./react/hooks/useKeepList";
 export type { UseKeepNavigatorOptions, UseKeepNavigatorResult } from "./react/hooks/useKeepNavigator";
 export { useKeepNavigator } from "./react/hooks/useKeepNavigator";
+export type {
+  UseKeepRediscoveryOptions,
+  UseKeepRediscoveryResult,
+} from "./react/hooks/useKeepRediscovery";
+export { useKeepRediscovery } from "./react/hooks/useKeepRediscovery";
 export type { KeepShortcutModifier, KeepShortcutOptions } from "./react/hooks/useKeepShortcut";
 export { useKeepShortcut } from "./react/hooks/useKeepShortcut";

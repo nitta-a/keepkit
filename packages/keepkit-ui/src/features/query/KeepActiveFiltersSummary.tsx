@@ -11,7 +11,7 @@ import {
   type Ref,
   useRef,
 } from "react";
-import { type RenderProp, renderRoot } from "../../foundation/shared";
+import { normalizeUiTags, type RenderProp, renderRoot } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepActiveFiltersSummaryProps<TMeta = Record<string, unknown>> = Omit<
@@ -52,7 +52,7 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
   ...rootProps
 }: KeepActiveFiltersSummaryProps<TMeta>) {
   const search = (providedSearch ?? query?.search?.query ?? "").trim();
-  const tags = normalizeTags(providedTags ?? query?.tags ?? []);
+  const tags = normalizeUiTags(providedTags ?? query?.tags ?? []);
   const hasFilters = Boolean(search) || tags.length > 0;
   const activeFiltersLabel = useUiLabel("activeFilters");
   const showActiveFiltersLabel = useUiLabelVisibility("activeFilters");
@@ -169,10 +169,6 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
     body,
     "KeepActiveFiltersSummary",
   );
-}
-
-function normalizeTags(tags: readonly string[]): string[] {
-  return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
 }
 
 function isElement(value: unknown): value is ReactElement {

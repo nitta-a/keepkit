@@ -7,6 +7,7 @@ import {
   KeepStorageQuotaError,
   type StorageAdapter,
 } from "../features/items/types";
+import { isKeepItemArray, isRecord, mergeKeepItemLists, persistKeepItems } from "../features/persistence/helpers";
 import { createScopedStorageAdapter, getKeepScopeKey, type KeepScope } from "../features/persistence/scope";
 
 export const DEFAULT_STORAGE_KEY = "keepkit:items";
@@ -116,11 +117,13 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
 
   merge(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
     return this.execute(async (adapter) => {
-      const merged = adapter.merge ? await adapter.merge(localItems) : await mergeItems(adapter, localItems);
+      const merged = adapter.merge
+        ? await adapter.merge(localItems)
+        : mergeKeepItemLists(await adapter.getAll(), localItems);
+      if (!adapter.merge) await persistKeepItems(adapter, merged);
       if (this.active === "primary" && this.mirrorWrites) {
         try {
-          if (this.fallback.setMany) await this.fallback.setMany(merged);
-          else for (const item of merged) await this.fallback.set(item);
+          await persistKeepItems(this.fallback, merged);
         } catch {
           // The fallback is best-effort while the primary is healthy.
         }
@@ -158,8 +161,7 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
     const fallbackItems = await this.fallback.getAll();
     if (fallbackItems.length === 0) return items;
     try {
-      if (this.primary.setMany) await this.primary.setMany(fallbackItems);
-      else for (const item of fallbackItems) await this.primary.set(item);
+      await persistKeepItems(this.primary, fallbackItems);
       return fallbackItems;
     } catch (error) {
       if (!this.shouldFallback(error)) throw error;
@@ -265,22 +267,6 @@ export function createStorageAdapter<TMeta = Record<string, unknown>>(
 export type { KeepScope } from "../features/persistence/scope";
 export { createScopedStorageAdapter, ScopedStorageAdapter } from "../features/persistence/scope";
 
-async function mergeItems<TMeta>(
-  adapter: StorageAdapter<TMeta>,
-  localItems: KeepItem<TMeta>[],
-): Promise<KeepItem<TMeta>[]> {
-  const remoteItems = await adapter.getAll();
-  const byId = new Map(remoteItems.map((item) => [item.id, item]));
-  for (const item of localItems) {
-    const current = byId.get(item.id);
-    if (!current || item.updatedAt > current.updatedAt) byId.set(item.id, item);
-  }
-  const merged = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
-  if (adapter.setMany) await adapter.setMany(merged);
-  else for (const item of merged) await adapter.set(item);
-  return merged;
-}
-
 /** An async StorageAdapter backed by browser localStorage. */
 export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements StorageAdapter<TMeta> {
   public readonly storageKey: string;
@@ -364,17 +350,7 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
   }
 
   async merge(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
-    const remoteItems = await this.getAll();
-    const byId = new Map(remoteItems.map((item) => [item.id, item]));
-
-    for (const localItem of localItems) {
-      const remoteItem = byId.get(localItem.id);
-      if (!remoteItem || localItem.updatedAt > remoteItem.updatedAt) {
-        byId.set(localItem.id, localItem);
-      }
-    }
-
-    const merged = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+    const merged = mergeKeepItemLists(await this.getAll(), localItems);
     this.write(merged, "merge");
     return merged;
   }
@@ -499,13 +475,7 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
 
   async merge(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
     try {
-      const remoteItems = await this.getAll();
-      const byId = new Map(remoteItems.map((item) => [item.id, item]));
-      for (const localItem of localItems) {
-        const remoteItem = byId.get(localItem.id);
-        if (!remoteItem || localItem.updatedAt > remoteItem.updatedAt) byId.set(localItem.id, localItem);
-      }
-      const merged = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+      const merged = mergeKeepItemLists(await this.getAll(), localItems);
       await this.setMany(merged);
       return merged;
     } catch (cause) {
@@ -555,55 +525,6 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
       throw new KeepStorageAccessError({ operation, storageKey: this.storageKey, cause });
     });
   }
-}
-
-function isKeepItemArray(value: unknown): value is KeepItem[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (item) =>
-        isRecord(item) &&
-        typeof item.id === "string" &&
-        typeof item.savedAt === "number" &&
-        Number.isFinite(item.savedAt) &&
-        typeof item.updatedAt === "number" &&
-        Number.isFinite(item.updatedAt) &&
-        "meta" in item &&
-        (item.order === undefined || (typeof item.order === "number" && Number.isFinite(item.order))) &&
-        (item.archived === undefined || typeof item.archived === "boolean") &&
-        (item.pinned === undefined || typeof item.pinned === "boolean") &&
-        (item.collectionId === undefined || typeof item.collectionId === "string") &&
-        (item.targetType === undefined || typeof item.targetType === "string") &&
-        (item.note === undefined || typeof item.note === "string") &&
-        (item.schemaVersion === undefined ||
-          (typeof item.schemaVersion === "number" && Number.isFinite(item.schemaVersion))) &&
-        (item.revision === undefined || typeof item.revision === "string") &&
-        (item.metaUpdatedAt === undefined ||
-          (typeof item.metaUpdatedAt === "number" && Number.isFinite(item.metaUpdatedAt))) &&
-        (item.status === undefined ||
-          item.status === "available" ||
-          item.status === "expired" ||
-          item.status === "removed" ||
-          item.status === "deleted" ||
-          item.status === "private" ||
-          item.status === "unknown") &&
-        (item.statusReason === undefined || typeof item.statusReason === "string") &&
-        (item.scope === undefined || isSyncScope(item.scope)) &&
-        (item.tags === undefined || (Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string"))),
-    )
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isSyncScope(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    (value.userId === undefined || typeof value.userId === "string") &&
-    (value.tenantId === undefined || typeof value.tenantId === "string")
-  );
 }
 
 function getBrowserStorage(): Storage | undefined {

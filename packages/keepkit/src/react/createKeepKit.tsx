@@ -7,6 +7,11 @@ import { type UseKeepCollectionsResult, useKeepCollections } from "./hooks/useKe
 import { type UseKeepItemResult, useKeepItem } from "./hooks/useKeepItem";
 import { type UseKeepListResult, useKeepList } from "./hooks/useKeepList";
 import { type UseKeepNavigatorOptions, type UseKeepNavigatorResult, useKeepNavigator } from "./hooks/useKeepNavigator";
+import {
+  type UseKeepRediscoveryOptions,
+  type UseKeepRediscoveryResult,
+  useKeepRediscovery,
+} from "./hooks/useKeepRediscovery";
 import { type KeepShortcutOptions, useKeepShortcut } from "./hooks/useKeepShortcut";
 
 export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children">;
@@ -18,6 +23,7 @@ export type KeepKit<TMeta> = {
   useItem: (item?: KeepItemInput<TMeta>) => UseKeepItemResult<TMeta>;
   useCollections: (options?: { targetType?: string; orderBy?: "name" | "count" }) => UseKeepCollectionsResult;
   useList: (query?: KeepListQuery<TMeta>) => UseKeepListResult<TMeta>;
+  useRediscovery: (options: UseKeepRediscoveryOptions) => UseKeepRediscoveryResult<TMeta>;
   useNavigator: (options?: UseKeepNavigatorOptions<TMeta>) => UseKeepNavigatorResult<TMeta>;
   useShortcut: (options: KeepShortcutOptions<TMeta>) => void;
 };
@@ -33,6 +39,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     useItem: (item) => useKeepItem<TMeta>(item),
     useCollections: (collectionsOptions) => useKeepCollections<TMeta>(collectionsOptions),
     useList: (query) => useKeepList<TMeta>(query),
+    useRediscovery: (rediscoveryOptions) => useKeepRediscovery<TMeta>(rediscoveryOptions),
     useNavigator: (navigatorOptions) => useKeepNavigator<TMeta>(navigatorOptions),
     useShortcut: (shortcutOptions) => useKeepShortcut<TMeta>(shortcutOptions),
   };

@@ -30,6 +30,8 @@ const list = useKeepList({
 
 `KeepListQuery`は`targetType`、`tags`、`search`、`sort`、`pagination`、`filter`、`savedBetween`で構成されます。`queryKeepItems`はReactなしで同じ条件を適用できます。
 
+再発見には`useKeepItem(item).recordOpen()`で`lastOpenedAt`を記録し、`activity`の`opened`、`lastOpenedBefore`、`lastOpenedAfter`、`inactiveForMs`で絞り込めます。`createRediscoveryQuery()`は`never-opened`、`forgotten`、`recently-opened`のCore向けプリセットを提供し、`useKeepRediscovery()`はReact向けの一覧hookです。
+
 保存順を巡回ルートとして管理する場合は、`reorderKeepItems` / `moveKeepItem`、Reactでは`useKeepNavigator`と`useKeepList().reorder()` / `.move()`を利用できます。`getKeepNavigationState`は現在・前・次のアイテムと進行度を返します。
 
 `@keepkit/core/core`はフレームワーク中立、`@keepkit/core/react`はReact、`@keepkit/core/storage`はlocalStorage、IndexedDB、fallback、同期adapter、`@keepkit/core/schema`はschema処理を公開します。パッケージルートにはexportがありません。
@@ -38,7 +40,7 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.28.0では、UIパッケージにレイアウト領域を消費しないフローティング巡回UIを追加しました。coreでは既存の保存順プレイリスト、`useKeepNavigator`、`reorderKeepItems` / `moveKeepItem`、URL状態codec、ユーザー／テナント分離、`createKeepKitPreset`、認証付き同期を引き続き利用できます。
+v0.28.1では、利用履歴とRediscovery queryを追加しました。UIパッケージのフローティング巡回UI、保存順プレイリスト、URL状態codec、ユーザー／テナント分離、認証付き同期も引き続き利用できます。
 
 `createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
@@ -75,6 +77,8 @@ const list = useKeepList({
 
 `KeepItemInput` contains `id`, `meta`, `targetType`, `note`, `tags`, and the optional persisted `order`. KeepKit owns persistence timestamps and tag normalization. `KeepListQuery` uses the canonical `targetType`, `tags`, `search`, `sort`, `pagination`, `filter`, and `savedBetween` fields.
 
+For rediscovery, call `useKeepItem(item).recordOpen()` to persist `lastOpenedAt`, then filter with `activity.opened`, `lastOpenedBefore`, `lastOpenedAfter`, or `inactiveForMs`. `createRediscoveryQuery()` provides framework-neutral `never-opened`, `forgotten`, and `recently-opened` presets, while `useKeepRediscovery()` provides the React list hook.
+
 Use `reorderKeepItems` / `moveKeepItem` for framework-neutral route ordering, or `useKeepNavigator` with `useKeepList().reorder()` / `.move()` in React. `getKeepNavigationState` returns the current, previous, next, and progress state.
 
 Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for React bindings, `@keepkit/core/storage` for browser/fallback/sync adapters, and `@keepkit/core/schema` for schema validation. The package root has no export.
@@ -83,7 +87,7 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-v0.28.0 adds a portal-rendered floating tour UI in the UI package. Core continues to provide persisted playlist ordering with `useKeepNavigator`, `reorderKeepItems`, and `moveKeepItem`, URL state codecs, user/tenant isolation, `createKeepKitPreset({ mode: "local" | "sync" | "backup" })`, and token-aware authenticated sync.
+v0.28.1 adds activity tracking and Rediscovery queries. The UI package's floating tour UI and Core's persisted playlist ordering, URL state codecs, user/tenant isolation, setup presets, and token-aware authenticated sync remain available.
 
 `createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 

@@ -16,6 +16,8 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
   archived?: boolean;
   /** Whether the item should be shown before unpinned items. */
   pinned?: boolean;
+  /** Timestamp for the last time the saved item was opened. */
+  lastOpenedAt?: number;
   /** Optional derived collection identifier. */
   collectionId?: string;
   targetType?: string;
@@ -69,6 +71,7 @@ export type KeepAction =
   | "updateTagsBatch"
   | "archive"
   | "pin"
+  | "open"
   | "collection"
   | "revalidate"
   | "remove"

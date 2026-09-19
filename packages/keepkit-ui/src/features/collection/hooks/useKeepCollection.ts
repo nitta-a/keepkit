@@ -1,6 +1,6 @@
-import type { KeepListQuery, KeepUrlSyncOptions } from "@keepkit/core/core";
+import type { KeepItem, KeepListQuery, KeepUrlSyncOptions } from "@keepkit/core/core";
 import { useKeepList } from "@keepkit/core/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { type KeepUrlAdapter, useKeepUrlSync } from "../../../adapters/url-sync";
 import { sortToValue } from "../../../foundation/shared";
 import type { KeepArchiveScope } from "../../query/KeepArchiveScopeSelect";
@@ -41,6 +41,7 @@ export function useKeepCollection<TMeta>({
   const [sort, setSort] = useState(query.sort ?? { by: "updatedAt" as const, direction: "desc" as const });
   const [activeTags, setActiveTags] = useState<string[]>(query.tags ?? []);
   const [activeCollection, setActiveCollection] = useState<string | undefined>(query.collectionId);
+  const [activeActivity, setActiveActivity] = useState(query.activity);
   const [page, setPage] = useState(query.pagination?.page ?? 1);
   const [activeArchiveScope, setActiveArchiveScope] = useState<KeepArchiveScope>(
     archiveScope ?? query.archiveScope ?? scopeFromArchived(query.archived),
@@ -52,6 +53,7 @@ export function useKeepCollection<TMeta>({
   const resolvedQuery = useMemo<KeepListQuery<TMeta>>(
     () => ({
       ...query,
+      activity: activeActivity,
       archiveScope: activeArchiveScope,
       archived: activeArchiveScope === "active" ? false : activeArchiveScope === "archived" ? true : undefined,
       search: enabled.search ? { ...query.search, query: searchValue } : query.search,
@@ -66,6 +68,7 @@ export function useKeepCollection<TMeta>({
     }),
     [
       activeCollection,
+      activeActivity,
       activeTags,
       enabled.pagination,
       enabled.search,
@@ -87,6 +90,7 @@ export function useKeepCollection<TMeta>({
       setSort(next.sort ?? { by: "updatedAt", direction: "desc" });
       setActiveTags(next.tags ?? []);
       setActiveCollection(next.collectionId);
+      setActiveActivity(next.activity);
       setActiveArchiveScope(next.archiveScope ?? scopeFromArchived(next.archived));
       setPage(next.pagination?.page ?? 1);
     },
@@ -95,6 +99,32 @@ export function useKeepCollection<TMeta>({
   });
   const list = useKeepList<TMeta>(resolvedQuery);
   const allState = useKeepList<TMeta>({ archiveScope: "all" });
+
+  const reveal = useCallback(
+    (itemId: string): "visible" | "not-found" | "excluded" => {
+      const target = allState.items.find((item) => item.id === itemId);
+      if (!target) return "not-found";
+      if (query.targetType !== undefined && target.targetType !== query.targetType) return "excluded";
+      if (query.filter && !query.filter(target)) return "excluded";
+      const candidates = allState.items
+        .filter(
+          (item) =>
+            (query.targetType === undefined || item.targetType === query.targetType) &&
+            (!query.filter || query.filter(item)),
+        )
+        .filter((item) => (target.archived === true ? item.archived === true : item.archived !== true))
+        .sort((a, b) => compareItems(a, b, sort, query.pinnedFirst));
+      const index = candidates.findIndex((item) => item.id === itemId);
+      if (index < 0) return "excluded";
+      setSearchValue("");
+      setActiveTags([]);
+      setActiveCollection(undefined);
+      setActiveArchiveScope(target.archived === true ? "archived" : "active");
+      setPage(Math.floor(index / resolvedPageSize) + 1);
+      return "visible";
+    },
+    [allState.items, query, resolvedPageSize, sort],
+  );
 
   return {
     enabled,
@@ -138,7 +168,24 @@ export function useKeepCollection<TMeta>({
       setPage(1);
     },
     setPage,
+    reveal,
   };
+}
+
+function compareItems<TMeta>(
+  a: KeepItem<TMeta>,
+  b: KeepItem<TMeta>,
+  sort: NonNullable<KeepListQuery<TMeta>["sort"]>,
+  pinnedFirst?: boolean,
+): number {
+  if (pinnedFirst && a.pinned !== b.pinned) return a.pinned === true ? -1 : 1;
+  const aValue = sort.by === "savedAt" ? a.savedAt : sort.by === "updatedAt" ? a.updatedAt : a.lastOpenedAt;
+  const bValue = sort.by === "savedAt" ? b.savedAt : sort.by === "updatedAt" ? b.updatedAt : b.lastOpenedAt;
+  const direction = sort.direction === "asc" ? 1 : -1;
+  if (aValue === undefined && bValue === undefined) return 0;
+  if (aValue === undefined) return 1;
+  if (bValue === undefined) return -1;
+  return (aValue - bValue) * direction;
 }
 
 function scopeFromArchived(archived?: boolean): KeepArchiveScope {

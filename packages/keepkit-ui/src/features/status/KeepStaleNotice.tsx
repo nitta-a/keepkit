@@ -2,6 +2,7 @@
 
 import type { KeepItem, KeepItemStatus } from "@keepkit/core/core";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
+import { getErrorMessage } from "../../foundation/shared";
 import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { KeepItemStatusBadge } from "../item/KeepItemStatusBadge";
 import { useKeepPruneStale, useKeepStaleNotice } from "./hooks/useKeepStaleNotice";
@@ -54,7 +55,7 @@ export function KeepStaleNotice<TMeta = Record<string, unknown>>({
           {showRemoveLabel ? (removeLabel ?? view.labels.remove) : null}
         </button>
       </div>
-      {view.error ? <p role="alert">{view.error instanceof Error ? view.error.message : view.labels.error}</p> : null}
+      {view.error ? <p role="alert">{getErrorMessage(view.error, view.labels.error)}</p> : null}
     </aside>
   );
 }

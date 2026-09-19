@@ -38,6 +38,7 @@ import {
   KeepProvider,
   KeepPruneStaleButton,
   KeepQuickEditor,
+  KeepRediscovery,
   KeepReorderableList,
   KeepSavePopover,
   KeepSearchInput,
@@ -1493,6 +1494,45 @@ test("links available card titles and blocks unavailable card links", async () =
   expect(screen.queryByRole("link", { name: "Second interaction item" })).toBeNull();
   expect(screen.getByText("Expired")).not.toBeNull();
   expect(screen.getByText("Second interaction item").getAttribute("aria-disabled")).toBe("true");
+});
+
+test("tracks card opens without replacing the consumer callback", async () => {
+  const storage = createStorage([item]);
+  const onOpen = vi.fn();
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepItemCard item={item} href="/items/ui-interaction-item" onOpen={onOpen} trackOpen />
+    </KeepProvider>,
+  );
+
+  fireEvent.click(await screen.findByRole("link", { name: "Interaction item" }));
+  expect(onOpen).toHaveBeenCalledOnce();
+  await waitFor(async () => expect((await storage.getAll())[0]?.lastOpenedAt).toEqual(expect.any(Number)));
+});
+
+test("renders Rediscovery as a capped list with open tracking by default", async () => {
+  const storage = createStorage([item, { ...secondItem, lastOpenedAt: 1 }]);
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <KeepRediscovery strategy="never-opened" limit={1} itemCardProps={{ href: (entry) => `/items/${entry.id}` }} />
+    </KeepProvider>,
+  );
+
+  expect((await screen.findAllByRole("link")).length).toBe(1);
+  fireEvent.click(screen.getByRole("link", { name: "Interaction item" }));
+  await waitFor(async () => expect((await storage.getAll())[0]?.lastOpenedAt).toEqual(expect.any(Number)));
+});
+
+test("restores activity filters from a collection URL", async () => {
+  const urlAdapter = { getUrl: () => "http://keepkit.test/items?opened=never", navigate: vi.fn() };
+  render(
+    <KeepProvider<Meta> storage={createStorage([{ ...item, lastOpenedAt: 1 }, secondItem])}>
+      <KeepCollection urlSync urlAdapter={urlAdapter} features={{ search: false, sort: false, pagination: false }} />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Second interaction item" })).not.toBeNull();
+  expect(screen.queryByRole("heading", { name: "Interaction item" })).toBeNull();
 });
 
 test("adds safe defaults for external detail links and exposes removed status", async () => {

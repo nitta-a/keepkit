@@ -2,6 +2,7 @@
 
 import type { ImportItemsResult } from "@keepkit/core/core";
 import type { HTMLAttributes } from "react";
+import { getErrorMessage } from "../../foundation/shared";
 import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepBackup } from "./hooks/useKeepBackup";
 
@@ -74,7 +75,9 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
         </p>
       ) : null}
       {view.error ? (
-        <p role="alert">{isQuotaError(view.error) ? view.labels.quotaError : getErrorMessage(view.error)}</p>
+        <p role="alert">
+          {isQuotaError(view.error) ? view.labels.quotaError : getErrorMessage(view.error, "Something went wrong.")}
+        </p>
       ) : null}
     </section>
   );
@@ -84,8 +87,4 @@ function isQuotaError(error: unknown): boolean {
   if (error instanceof Error && error.name === "KeepStorageQuotaError") return true;
   if (error && typeof error === "object" && "cause" in error) return isQuotaError(error.cause);
   return false;
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong.";
 }

@@ -2,7 +2,7 @@
 
 import type { KeepItem, KeepListQuery, KeepUrlSyncOptions } from "@keepkit/core/core";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "@keepkit/core/react";
-import { type HTMLAttributes, type ReactNode, useEffect, useId, useState } from "react";
+import { type HTMLAttributes, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import type { KeepUrlAdapter } from "../../adapters/url-sync";
 import { hasRenderableContent, type RenderProp, resolveContent } from "../../foundation/shared";
 import { useUiLabel } from "../../foundation/ui-context";
@@ -39,6 +39,12 @@ export type KeepCollectionSlots<TMeta = Record<string, unknown>> = {
   toolbarStart?: KeepCollectionToolbarContent<TMeta>;
   toolbarEnd?: KeepCollectionToolbarContent<TMeta>;
 };
+export type KeepCollectionRevealRequest = { requestId: number; itemId: string };
+export type KeepCollectionRevealResult = {
+  requestId: number;
+  itemId: string;
+  status: "visible" | "not-found" | "excluded";
+};
 
 export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   query?: KeepListQuery<TMeta>;
@@ -73,6 +79,9 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   fallback?: KeepErrorBoundaryProps["fallback"];
   onBoundaryError?: KeepErrorBoundaryProps["onError"];
   boundaryResetKey?: unknown;
+  /** Requests the collection to clear local filters and reveal an item. */
+  revealRequest?: KeepCollectionRevealRequest;
+  onRevealResult?: (result: KeepCollectionRevealResult) => void;
 };
 
 /** A batteries-included collection with query controls and accessible status feedback. */
@@ -111,10 +120,19 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   activeFilters,
   empty,
   error,
+  revealRequest,
+  onRevealResult,
   className,
   ...rootProps
 }: Omit<KeepCollectionProps<TMeta>, "fallback" | "onBoundaryError" | "boundaryResetKey">) {
   const view = useKeepCollection<TMeta>({ query, pageSize, urlSync, urlAdapter, features, archiveScope });
+  const revealRequestId = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!revealRequest || revealRequestId.current === revealRequest.requestId) return;
+    revealRequestId.current = revealRequest.requestId;
+    const status = view.reveal(revealRequest.itemId);
+    onRevealResult?.({ ...revealRequest, status });
+  }, [onRevealResult, revealRequest, view.reveal]);
   const [reorderUndoIds, setReorderUndoIds] = useState<string[] | null>(null);
   const reorderUndoLabel = useUiLabel("undoReorder");
   const handleReorder = async (orderedIds: string[]) => {

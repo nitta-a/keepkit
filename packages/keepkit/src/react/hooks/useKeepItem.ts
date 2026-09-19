@@ -11,6 +11,7 @@ export type UseKeepItemResult<TMeta = Record<string, unknown>> = {
   isMutating: boolean;
   error: unknown | null;
   save: () => Promise<void>;
+  recordOpen: (openedAt?: number) => Promise<void>;
   remove: () => Promise<void>;
   removeWithUndo: () => Promise<void>;
   undo: () => Promise<void>;
@@ -61,6 +62,7 @@ export function useKeepItem<TMeta = Record<string, unknown>>(input?: KeepItemInp
   }, [actions, currentOrder, input, item?.savedAt]);
 
   const remove = useCallback(() => actions.removeItem(id), [actions, id]);
+  const recordOpen = useCallback((openedAt?: number) => actions.recordOpen(id, openedAt), [actions, id]);
   const removeWithUndo = useCallback(() => actions.removeItemWithUndo(id), [actions, id]);
   const toggle = useCallback(() => (item ? remove() : save()), [item, remove, save]);
   const updateNote = useCallback((note?: string) => actions.updateNote(id, note), [actions, id]);
@@ -85,6 +87,7 @@ export function useKeepItem<TMeta = Record<string, unknown>>(input?: KeepItemInp
     isMutating,
     error,
     save,
+    recordOpen,
     remove,
     removeWithUndo,
     undo: actions.undoLastRemoval,
