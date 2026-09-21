@@ -1,5 +1,23 @@
 # Release notes
 
+## [0.28.2] - 2026-09-21
+
+### 日本語
+
+#### 改善
+
+- `KeepActiveFiltersSummary` が検索、タグ、コレクション、Activity、アーカイブ範囲、結果件数を表示できるようにしました。
+- 各フィルターを個別に解除でき、「すべての条件をクリア」で初期 query 状態へ戻せるようにしました。
+- Activity フィルターの表示文言を16ロケールへ追加しました。
+
+### English
+
+#### Improved
+
+- `KeepActiveFiltersSummary` now exposes search, tag, collection, activity, archive-scope, and result-count state.
+- Individual filters can be removed, and “Clear all filters” restores the initial query state.
+- Added activity-filter labels across all 16 built-in locales.
+
 ## [0.28.0] - 2026-09-14
 
 ### 日本語

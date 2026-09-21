@@ -207,6 +207,13 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   const toolbarQueryLabel = useUiLabel("toolbarQuery");
   const toolbarFiltersLabel = useUiLabel("toolbarFilters");
   const toolbarEndLabel = useUiLabel("toolbarEnd");
+  const uncategorizedLabel = useUiLabel("uncategorized");
+  const activeCollectionLabel =
+    view.activeCollection === "__uncategorized__"
+      ? uncategorizedLabel
+      : view.activeCollection === undefined
+        ? undefined
+        : (collectionLabels?.[view.activeCollection] ?? view.activeCollection);
   const toolbarStartContent = slots?.toolbarStart === undefined ? null : resolveContent(slots.toolbarStart, view.list);
   const creatableContent = creatable ? <KeepCollectionCreate /> : null;
   const toolbarEndContent =
@@ -265,8 +272,19 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         <KeepActiveFiltersSummary<TMeta>
           search={view.searchValue}
           tags={view.activeTags}
+          collection={view.activeCollection}
+          collectionLabel={activeCollectionLabel}
+          activity={view.activity}
+          archiveScope={view.archiveScope}
+          totalCount={view.list.totalCount}
           onSearchChange={view.setSearchValue}
           onTagChange={view.removeTag}
+          onCollectionChange={view.setCollection}
+          onActivityChange={view.setActivity}
+          onArchiveScopeChange={(next) => {
+            view.setArchiveScope(next);
+            onArchiveScopeChange?.(next);
+          }}
           onClear={view.clearFilters}
         />
       ) : (

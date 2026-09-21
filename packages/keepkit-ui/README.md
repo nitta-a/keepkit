@@ -109,7 +109,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.1では、利用履歴とRediscovery query、カード開封追跡を追加しました。レイアウト領域を消費しないPortalベースのフローティング巡回UI、Tailwind CSS v4との統合、ホストテーマ変数との衝突回避も引き続き利用できます。
+v0.28.2では、利用履歴とRediscovery query、カード開封追跡に加えて、検索・タグ・コレクション・Activity・アーカイブ条件を表示して個別解除できるフィルターサマリーを追加しました。レイアウト領域を消費しないPortalベースのフローティング巡回UI、Tailwind CSS v4との統合、ホストテーマ変数との衝突回避も引き続き利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -250,7 +250,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.1 adds activity tracking, Rediscovery queries, and opt-in card open tracking. The portal-rendered floating tour UI, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
+v0.28.2 adds activity tracking, Rediscovery queries, opt-in card open tracking, and a complete active-filter summary with removal and result-count feedback. The portal-rendered floating tour UI, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme

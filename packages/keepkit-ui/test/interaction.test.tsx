@@ -329,6 +329,56 @@ test("removes individual active filters and clears all filters", () => {
   expect(screen.queryByRole("button", { name: "すべての条件をクリア" })).toBeNull();
 });
 
+test("shows and removes collection, activity, and archive filters with the result count", () => {
+  const onCollectionChange = vi.fn();
+  const onActivityChange = vi.fn();
+  const onArchiveScopeChange = vi.fn();
+  render(
+    <KeepUiProvider locale="ja">
+      <KeepActiveFiltersSummary
+        collection="reading"
+        collectionLabel="Reading"
+        activity={{ inactiveForMs: 30 * 24 * 60 * 60 * 1000 }}
+        archiveScope="archived"
+        totalCount={12}
+        onCollectionChange={onCollectionChange}
+        onActivityChange={onActivityChange}
+        onArchiveScopeChange={onArchiveScopeChange}
+      />
+    </KeepUiProvider>,
+  );
+
+  expect(screen.getByText("Reading")).not.toBeNull();
+  expect(screen.getByText("30日間未閲覧")).not.toBeNull();
+  expect(screen.getByText("アーカイブ済み")).not.toBeNull();
+  expect(screen.getByText(/12\s*件/)).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Reading を解除" }));
+  fireEvent.click(screen.getByRole("button", { name: "30日間未閲覧 を解除" }));
+  fireEvent.click(screen.getByRole("button", { name: "アーカイブ済み を解除" }));
+  expect(onCollectionChange).toHaveBeenCalledWith(undefined);
+  expect(onActivityChange).toHaveBeenCalledWith(undefined);
+  expect(onArchiveScopeChange).toHaveBeenCalledWith("active");
+});
+
+test("clears URL-restored activity and archive filters", async () => {
+  const urlAdapter = {
+    getUrl: () => "http://keepkit.test/items?q=react&opened=never&archiveScope=archived",
+    navigate: vi.fn(),
+  };
+  render(
+    <KeepUiProvider locale="ja">
+      <KeepProvider<Meta> storage={createStorage([{ ...item, archived: true }])}>
+        <KeepCollection urlSync urlAdapter={urlAdapter} features={{ search: false, sort: false, pagination: false }} />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+
+  await waitFor(() => expect(screen.getByText("未閲覧")).not.toBeNull());
+  expect(screen.getByText("アーカイブ済み")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "すべての条件をクリア" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "すべての条件をクリア" })).toBeNull());
+});
+
 test("configures label text and visibility without removing the accessible name", () => {
   render(
     <KeepUiProvider

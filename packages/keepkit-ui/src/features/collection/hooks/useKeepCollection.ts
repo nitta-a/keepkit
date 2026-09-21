@@ -132,6 +132,7 @@ export function useKeepCollection<TMeta>({
     sortValue: sortToValue(sort),
     activeTags,
     activeCollection,
+    activity: activeActivity,
     archiveScope: activeArchiveScope,
     resolvedPageSize,
     resolvedQuery,
@@ -153,6 +154,10 @@ export function useKeepCollection<TMeta>({
       setActiveCollection(value);
       setPage(1);
     },
+    setActivity: (value?: KeepListQuery<TMeta>["activity"]) => {
+      setActiveActivity(value);
+      setPage(1);
+    },
     setArchiveScope: (value: KeepArchiveScope) => {
       setActiveArchiveScope(value);
       setPage(1);
@@ -162,10 +167,12 @@ export function useKeepCollection<TMeta>({
       setPage(1);
     },
     clearFilters: () => {
-      setSearchValue("");
-      setActiveTags([]);
-      setActiveCollection(undefined);
-      setPage(1);
+      setSearchValue(query.search?.query ?? "");
+      setActiveTags(query.tags ?? []);
+      setActiveCollection(query.collectionId);
+      setActiveActivity(query.activity);
+      setActiveArchiveScope(archiveScope ?? query.archiveScope ?? scopeFromArchived(query.archived));
+      setPage(query.pagination?.page ?? 1);
     },
     setPage,
     reveal,
