@@ -36,6 +36,11 @@ export type UseKeepListResult<TMeta = Record<string, unknown>> = {
   unarchive: (id: string) => Promise<void>;
   togglePin: (id: string) => Promise<void>;
   moveToCollection: (id: string, collectionId?: string) => Promise<void>;
+  archiveBatch: (ids: string[]) => Promise<void>;
+  unarchiveBatch: (ids: string[]) => Promise<void>;
+  pinBatch: (ids: string[]) => Promise<void>;
+  unpinBatch: (ids: string[]) => Promise<void>;
+  moveToCollectionBatch: (ids: string[], collectionId?: string) => Promise<void>;
   addTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   removeTagsBatch: (ids: string[], tags: string[]) => Promise<void>;
   reorder: (orderedIds: string[]) => Promise<void>;
@@ -57,6 +62,7 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     activity,
     archived,
     collectionId,
+    organization,
     filter,
     pagination,
     pinnedFirst,
@@ -72,6 +78,7 @@ export function useKeepList<TMeta = Record<string, unknown>>(
       activity,
       archived,
       collectionId,
+      organization,
       filter,
       pagination,
       pinnedFirst,
@@ -86,6 +93,7 @@ export function useKeepList<TMeta = Record<string, unknown>>(
       activity,
       archived,
       collectionId,
+      organization,
       filter,
       pagination,
       pinnedFirst,
@@ -156,6 +164,14 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     (id: string, collectionId?: string) => actions.moveToCollection(id, collectionId),
     [actions],
   );
+  const archiveBatch = useCallback((ids: string[]) => actions.archiveBatch(ids), [actions]);
+  const unarchiveBatch = useCallback((ids: string[]) => actions.unarchiveBatch(ids), [actions]);
+  const pinBatch = useCallback((ids: string[]) => actions.pinBatch(ids), [actions]);
+  const unpinBatch = useCallback((ids: string[]) => actions.unpinBatch(ids), [actions]);
+  const moveToCollectionBatch = useCallback(
+    (ids: string[], collectionId?: string) => actions.moveToCollectionBatch(ids, collectionId),
+    [actions],
+  );
 
   return {
     items: result.items,
@@ -184,6 +200,11 @@ export function useKeepList<TMeta = Record<string, unknown>>(
     unarchive,
     togglePin,
     moveToCollection,
+    archiveBatch,
+    unarchiveBatch,
+    pinBatch,
+    unpinBatch,
+    moveToCollectionBatch,
     reorder: actions.reorderItems,
     move: actions.moveItem,
     clear: actions.clear,

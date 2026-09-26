@@ -6,6 +6,7 @@ import {
   KeepCollectionManager,
   KeepEmptyState,
   KeepFloatingTour,
+  KeepInbox,
   KeepQuickEditor,
   KeepTourProvider,
   useKeepList,
@@ -131,6 +132,7 @@ function AdvancedCollection() {
           tagFilter: true,
           collectionFilter: true,
           bulkActions: true,
+          savedViews: true,
           tags: true,
           pin: true,
           archive: true,
@@ -221,6 +223,21 @@ export function App() {
           showCounts
           empty="Create a collection, then assign saved resources to it from Advanced mode."
         />
+
+        <details className="storage-details">
+          <summary>Inbox and saved views</summary>
+          <p>Save this uncategorized example, then assign a collection or add a note and tags from the Inbox.</p>
+          <KeepButton
+            item={{ id: "inbox-triage-example", targetType: "article", meta: { title: "Inbox triage example" } }}
+            savedLabel="Saved to Inbox"
+            unsavedLabel="Save to Inbox"
+          />
+          <KeepInbox<DemoMeta>
+            className="collection"
+            features={{ search: false, sort: false, pagination: false, bulkActions: false }}
+            itemCardProps={{ title: (saved) => saved.meta.title, showEditButton: true }}
+          />
+        </details>
 
         <details className="storage-details">
           <summary>Storage and backup</summary>

@@ -29,6 +29,11 @@ export type KeepStoreActions<TMeta = Record<string, unknown>> = {
   unarchiveItem: (id: string) => Promise<void>;
   togglePin: (id: string) => Promise<void>;
   moveToCollection: (id: string, collectionId?: string) => Promise<void>;
+  archiveBatch: (ids: string[]) => Promise<void>;
+  unarchiveBatch: (ids: string[]) => Promise<void>;
+  pinBatch: (ids: string[]) => Promise<void>;
+  unpinBatch: (ids: string[]) => Promise<void>;
+  moveToCollectionBatch: (ids: string[], collectionId?: string) => Promise<void>;
   createCollection: (id: string, name: string) => Promise<void>;
   renameCollection: (id: string, name: string) => Promise<void>;
   removeCollection: (id: string) => Promise<void>;

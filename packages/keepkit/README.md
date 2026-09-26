@@ -30,7 +30,9 @@ const list = useKeepList({
 
 `KeepListQuery`は`targetType`、`tags`、`search`、`sort`、`pagination`、`filter`、`savedBetween`で構成されます。`queryKeepItems`はReactなしで同じ条件を適用できます。
 
-再発見には`useKeepItem(item).recordOpen()`で`lastOpenedAt`を記録し、`activity`の`opened`、`lastOpenedBefore`、`lastOpenedAfter`、`inactiveForMs`で絞り込めます。`createRediscoveryQuery()`は`never-opened`、`forgotten`、`recently-opened`のCore向けプリセットを提供し、`useKeepRediscovery()`はReact向けの一覧hookです。
+整理状態は`organization: { collection, tags, note }`の`assigned` / `unassigned`で絞り込めます。`createInboxQuery()`は未分類アイテム向けの既定queryを返します。`useKeepList()`は一括archive、pin、collection移動を提供します。Saved Viewは`KeepSavedViewStorage` / `LocalStorageKeepSavedViewStorage`でアイテムと分けて保存できます。
+
+再発見には`useKeepItem(item).recordOpen()`で`lastOpenedAt`を記録し、`activity`の`opened`、`lastOpenedBefore`、`lastOpenedAfter`、`inactiveForMs`で絞り込めます。`inactiveForMs`は開封済みなら`lastOpenedAt`、未開封なら`savedAt`を基準に判定します。開封記録だけでは`updatedAt`を変更せず、同期・mergeでは新しいActivityを保持します。`createRediscoveryQuery()`は`never-opened`、`forgotten`、`recently-opened`のCore向けプリセットを提供し、`useKeepRediscovery()`はReact向けの一覧hookです。
 
 保存順を巡回ルートとして管理する場合は、`reorderKeepItems` / `moveKeepItem`、Reactでは`useKeepNavigator`と`useKeepList().reorder()` / `.move()`を利用できます。`getKeepNavigationState`は現在・前・次のアイテムと進行度を返します。
 
@@ -40,7 +42,7 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.28.2では、利用履歴とRediscovery queryに加えて、UIパッケージのフィルター状態可視化を追加しました。UIパッケージのフローティング巡回UI、保存順プレイリスト、URL状態codec、ユーザー／テナント分離、認証付き同期も引き続き利用できます。
+v0.28.3では、整理状態を検索できる`createInboxQuery()`と、Saved View用の独立した永続化adapterを追加しました。利用履歴、Rediscovery query、URL状態codec、認証付き同期も引き続き利用できます。
 
 `createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
@@ -77,7 +79,9 @@ const list = useKeepList({
 
 `KeepItemInput` contains `id`, `meta`, `targetType`, `note`, `tags`, and the optional persisted `order`. KeepKit owns persistence timestamps and tag normalization. `KeepListQuery` uses the canonical `targetType`, `tags`, `search`, `sort`, `pagination`, `filter`, and `savedBetween` fields.
 
-For rediscovery, call `useKeepItem(item).recordOpen()` to persist `lastOpenedAt`, then filter with `activity.opened`, `lastOpenedBefore`, `lastOpenedAfter`, or `inactiveForMs`. `createRediscoveryQuery()` provides framework-neutral `never-opened`, `forgotten`, and `recently-opened` presets, while `useKeepRediscovery()` provides the React list hook.
+Filter organization with `organization: { collection, tags, note }`, each set to `assigned` or `unassigned`. `createInboxQuery()` returns the default unassigned query. `useKeepList()` includes batch archive, pin, and collection mutations. Saved Views use `KeepSavedViewStorage` and `LocalStorageKeepSavedViewStorage`, separate from item storage.
+
+For rediscovery, call `useKeepItem(item).recordOpen()` to persist `lastOpenedAt`, then filter with `activity.opened`, `lastOpenedBefore`, `lastOpenedAfter`, or `inactiveForMs`. `inactiveForMs` uses `lastOpenedAt` for opened items and `savedAt` for never-opened items. Recording an open does not change `updatedAt`, and sync/merge preserves newer activity independently. `createRediscoveryQuery()` provides framework-neutral `never-opened`, `forgotten`, and `recently-opened` presets, while `useKeepRediscovery()` provides the React list hook.
 
 Use `reorderKeepItems` / `moveKeepItem` for framework-neutral route ordering, or `useKeepNavigator` with `useKeepList().reorder()` / `.move()` in React. `getKeepNavigationState` returns the current, previous, next, and progress state.
 
@@ -87,7 +91,7 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-v0.28.2 adds the filter-state UI on top of activity tracking and Rediscovery queries. The UI package's floating tour UI and Core's persisted playlist ordering, URL state codecs, user/tenant isolation, setup presets, and token-aware authenticated sync remain available.
+v0.28.3 adds `createInboxQuery()` for organization-state queries and a separate persistence adapter for Saved Views. Activity tracking, Rediscovery queries, URL state codecs, user/tenant isolation, and authenticated sync remain available.
 
 `createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 

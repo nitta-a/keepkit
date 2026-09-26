@@ -28,7 +28,7 @@ import {
   toKeepButtonItem,
   useKeepSearchQuery,
 } from "../../foundation/shared";
-import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
+import { useKeepUiLabels, useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import {
   KeepArchiveButton,
   type KeepArchiveButtonProps,
@@ -60,6 +60,7 @@ export type KeepItemCardLinkProps = {
 
 export type KeepImageProps = ImgHTMLAttributes<HTMLImageElement> & { src: string; alt: string };
 export type KeepItemCardVariant = "outlined" | "elevated" | "filled";
+export type KeepActivityKind = "opened" | "inactive";
 
 export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   HTMLAttributes<HTMLElement>,
@@ -76,6 +77,8 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   showTags?: boolean;
   showNote?: boolean;
   showSavedAt?: boolean;
+  showActivity?: boolean;
+  activityKind?: KeepActivityKind;
   collectionLabels?: Record<string, string>;
   imageAlt?: string;
   render?: RenderProp<KeepItemCardState<TMeta>>;
@@ -130,6 +133,7 @@ type KeepItemCardCompoundContext = {
   imageStatus: "loaded" | "error" | "loading";
   fallbackLabel: string;
   note: string | undefined;
+  activity: ReactNode | null;
   tags: string[];
   tagsLabel: string;
   renderedTags: ReactNode | null;
@@ -164,6 +168,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   showTags = true,
   showNote = false,
   showSavedAt = true,
+  showActivity = false,
+  activityKind = "inactive",
   collectionLabels,
   imageAlt,
   render,
@@ -342,6 +348,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     imageStatus,
     fallbackLabel: String(view.resolvedTitle),
     note: showNote ? item.note : undefined,
+    activity: showActivity ? <KeepLastActivity item={item} kind={activityKind} /> : null,
     tags,
     tagsLabel: view.labels.tags,
     renderedTags,
@@ -410,6 +417,7 @@ function KeepItemCardContent({ children, ...props }: KeepItemCardContentProps) {
         <>
           <KeepItemCardTitle />
           {context.meta}
+          {context.activity}
           {context.note ? (
             <p data-keep-card-part="memo-preview" data-line-clamp="2">
               {context.note}
@@ -476,6 +484,39 @@ export type KeepItemCardRemoveProps = Omit<ButtonHTMLAttributes<HTMLButtonElemen
   children?: ReactNode;
 };
 export type KeepItemCardBadgeProps = HTMLAttributes<HTMLSpanElement>;
+
+export type KeepLastActivityProps<TMeta = Record<string, unknown>> = HTMLAttributes<HTMLSpanElement> & {
+  item: KeepItem<TMeta>;
+  kind?: KeepActivityKind;
+};
+
+export function KeepLastActivity<TMeta = Record<string, unknown>>({
+  item,
+  kind = "inactive",
+  ...props
+}: KeepLastActivityProps<TMeta>) {
+  const { locale } = useKeepUiLabels();
+  const openedLabel = useUiLabel("activityOpened");
+  const neverOpenedLabel = useUiLabel("activityNeverOpened");
+  const inactiveSuffix = useUiLabel("activityInactiveSuffix");
+  if (item.lastOpenedAt === undefined) {
+    return (
+      <span {...props} data-keep-card-part="activity">
+        {neverOpenedLabel}
+      </span>
+    );
+  }
+  const age = Math.max(0, Date.now() - item.lastOpenedAt);
+  const label =
+    kind === "opened"
+      ? `${openedLabel} ${formatRelativeAge(age, locale)}`
+      : `${formatInactiveAge(age, locale)}${isCjkLocale(locale) ? "" : " "}${inactiveSuffix}`;
+  return (
+    <span {...props} data-keep-card-part="activity">
+      <time dateTime={new Date(item.lastOpenedAt).toISOString()}>{label}</time>
+    </span>
+  );
+}
 
 function KeepItemCardSave({ labels, getAriaLabel, ...props }: KeepItemCardSaveProps) {
   const context = useKeepItemCardCompound("Save");
@@ -567,4 +608,35 @@ export function KeepItemCardSkeleton({ layout = "list", ...props }: KeepItemCard
 
 function formatSavedAt(timestamp: number): string {
   return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function formatRelativeAge(milliseconds: number, locale?: string): string {
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+  const unit = milliseconds < 60 * 1000 ? "minute" : milliseconds < hour ? "hour" : milliseconds < day ? "day" : "day";
+  const value =
+    unit === "minute"
+      ? Math.floor(milliseconds / (60 * 1000))
+      : unit === "hour"
+        ? Math.floor(milliseconds / hour)
+        : Math.floor(milliseconds / day);
+  return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-value, unit);
+}
+
+function formatInactiveAge(milliseconds: number, locale?: string): string {
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+  const unit = milliseconds < hour ? "minute" : milliseconds < day ? "hour" : "day";
+  const value =
+    unit === "minute"
+      ? Math.max(1, Math.round(milliseconds / (60 * 1000)))
+      : unit === "hour"
+        ? Math.max(1, Math.round(milliseconds / hour))
+        : Math.max(1, Math.round(milliseconds / day));
+  const formatted = new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "long" }).format(value);
+  return isCjkLocale(locale) ? formatted.replace(/\s+/g, "") : formatted;
+}
+
+function isCjkLocale(locale?: string): boolean {
+  return /^(?:ja|ko|zh)/i.test(locale ?? "");
 }

@@ -598,13 +598,21 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
       const pendingIds = new Set(this.queueItems.map((operation) => operation.id));
       const localItems = await this.getAll();
       const localById = new Map(localItems.map((item) => [item.id, item]));
-      const incoming = remoteItems
-        .filter((item) => {
-          if (this.scope && item.scope && !sameScope(item.scope, this.scope)) return false;
-          const current = localById.get(item.id);
-          return !pendingIds.has(item.id) && (!current || item.updatedAt >= current.updatedAt);
-        })
-        .map((item) => this.applyScope(item));
+      const remoteById = new Map<string, KeepItem<TMeta>>();
+      for (const item of remoteItems) {
+        if (this.scope && item.scope && !sameScope(item.scope, this.scope)) continue;
+        if (pendingIds.has(item.id)) continue;
+        const previous = remoteById.get(item.id);
+        remoteById.set(item.id, previous ? (mergeKeepItemLists([item], [previous])[0] ?? item) : item);
+      }
+      const incoming = [...remoteById.values()].flatMap((item) => {
+        const current = localById.get(item.id);
+        if (current && item.updatedAt < current.updatedAt && (item.lastOpenedAt ?? 0) <= (current.lastOpenedAt ?? 0)) {
+          return [];
+        }
+        const merged = current ? (mergeKeepItemLists([item], [current])[0] ?? item) : item;
+        return [this.applyScope(merged)];
+      });
       if (incoming.length === 0) return true;
       await persistKeepItems(this.local, incoming);
       this.notifyDataListeners();

@@ -9,6 +9,7 @@ export * from "./features/items/navigation";
 export * from "./features/items/presets";
 export * from "./features/items/query";
 export * from "./features/items/revalidation";
+export * from "./features/items/saved-views";
 export * from "./features/items/types";
 export * from "./features/items/url";
 export * from "./features/persistence/backup";

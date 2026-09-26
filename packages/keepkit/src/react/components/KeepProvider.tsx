@@ -64,6 +64,11 @@ export type KeepContextValue<TMeta = Record<string, unknown>> = {
   unarchiveItem: (id: string) => Promise<void>;
   togglePin: (id: string) => Promise<void>;
   moveToCollection: (id: string, collectionId?: string) => Promise<void>;
+  archiveBatch: (ids: string[]) => Promise<void>;
+  unarchiveBatch: (ids: string[]) => Promise<void>;
+  pinBatch: (ids: string[]) => Promise<void>;
+  unpinBatch: (ids: string[]) => Promise<void>;
+  moveToCollectionBatch: (ids: string[], collectionId?: string) => Promise<void>;
   createCollection: (id: string, name: string) => Promise<void>;
   renameCollection: (id: string, name: string) => Promise<void>;
   removeCollection: (id: string) => Promise<void>;
@@ -575,7 +580,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
 
   const recordOpen = useCallback(
     (id: string, openedAt = Date.now()) =>
-      updateItem("open", id, (current) => ({ ...current, lastOpenedAt: openedAt, updatedAt: Date.now() })),
+      updateItem("open", id, (current) => ({ ...current, lastOpenedAt: openedAt })),
     [updateItem],
   );
 
@@ -620,6 +625,62 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       });
     },
     [updateItem],
+  );
+
+  const updateItemsBatch = useCallback(
+    (action: "archive" | "pin" | "collection", ids: string[], update: (item: KeepItem<TMeta>) => KeepItem<TMeta>) => {
+      const idSet = new Set(ids);
+      return runMutation(action, undefined, (previous) => {
+        const currentItems = previous.filter((item) => idSet.has(item.id));
+        const updatedItems = currentItems.map(update);
+        if (updatedItems.length === 0) return undefined;
+        const updatedById = new Map(updatedItems.map((item) => [item.id, item]));
+        return {
+          next: previous.map((item) => updatedById.get(item.id) ?? item),
+          persist: async () => {
+            try {
+              await persistKeepItems(storage, updatedItems);
+            } catch (cause) {
+              await restoreItems(storage, currentItems);
+              throw cause;
+            }
+          },
+          pluginContext: { action, items: updatedItems },
+        };
+      });
+    },
+    [runMutation, storage],
+  );
+  const archiveBatch = useCallback(
+    (ids: string[]) => updateItemsBatch("archive", ids, (item) => ({ ...item, archived: true, updatedAt: Date.now() })),
+    [updateItemsBatch],
+  );
+  const unarchiveBatch = useCallback(
+    (ids: string[]) =>
+      updateItemsBatch("archive", ids, (item) => ({ ...item, archived: false, updatedAt: Date.now() })),
+    [updateItemsBatch],
+  );
+  const pinBatch = useCallback(
+    (ids: string[]) => updateItemsBatch("pin", ids, (item) => ({ ...item, pinned: true, updatedAt: Date.now() })),
+    [updateItemsBatch],
+  );
+  const unpinBatch = useCallback(
+    (ids: string[]) => updateItemsBatch("pin", ids, (item) => ({ ...item, pinned: false, updatedAt: Date.now() })),
+    [updateItemsBatch],
+  );
+  const moveToCollectionBatch = useCallback(
+    (ids: string[], collectionId?: string) => {
+      const nextCollectionId = collectionId?.trim() || undefined;
+      return updateItemsBatch("collection", ids, (item) => {
+        const { collectionId: _oldCollectionId, ...withoutCollection } = item;
+        return {
+          ...withoutCollection,
+          ...(nextCollectionId ? { collectionId: nextCollectionId } : {}),
+          updatedAt: Date.now(),
+        };
+      });
+    },
+    [updateItemsBatch],
   );
 
   const createCollection = useCallback(
@@ -1034,6 +1095,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       unarchiveItem,
       togglePin,
       moveToCollection,
+      archiveBatch,
+      unarchiveBatch,
+      pinBatch,
+      unpinBatch,
+      moveToCollectionBatch,
       createCollection,
       renameCollection,
       removeCollection,
@@ -1083,6 +1149,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       unarchiveItem,
       togglePin,
       moveToCollection,
+      archiveBatch,
+      unarchiveBatch,
+      pinBatch,
+      unpinBatch,
+      moveToCollectionBatch,
       createCollection,
       renameCollection,
       removeCollection,
@@ -1110,6 +1181,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       unarchiveItem,
       togglePin,
       moveToCollection,
+      archiveBatch,
+      unarchiveBatch,
+      pinBatch,
+      unpinBatch,
+      moveToCollectionBatch,
       createCollection,
       renameCollection,
       removeCollection,
@@ -1147,6 +1223,11 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       unarchiveItem,
       togglePin,
       moveToCollection,
+      archiveBatch,
+      unarchiveBatch,
+      pinBatch,
+      unpinBatch,
+      moveToCollectionBatch,
       updateTagsBatch,
       refreshItemMetadata,
       revalidateItems,

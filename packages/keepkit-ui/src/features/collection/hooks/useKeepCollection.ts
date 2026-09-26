@@ -35,25 +35,31 @@ export function useKeepCollection<TMeta>({
     pin: false,
     archive: false,
     note: false,
+    savedViews: false,
     ...features,
   };
   const [searchValue, setSearchValue] = useState(query.search?.query ?? "");
+  const [queryOverride, setQueryOverride] = useState<KeepListQuery<TMeta>>({});
   const [sort, setSort] = useState(query.sort ?? { by: "updatedAt" as const, direction: "desc" as const });
   const [activeTags, setActiveTags] = useState<string[]>(query.tags ?? []);
   const [activeCollection, setActiveCollection] = useState<string | undefined>(query.collectionId);
   const [activeActivity, setActiveActivity] = useState(query.activity);
+  const [activeOrganization, setActiveOrganization] = useState(query.organization);
+  const [activeSavedBetween, setActiveSavedBetween] = useState(query.savedBetween);
   const [page, setPage] = useState(query.pagination?.page ?? 1);
-  const [activeArchiveScope, setActiveArchiveScope] = useState<KeepArchiveScope>(
-    archiveScope ?? query.archiveScope ?? scopeFromArchived(query.archived),
-  );
+  const initialArchiveScope = archiveScope ?? query.archiveScope ?? scopeFromArchived(query.archived);
+  const [activeArchiveScope, setActiveArchiveScope] = useState<KeepArchiveScope>(initialArchiveScope);
   useEffect(() => {
     if (archiveScope !== undefined) setActiveArchiveScope(archiveScope);
   }, [archiveScope]);
-  const resolvedPageSize = query.pagination?.pageSize ?? pageSize;
+  const resolvedPageSize = queryOverride.pagination?.pageSize ?? query.pagination?.pageSize ?? pageSize;
   const resolvedQuery = useMemo<KeepListQuery<TMeta>>(
     () => ({
       ...query,
+      ...queryOverride,
       activity: activeActivity,
+      organization: activeOrganization,
+      savedBetween: activeSavedBetween,
       archiveScope: activeArchiveScope,
       archived: activeArchiveScope === "active" ? false : activeArchiveScope === "archived" ? true : undefined,
       search: enabled.search ? { ...query.search, query: searchValue } : query.search,
@@ -69,12 +75,15 @@ export function useKeepCollection<TMeta>({
     [
       activeCollection,
       activeActivity,
+      activeOrganization,
+      activeSavedBetween,
       activeTags,
       enabled.pagination,
       enabled.search,
       enabled.sort,
       page,
       query,
+      queryOverride,
       resolvedPageSize,
       searchValue,
       sort,
@@ -86,11 +95,14 @@ export function useKeepCollection<TMeta>({
     query: resolvedQuery,
     onQueryChange: (nextOrUpdater) => {
       const next = typeof nextOrUpdater === "function" ? nextOrUpdater(resolvedQuery) : nextOrUpdater;
+      setQueryOverride(next);
       setSearchValue(next.search?.query ?? "");
       setSort(next.sort ?? { by: "updatedAt", direction: "desc" });
       setActiveTags(next.tags ?? []);
       setActiveCollection(next.collectionId);
       setActiveActivity(next.activity);
+      setActiveOrganization(next.organization);
+      setActiveSavedBetween(next.savedBetween);
       setActiveArchiveScope(next.archiveScope ?? scopeFromArchived(next.archived));
       setPage(next.pagination?.page ?? 1);
     },
@@ -158,6 +170,26 @@ export function useKeepCollection<TMeta>({
       setActiveActivity(value);
       setPage(1);
     },
+    setOrganization: (value?: KeepListQuery<TMeta>["organization"]) => {
+      setActiveOrganization(value);
+      setPage(1);
+    },
+    setSavedBetween: (value?: KeepListQuery<TMeta>["savedBetween"]) => {
+      setActiveSavedBetween(value);
+      setPage(1);
+    },
+    applyQuery: (next: KeepListQuery<TMeta>) => {
+      setQueryOverride(next);
+      setSearchValue(next.search?.query ?? "");
+      setSort(next.sort ?? { by: "updatedAt", direction: "desc" });
+      setActiveTags(next.tags ?? []);
+      setActiveCollection(next.collectionId);
+      setActiveActivity(next.activity);
+      setActiveOrganization(next.organization);
+      setActiveSavedBetween(next.savedBetween);
+      setActiveArchiveScope(next.archiveScope ?? scopeFromArchived(next.archived));
+      setPage(next.pagination?.page ?? 1);
+    },
     setArchiveScope: (value: KeepArchiveScope) => {
       setActiveArchiveScope(value);
       setPage(1);
@@ -167,16 +199,47 @@ export function useKeepCollection<TMeta>({
       setPage(1);
     },
     clearFilters: () => {
+      setQueryOverride({});
+      setSearchValue("");
+      setActiveTags([]);
+      setActiveCollection(undefined);
+      setActiveActivity(undefined);
+      setActiveOrganization(query.organization);
+      setActiveSavedBetween(undefined);
+      setActiveArchiveScope("active");
+      setPage(1);
+    },
+    resetFilters: () => {
+      setQueryOverride({});
       setSearchValue(query.search?.query ?? "");
+      setSort(query.sort ?? { by: "updatedAt", direction: "desc" });
       setActiveTags(query.tags ?? []);
       setActiveCollection(query.collectionId);
       setActiveActivity(query.activity);
-      setActiveArchiveScope(archiveScope ?? query.archiveScope ?? scopeFromArchived(query.archived));
+      setActiveOrganization(query.organization);
+      setActiveSavedBetween(query.savedBetween);
+      setActiveArchiveScope(initialArchiveScope);
       setPage(query.pagination?.page ?? 1);
     },
+    canReset: hasInitialFilterState(query, initialArchiveScope),
     setPage,
     reveal,
   };
+}
+
+function hasInitialFilterState<TMeta>(query: KeepListQuery<TMeta>, archiveScope: KeepArchiveScope): boolean {
+  return Boolean(
+    query.search?.query?.trim() ||
+      query.tags?.length ||
+      query.collectionId ||
+      query.activity ||
+      query.organization ||
+      query.pinnedFirst ||
+      query.savedBetween ||
+      archiveScope !== "active" ||
+      (query.pagination?.page !== undefined && query.pagination.page !== 1) ||
+      (query.sort && (query.sort.by !== "updatedAt" || query.sort.direction !== "desc")),
+  );
 }
 
 function compareItems<TMeta>(

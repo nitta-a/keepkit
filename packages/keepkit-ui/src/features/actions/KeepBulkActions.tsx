@@ -1,6 +1,7 @@
 "use client";
 
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
+import type { KeepCollectionSummary } from "@keepkit/core/react";
 import type { HTMLAttributes, ReactNode } from "react";
 import { getMetaTitle, type RenderProp } from "../../foundation/shared";
 import { useUiLabelVisibility } from "../../foundation/ui-context";
@@ -22,6 +23,14 @@ export type KeepBulkActionsState<TMeta = Record<string, unknown>> = {
   toggleAll: () => void;
   remove: () => Promise<void>;
   updateTags: () => Promise<void>;
+  collectionId: string;
+  setCollectionId: (value: string) => void;
+  collections: KeepCollectionSummary[];
+  moveToCollection: () => Promise<void>;
+  archive: () => Promise<void>;
+  unarchive: () => Promise<void>;
+  pin: () => Promise<void>;
+  unpin: () => Promise<void>;
   isMutating: boolean;
   selectionScope: KeepSelectionScope;
   setSelectionScope: (scope: KeepSelectionScope) => void;
@@ -139,6 +148,48 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
               disabled={state.selectedIds.length === 0 || state.isMutating}
             >
               {showApplyTagsLabel ? labels.applyTags : null}
+            </button>
+            <label>
+              Move selected items to collection
+              <select value={state.collectionId} onChange={(event) => state.setCollectionId(event.currentTarget.value)}>
+                <option value="">Unassigned</option>
+                {state.collections.map((collection) => (
+                  <option key={collection.id} value={collection.id}>
+                    {collection.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => void state.moveToCollection()}
+              disabled={!state.selectedCount || state.isMutating}
+            >
+              Move selected items
+            </button>
+            <button
+              type="button"
+              onClick={() => void state.archive()}
+              disabled={!state.selectedCount || state.isMutating}
+            >
+              Archive selected items
+            </button>
+            <button
+              type="button"
+              onClick={() => void state.unarchive()}
+              disabled={!state.selectedCount || state.isMutating}
+            >
+              Unarchive selected items
+            </button>
+            <button type="button" onClick={() => void state.pin()} disabled={!state.selectedCount || state.isMutating}>
+              Pin selected items
+            </button>
+            <button
+              type="button"
+              onClick={() => void state.unpin()}
+              disabled={!state.selectedCount || state.isMutating}
+            >
+              Unpin selected items
             </button>
           </>
         ));

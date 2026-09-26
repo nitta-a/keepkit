@@ -13,6 +13,11 @@ export type KeepUrlParamNames = {
   lastOpenedBefore?: string;
   lastOpenedAfter?: string;
   inactiveForMs?: string;
+  organizationCollection?: string;
+  organizationTags?: string;
+  organizationNote?: string;
+  savedAfter?: string;
+  savedBefore?: string;
 };
 
 export type KeepUrlSyncOptions = {
@@ -37,11 +42,26 @@ export const DEFAULT_KEEP_URL_PARAMS: Required<KeepUrlParamNames> = {
   lastOpenedBefore: "openedBefore",
   lastOpenedAfter: "openedAfter",
   inactiveForMs: "inactiveFor",
+  organizationCollection: "collectionState",
+  organizationTags: "tagsState",
+  organizationNote: "noteState",
+  savedAfter: "savedAfter",
+  savedBefore: "savedBefore",
 };
 
 export type KeepUrlState = Pick<
   KeepListQuery,
-  "search" | "tags" | "sort" | "pagination" | "archived" | "archiveScope" | "collectionId" | "pinnedFirst" | "activity"
+  | "search"
+  | "tags"
+  | "sort"
+  | "pagination"
+  | "archived"
+  | "archiveScope"
+  | "collectionId"
+  | "pinnedFirst"
+  | "activity"
+  | "organization"
+  | "savedBetween"
 >;
 
 /** Convert a list query to stable URLSearchParams without serializing functions or unsupported filters. */
@@ -63,7 +83,21 @@ export function encodeKeepListQuery<TMeta = Record<string, unknown>>(
   if (query.archiveScope !== undefined) result.set(params.archiveScope, query.archiveScope);
   else if (query.archived !== undefined) result.set(params.archived, query.archived ? "true" : "false");
   if (query.collectionId) result.set(params.collection, query.collectionId);
+  for (const [key, value] of [
+    [params.organizationCollection, query.organization?.collection],
+    [params.organizationTags, query.organization?.tags],
+    [params.organizationNote, query.organization?.note],
+  ] as const) {
+    if (value !== undefined) result.set(key, value);
+  }
   if (query.pinnedFirst) result.set(params.pinnedFirst, "true");
+  if (query.savedBetween) {
+    const [from, to] = query.savedBetween.map((value) => (value instanceof Date ? value.getTime() : value));
+    if (Number.isFinite(from) && Number.isFinite(to)) {
+      result.set(params.savedAfter, String(from));
+      result.set(params.savedBefore, String(to));
+    }
+  }
   if (query.activity?.opened) result.set(params.activityOpened, query.activity.opened);
   for (const [key, value] of [
     [params.lastOpenedBefore, query.activity?.lastOpenedBefore],
@@ -114,7 +148,28 @@ export function decodeKeepListQuery(
         ? false
         : undefined;
   const collectionId = searchParams.get(params.collection)?.trim() || undefined;
+  const organizationCollection = parseOrganizationState(searchParams.get(params.organizationCollection));
+  const organizationTags = parseOrganizationState(searchParams.get(params.organizationTags));
+  const organizationNote = parseOrganizationState(searchParams.get(params.organizationNote));
+  const organization =
+    organizationCollection || organizationTags || organizationNote
+      ? {
+          ...(organizationCollection ? { collection: organizationCollection } : {}),
+          ...(organizationTags ? { tags: organizationTags } : {}),
+          ...(organizationNote ? { note: organizationNote } : {}),
+        }
+      : undefined;
   const pinnedFirst = searchParams.get(params.pinnedFirst) === "true" ? true : undefined;
+  const parseSavedDate = (name: string): number | undefined => {
+    const rawValue = searchParams.get(name);
+    if (rawValue === null || rawValue.trim() === "") return undefined;
+    const value = Number(rawValue);
+    return Number.isFinite(value) ? value : undefined;
+  };
+  const savedAfter = parseSavedDate(params.savedAfter);
+  const savedBefore = parseSavedDate(params.savedBefore);
+  const savedBetween =
+    savedAfter === undefined || savedBefore === undefined ? undefined : ([savedAfter, savedBefore] as const);
   const activityOpenedValue = searchParams.get(params.activityOpened);
   const activityOpened: "ever" | "never" | undefined =
     activityOpenedValue === "ever" || activityOpenedValue === "never" ? activityOpenedValue : undefined;
@@ -147,7 +202,9 @@ export function decodeKeepListQuery(
     ...(archived === undefined ? {} : { archived }),
     ...(archiveScope === undefined ? {} : { archiveScope }),
     ...(collectionId ? { collectionId } : {}),
+    ...(organization ? { organization } : {}),
     ...(pinnedFirst ? { pinnedFirst } : {}),
+    ...(savedBetween ? { savedBetween } : {}),
     ...(activity === undefined ? {} : { activity }),
   };
 }
@@ -176,5 +233,11 @@ export function mergeKeepListQueryFromUrl<TMeta = Record<string, unknown>>(
     archived: decoded.archived ?? query.archived,
     archiveScope: decoded.archiveScope ?? query.archiveScope,
     activity: decoded.activity ?? query.activity,
+    organization: decoded.organization ?? query.organization,
+    savedBetween: decoded.savedBetween ?? query.savedBetween,
   };
+}
+
+function parseOrganizationState(value: string | null): "assigned" | "unassigned" | undefined {
+  return value === "assigned" || value === "unassigned" ? value : undefined;
 }

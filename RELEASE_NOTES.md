@@ -1,5 +1,27 @@
 # Release notes
 
+## [0.28.3] - 2026-09-26
+
+### 日本語
+
+- `inactiveForMs` は未閲覧アイテムでは `savedAt` を基準に判定するよう修正しました。
+- `recordOpen()` が `updatedAt` を変更しないようにし、同期・mergeでは `lastOpenedAt` を独立して保持します。
+- `KeepActiveFiltersSummary` に Clear / Reset の区別とActivity条件ごとの個別解除を追加しました。
+- Activity期間を分・時間・日へ自然に表示し、`KeepRediscoveryPanel` と `KeepLastActivity` で再発見理由を表示できるようにしました。
+- Inboxで未分類アイテムのnote、tag、collectionを整理し、一括移動・archive・pinできるようにしました。
+- `KeepListQuery.organization` と `createInboxQuery()` を追加しました。
+- 名前付きSaved Viewの保存、再適用、pin、名前変更、削除を追加しました。データはアイテム保存と分離し、URL共有・履歴と連携します。
+
+### English
+
+- `inactiveForMs` now uses `savedAt` for never-opened items.
+- `recordOpen()` no longer changes `updatedAt`; sync and merge preserve `lastOpenedAt` independently.
+- `KeepActiveFiltersSummary` now distinguishes Clear from Reset and removes composite Activity conditions individually.
+- Activity durations use minute/hour/day scales, and `KeepRediscoveryPanel` / `KeepLastActivity` explain rediscovery results.
+- Added Inbox triage for unassigned items, including note/tag edits and batch collection moves, archive, and pin actions.
+- Added `KeepListQuery.organization` and `createInboxQuery()`.
+- Added named Saved Views with persistence, apply, pin, rename, and delete; applied queries integrate with shareable URLs and browser history.
+
 ## [0.28.2] - 2026-09-21
 
 ### 日本語

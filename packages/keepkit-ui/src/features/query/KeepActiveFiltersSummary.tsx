@@ -24,6 +24,8 @@ export type KeepActiveFiltersSummaryProps<TMeta = Record<string, unknown>> = Omi
   tags?: readonly string[];
   collection?: string;
   collectionLabel?: string;
+  organization?: KeepListQuery<TMeta>["organization"];
+  savedBetween?: KeepListQuery<TMeta>["savedBetween"];
   activity?: KeepListQuery<TMeta>["activity"];
   activityLabel?: string;
   archiveScope?: KeepListQuery<TMeta>["archiveScope"];
@@ -32,9 +34,13 @@ export type KeepActiveFiltersSummaryProps<TMeta = Record<string, unknown>> = Omi
   onSearchChange?: (value: string) => void;
   onTagChange?: (tag: string) => void;
   onCollectionChange?: (collectionId?: string) => void;
+  onOrganizationChange?: (organization?: KeepListQuery<TMeta>["organization"]) => void;
+  onSavedBetweenChange?: (range?: KeepListQuery<TMeta>["savedBetween"]) => void;
   onActivityChange?: (activity?: KeepListQuery<TMeta>["activity"]) => void;
   onArchiveScopeChange?: (scope: NonNullable<KeepListQuery<TMeta>["archiveScope"]>) => void;
   onClear?: () => void;
+  onReset?: () => void;
+  canReset?: boolean;
   children?: ReactNode | RenderProp<KeepActiveFiltersSummaryState>;
   asChild?: boolean;
 };
@@ -43,6 +49,8 @@ export type KeepActiveFiltersSummaryState = {
   search: string;
   tags: string[];
   collection?: string;
+  organization?: KeepListQuery["organization"];
+  savedBetween?: KeepListQuery["savedBetween"];
   activity?: KeepListQuery["activity"];
   archiveScope?: KeepListQuery["archiveScope"];
   totalCount?: number;
@@ -51,9 +59,15 @@ export type KeepActiveFiltersSummaryState = {
   removeSearch: () => void;
   removeTag: (tag: string) => void;
   removeCollection: () => void;
+  removeOrganization: (field: "collection" | "tags" | "note") => void;
+  removeSavedBetween: () => void;
   removeActivity: () => void;
   removeArchiveScope: () => void;
+  reset: () => void;
 };
+
+type ActivityFilterKey = "opened" | "inactiveForMs" | "lastOpenedBefore" | "lastOpenedAfter";
+type ActivityFilter = { key: ActivityFilterKey; label: string };
 
 /** Lists active query filters with one-tap recovery actions. */
 export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
@@ -62,6 +76,8 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
   tags: providedTags,
   collection: providedCollection,
   collectionLabel: providedCollectionLabel,
+  organization: providedOrganization,
+  savedBetween: providedSavedBetween,
   activity: providedActivity,
   activityLabel: providedActivityLabel,
   archiveScope: providedArchiveScope,
@@ -70,9 +86,13 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
   onSearchChange,
   onTagChange,
   onCollectionChange,
+  onOrganizationChange,
+  onSavedBetweenChange,
   onActivityChange,
   onArchiveScopeChange,
   onClear,
+  onReset,
+  canReset = false,
   children,
   asChild = false,
   className,
@@ -81,16 +101,49 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
   const search = (providedSearch ?? query?.search?.query ?? "").trim();
   const tags = normalizeUiTags(providedTags ?? query?.tags ?? []);
   const collection = providedCollection ?? query?.collectionId;
+  const organization = providedOrganization ?? query?.organization;
+  const savedBetween = providedSavedBetween ?? query?.savedBetween;
   const activity = providedActivity ?? query?.activity;
-  const hasActivity = Boolean(activity && Object.keys(activity).length > 0);
+  const activityLabels = {
+    neverOpened: useUiLabel("activityNeverOpened"),
+    opened: useUiLabel("activityOpened"),
+    inactiveSuffix: useUiLabel("activityInactiveSuffix"),
+    before: useUiLabel("activityBefore"),
+    after: useUiLabel("activityAfter"),
+  };
+  const { locale } = useKeepUiLabels();
+  const formattedActivityFilters = formatActivity(activity, activityLabels, locale);
+  const activityFilters =
+    providedActivityLabel && formattedActivityFilters.length === 1
+      ? [{ ...formattedActivityFilters[0], label: providedActivityLabel }]
+      : formattedActivityFilters;
+  const hasActivity = activityFilters.length > 0;
+  const organizationFilters = organization
+    ? (["collection", "tags", "note"] as const).flatMap((field) =>
+        organization[field] ? [{ field, value: organization[field] }] : [],
+      )
+    : [];
+  const savedBetweenLabel = savedBetween
+    ? savedBetween
+        .map((value) => new Date(value instanceof Date ? value.getTime() : value).toLocaleDateString(locale))
+        .join(" – ")
+    : undefined;
   const archiveScope =
     providedArchiveScope ?? query?.archiveScope ?? (query?.archived === true ? "archived" : "active");
   const hasArchiveScope = archiveScope !== undefined && archiveScope !== "active";
-  const hasFilters = Boolean(search) || tags.length > 0 || Boolean(collection) || hasActivity || hasArchiveScope;
+  const hasFilters =
+    Boolean(search) ||
+    tags.length > 0 ||
+    Boolean(collection) ||
+    organizationFilters.length > 0 ||
+    Boolean(savedBetween) ||
+    hasActivity ||
+    hasArchiveScope;
   const activeFiltersLabel = useUiLabel("activeFilters");
   const showActiveFiltersLabel = useUiLabelVisibility("activeFilters");
   const clearAllLabel = useUiLabel("clearAllFilters");
   const clearLabel = useUiLabel("clearFilters");
+  const resetLabel = useUiLabel("resetFilters");
   const removeLabel = useUiLabel("removeFilter");
   const uncategorizedLabel = useUiLabel("uncategorized");
   const collectionItemLabel = useUiLabel("collectionItem");
@@ -102,21 +155,14 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
     archived: useUiLabel("archiveScopeArchived"),
     all: useUiLabel("archiveScopeAll"),
   };
-  const activityLabels = {
-    neverOpened: useUiLabel("activityNeverOpened"),
-    opened: useUiLabel("activityOpened"),
-    inactiveFor: useUiLabel("activityInactiveFor"),
-    before: useUiLabel("activityBefore"),
-    after: useUiLabel("activityAfter"),
-  };
-  const { locale } = useKeepUiLabels();
-  const resolvedActivityLabel = providedActivityLabel ?? formatActivity(activity, activityLabels, locale);
   const resolvedArchiveScopeLabel =
     providedArchiveScopeLabel ?? (archiveScope === undefined ? undefined : archiveLabels[archiveScope]);
   const chipRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const collectionIndex = Number(Boolean(search)) + tags.length;
-  const activityIndex = collectionIndex + Number(Boolean(collection));
-  const archiveScopeIndex = activityIndex + Number(hasActivity);
+  const organizationIndex = collectionIndex + Number(Boolean(collection));
+  const activityIndex = organizationIndex + organizationFilters.length;
+  const savedBetweenIndex = activityIndex + activityFilters.length;
+  const archiveScopeIndex = savedBetweenIndex + Number(Boolean(savedBetween));
   const filterCount = archiveScopeIndex + Number(hasArchiveScope);
 
   function focusChip(index: number): void {
@@ -158,9 +204,27 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
     focusAfterRemoval(collectionIndex, event.currentTarget);
     onCollectionChange?.(undefined);
   }
-  function removeActivity(event: MouseEvent<HTMLButtonElement>): void {
-    focusAfterRemoval(activityIndex, event.currentTarget);
-    onActivityChange?.(undefined);
+  function removeOrganization(
+    field: "collection" | "tags" | "note",
+    index: number,
+    event: MouseEvent<HTMLButtonElement>,
+  ): void {
+    focusAfterRemoval(index, event.currentTarget);
+    if (!organization) return;
+    const next = { ...organization };
+    delete next[field];
+    onOrganizationChange?.(Object.keys(next).length > 0 ? next : undefined);
+  }
+  function removeSavedBetween(event: MouseEvent<HTMLButtonElement>): void {
+    focusAfterRemoval(savedBetweenIndex, event.currentTarget);
+    onSavedBetweenChange?.(undefined);
+  }
+  function removeActivityCondition(key: ActivityFilterKey, index: number, event: MouseEvent<HTMLButtonElement>): void {
+    focusAfterRemoval(index, event.currentTarget);
+    if (!activity) return;
+    const next = { ...activity };
+    delete next[key];
+    onActivityChange?.(Object.keys(next).length > 0 ? next : undefined);
   }
   function removeArchiveScope(event: MouseEvent<HTMLButtonElement>): void {
     focusAfterRemoval(archiveScopeIndex, event.currentTarget);
@@ -170,6 +234,8 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
     search,
     tags,
     collection,
+    organization,
+    savedBetween,
     activity,
     archiveScope,
     totalCount,
@@ -178,15 +244,23 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
     removeSearch: () => onSearchChange?.(""),
     removeTag: (tag) => onTagChange?.(tag),
     removeCollection: () => onCollectionChange?.(undefined),
+    removeOrganization: (field) => {
+      if (!organization) return;
+      const next = { ...organization };
+      delete next[field];
+      onOrganizationChange?.(Object.keys(next).length > 0 ? next : undefined);
+    },
+    removeSavedBetween: () => onSavedBetweenChange?.(undefined),
     removeActivity: () => onActivityChange?.(undefined),
     removeArchiveScope: () => onArchiveScopeChange?.("active"),
+    reset: () => onReset?.(),
   };
   const contentChildren = asChild && isElement(children) ? undefined : children;
   const body =
     typeof contentChildren === "function"
       ? contentChildren(state)
       : (contentChildren ??
-        (hasFilters ? (
+        (hasFilters || canReset ? (
           <>
             {showActiveFiltersLabel ? <span data-active-filters-label="true">{activeFiltersLabel}</span> : null}
             <ul data-active-filters-list="true">
@@ -241,18 +315,59 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
                   </button>
                 </li>
               ) : null}
-              {hasActivity ? (
-                <li data-filter-kind="activity">
-                  <span data-filter-value="true">{resolvedActivityLabel}</span>
+              {organizationFilters.map(({ field, value }, filterIndex) => {
+                const index = organizationIndex + filterIndex;
+                const label = `${field}: ${value}`;
+                return (
+                  <li key={`organization-${field}`} data-filter-kind={`organization-${field}`}>
+                    <span data-filter-value="true">{label}</span>
+                    <button
+                      type="button"
+                      data-keep-action="remove-organization-filter"
+                      aria-label={`${label} ${removeLabel}`}
+                      ref={(element) => {
+                        chipRefs.current[index] = element;
+                      }}
+                      onKeyDown={(event) => handleChipKeyDown(event, index)}
+                      onClick={(event) => removeOrganization(field, index, event)}
+                    >
+                      ×
+                    </button>
+                  </li>
+                );
+              })}
+              {activityFilters.map((filter, filterIndex) => {
+                const index = activityIndex + filterIndex;
+                return (
+                  <li key={filter.key} data-filter-kind={`activity-${filter.key}`}>
+                    <span data-filter-value="true">{filter.label}</span>
+                    <button
+                      type="button"
+                      data-keep-action="remove-activity-filter"
+                      aria-label={`${filter.label} ${removeLabel}`}
+                      ref={(element) => {
+                        chipRefs.current[index] = element;
+                      }}
+                      onKeyDown={(event) => handleChipKeyDown(event, index)}
+                      onClick={(event) => removeActivityCondition(filter.key, index, event)}
+                    >
+                      ×
+                    </button>
+                  </li>
+                );
+              })}
+              {savedBetweenLabel ? (
+                <li data-filter-kind="saved-between">
+                  <span data-filter-value="true">{savedBetweenLabel}</span>
                   <button
                     type="button"
-                    data-keep-action="remove-activity-filter"
-                    aria-label={`${resolvedActivityLabel} ${removeLabel}`}
+                    data-keep-action="remove-saved-between-filter"
+                    aria-label={`${savedBetweenLabel} ${removeLabel}`}
                     ref={(element) => {
-                      chipRefs.current[activityIndex] = element;
+                      chipRefs.current[savedBetweenIndex] = element;
                     }}
-                    onKeyDown={(event) => handleChipKeyDown(event, activityIndex)}
-                    onClick={removeActivity}
+                    onKeyDown={(event) => handleChipKeyDown(event, savedBetweenIndex)}
+                    onClick={removeSavedBetween}
                   >
                     ×
                   </button>
@@ -281,13 +396,20 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
                 {totalCount} {totalCount === 1 ? collectionItemLabel : collectionItemsLabel}
               </span>
             ) : null}
-            <button type="button" data-keep-action="clear-filters" onClick={state.clear}>
-              {clearAllLabel || clearLabel}
-            </button>
+            {hasFilters ? (
+              <button type="button" data-keep-action="clear-filters" onClick={state.clear}>
+                {clearAllLabel || clearLabel}
+              </button>
+            ) : null}
+            {canReset ? (
+              <button type="button" data-keep-action="reset-filters" onClick={state.reset}>
+                {resetLabel}
+              </button>
+            ) : null}
           </>
         ) : null));
 
-  if (!hasFilters && !asChild && contentChildren === undefined) return null;
+  if (!hasFilters && !canReset && !asChild && contentChildren === undefined) return null;
   return renderRoot(
     asChild,
     isElement(children) ? children : undefined,
@@ -308,26 +430,55 @@ function formatActivity(
   labels: {
     neverOpened: string;
     opened: string;
-    inactiveFor: string;
+    inactiveSuffix: string;
     before: string;
     after: string;
   },
   locale?: string,
-): string | undefined {
-  if (!activity || Object.keys(activity).length === 0) return undefined;
-  if (activity.opened === "never") return labels.neverOpened;
-  if (activity.opened === "ever") return labels.opened;
+): ActivityFilter[] {
+  if (!activity) return [];
+  const filters: ActivityFilter[] = [];
+  if (activity.opened === "never") filters.push({ key: "opened", label: labels.neverOpened });
+  if (activity.opened === "ever") filters.push({ key: "opened", label: labels.opened });
   if (activity.inactiveForMs !== undefined) {
-    const days = Math.max(1, Math.round(activity.inactiveForMs / (24 * 60 * 60 * 1000)));
-    return `${days}${locale?.toLowerCase().startsWith("ja") ? "" : " "}${labels.inactiveFor}`;
+    filters.push({
+      key: "inactiveForMs",
+      label: `${formatDuration(activity.inactiveForMs, locale)}${isCjkLocale(locale) ? "" : " "}${labels.inactiveSuffix}`,
+    });
   }
   if (activity.lastOpenedBefore !== undefined) {
-    return `${labels.before} ${new Date(activity.lastOpenedBefore).toLocaleDateString(locale)}`;
+    filters.push({
+      key: "lastOpenedBefore",
+      label: `${labels.before} ${new Date(activity.lastOpenedBefore).toLocaleDateString(locale)}`,
+    });
   }
   if (activity.lastOpenedAfter !== undefined) {
-    return `${labels.after} ${new Date(activity.lastOpenedAfter).toLocaleDateString(locale)}`;
+    filters.push({
+      key: "lastOpenedAfter",
+      label: `${labels.after} ${new Date(activity.lastOpenedAfter).toLocaleDateString(locale)}`,
+    });
   }
-  return undefined;
+  return filters;
+}
+
+function formatDuration(milliseconds: number, locale?: string): string {
+  const absolute = Math.max(1, Math.round(milliseconds));
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+  const unit = absolute < hour ? "minute" : absolute < day ? "hour" : "day";
+  const value =
+    unit === "minute"
+      ? Math.max(1, Math.round(absolute / (60 * 1000)))
+      : unit === "hour"
+        ? Math.max(1, Math.round(absolute / hour))
+        : Math.max(1, Math.round(absolute / day));
+  const formatted = new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "long" }).format(value);
+  const compact = isCjkLocale(locale) ? formatted.replace(/\s+/g, "") : formatted;
+  return /^ja/i.test(locale ?? "") && unit === "day" ? compact.replace(/日$/, "日間") : compact;
+}
+
+function isCjkLocale(locale?: string): boolean {
+  return /^(?:ja|ko|zh)/i.test(locale ?? "");
 }
 
 function isElement(value: unknown): value is ReactElement {

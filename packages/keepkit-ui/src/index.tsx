@@ -70,6 +70,7 @@ import {
 } from "./features/collection/KeepCollection";
 import { KeepCollectionCreate, type KeepCollectionCreateProps } from "./features/collection/KeepCollectionCreate";
 import { KeepCollectionManager, type KeepCollectionManagerProps } from "./features/collection/KeepCollectionManager";
+import { KeepInbox, type KeepInboxProps } from "./features/collection/KeepInbox";
 import { KeepLayout, type KeepLayoutProps } from "./features/collection/KeepLayout";
 import { KeepList, type KeepListProps, type KeepListState } from "./features/collection/KeepList";
 import {
@@ -92,6 +93,7 @@ import {
   useKeepToastFeedback,
 } from "./features/feedback/useKeepToastFeedback";
 import {
+  type KeepActivityKind,
   type KeepImageProps,
   KeepItemCard,
   type KeepItemCardActionSlotProps,
@@ -109,6 +111,8 @@ import {
   type KeepItemCardTagsProps,
   type KeepItemCardTitleProps,
   type KeepItemCardVariant,
+  KeepLastActivity,
+  type KeepLastActivityProps,
 } from "./features/item/KeepItemCard";
 import {
   type KeepDisplayStatus,
@@ -154,7 +158,15 @@ import {
   type KeepSortSelectProps,
   type KeepSortValue,
 } from "./features/query/query-controls";
-import { KeepRediscovery, type KeepRediscoveryProps } from "./features/rediscovery/KeepRediscovery";
+import {
+  KeepRediscovery,
+  KeepRediscoveryPanel,
+  type KeepRediscoveryPanelProps,
+  type KeepRediscoveryProps,
+} from "./features/rediscovery/KeepRediscovery";
+import { KeepSavedViews, type KeepSavedViewsProps, KeepSaveViewButton } from "./features/saved-views/KeepSavedViews";
+import type { UseKeepSavedViewsResult } from "./features/saved-views/useKeepSavedViews";
+import { useKeepSavedViews } from "./features/saved-views/useKeepSavedViews";
 import {
   KeepPruneStaleButton,
   type KeepPruneStaleButtonProps,
@@ -335,6 +347,7 @@ export {
 export type {
   KeepActiveFiltersSummaryProps,
   KeepActiveFiltersSummaryState,
+  KeepActivityKind,
   KeepAnnouncementsProps,
   KeepArchiveButtonProps,
   KeepArchiveButtonState,
@@ -365,6 +378,7 @@ export type {
   KeepEmptyStateProps,
   KeepFloatingTourProps,
   KeepImageProps,
+  KeepInboxProps,
   KeepItemCardActionSlotProps,
   KeepItemCardActionsProps,
   KeepItemCardBadgeProps,
@@ -381,6 +395,7 @@ export type {
   KeepItemCardVariant,
   KeepItemCheckboxProps,
   KeepItemStatusBadgeProps,
+  KeepLastActivityProps,
   KeepLayoutPreset,
   KeepLayoutProps,
   KeepListProps,
@@ -396,9 +411,11 @@ export type {
   KeepQuickEditorFeature,
   KeepQuickEditorProps,
   KeepQuickEditorState,
+  KeepRediscoveryPanelProps,
   KeepRediscoveryProps,
   KeepReorderableItemState,
   KeepReorderableListProps,
+  KeepSavedViewsProps,
   KeepSavePopoverProps,
   KeepScope,
   KeepSearchInputProps,
@@ -451,6 +468,7 @@ export type {
   KeepWorkspaceSlots,
   KeepWorkspaceState,
   KeepWorkspaceSurface,
+  UseKeepSavedViewsResult,
 };
 export {
   createNextPagesRouterAdapter,
@@ -470,10 +488,12 @@ export {
   KeepCollectionSelect,
   KeepEmptyState,
   KeepFloatingTour,
+  KeepInbox,
   KeepItemCard,
   KeepItemCardSkeleton,
   KeepItemCheckbox,
   KeepItemStatusBadge,
+  KeepLastActivity,
   KeepLayout,
   KeepList,
   KeepNavigator,
@@ -483,8 +503,11 @@ export {
   KeepPruneStaleButton,
   KeepQuickEditor,
   KeepRediscovery,
+  KeepRediscoveryPanel,
   KeepReorderableList,
+  KeepSavedViews,
   KeepSavePopover,
+  KeepSaveViewButton,
   KeepSearchInput,
   KeepShortcutHint,
   KeepSortSelect,
@@ -502,6 +525,7 @@ export {
   KeepWorkspace,
   keepThemeNames,
   useKeepQuickEditor,
+  useKeepSavedViews,
   useKeepToastFeedback,
   useKeepTour,
   useKeepUiLabels,
@@ -531,11 +555,14 @@ export type KeepKit<TMeta = Record<string, unknown>> = {
   Button: ComponentType<KeepButtonProps<TMeta>>;
   Backup: ComponentType<KeepBackupProps<TMeta>>;
   Collection: ComponentType<KeepCollectionProps<TMeta>>;
+  Inbox: ComponentType<KeepInboxProps<TMeta>>;
+  SavedViews: ComponentType<KeepSavedViewsProps<TMeta>>;
   CollectionManager: ComponentType<KeepCollectionManagerProps>;
   Workspace: ComponentType<KeepWorkspaceProps<TMeta>>;
   useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useItem: (item?: KeepItemInput<TMeta>) => ReturnType<typeof useKeepItem<TMeta>>;
   useList: (query?: KeepListQuery<TMeta>) => ReturnType<typeof useKeepList<TMeta>>;
+  useSavedViews: () => UseKeepSavedViewsResult<TMeta>;
   useRediscovery: (options: UseKeepRediscoveryOptions) => UseKeepRediscoveryResult<TMeta>;
   useCollections: (options?: { targetType?: string; orderBy?: "name" | "count" }) => UseKeepCollectionsResult;
   useNavigator: (options?: UseKeepNavigatorOptions<TMeta>) => UseKeepNavigatorResult<TMeta>;
@@ -606,6 +633,8 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
         }}
       />
     ),
+    Inbox: (props) => <KeepInbox<TMeta> {...props} />,
+    SavedViews: (props) => <KeepSavedViews<TMeta> {...props} />,
     CollectionManager: (props) => <KeepCollectionManager<TMeta> {...props} />,
     Workspace: (props) => (
       <KeepWorkspace<TMeta>
@@ -623,6 +652,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     useContext: () => coreKit.useContext(),
     useItem: (item) => coreKit.useItem(item),
     useList: (query) => coreKit.useList(query),
+    useSavedViews: () => useKeepSavedViews<TMeta>(),
     useRediscovery: (rediscoveryOptions) => coreKit.useRediscovery(rediscoveryOptions),
     useCollections: (collectionsOptions) => coreKit.useCollections(collectionsOptions),
     useNavigator: (navigatorOptions) => coreKit.useNavigator(navigatorOptions),

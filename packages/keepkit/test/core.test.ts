@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createInboxQuery,
   createKeepInvalidationPlugin,
   createRediscoveryQuery,
   createScopedStorageAdapter,
@@ -22,6 +23,7 @@ import {
   KeepStorageQuotaError,
   KeepStore,
   LocalStorageAdapter,
+  LocalStorageKeepSavedViewStorage,
   mergeKeepItems,
   migrateKeepItems,
   moveKeepItem,
@@ -49,6 +51,14 @@ test("encodes and decodes shareable list URL state", () => {
     sort: { by: "updatedAt", direction: "asc" },
     pagination: { page: 3 },
   });
+});
+
+test("round-trips organization filters in shareable URL state", () => {
+  const query = {
+    organization: { collection: "unassigned" as const, tags: "assigned" as const },
+    savedBetween: [10, 20] as const,
+  };
+  assert.deepEqual(decodeKeepListQuery(encodeKeepListQuery(query)), query);
 });
 
 test("encodes and decodes rediscovery activity URL state", () => {
@@ -588,13 +598,14 @@ test("supports every list filter, search field, sorting, and pagination boundary
 test("filters and sorts activity for rediscovery", () => {
   const now = Date.now();
   const items = [
-    { ...itemA, id: "never" },
+    { ...itemA, id: "never", savedAt: now - 1_000, updatedAt: now - 1_000 },
+    { ...itemA, id: "old-never", savedAt: now - 60_000, updatedAt: now - 60_000 },
     { ...itemB, id: "old", lastOpenedAt: now - 60_000 },
     { ...itemA, id: "recent", lastOpenedAt: now - 1_000 },
   ];
   assert.deepEqual(
     queryKeepItems(items, createRediscoveryQuery({ strategy: "never-opened" })).items.map((item) => item.id),
-    ["never"],
+    ["never", "old-never"],
   );
   assert.deepEqual(
     queryKeepItems(items, createRediscoveryQuery({ strategy: "recently-opened" })).items.map((item) => item.id),
@@ -604,12 +615,26 @@ test("filters and sorts activity for rediscovery", () => {
     queryKeepItems(items, createRediscoveryQuery({ strategy: "forgotten", inactiveForMs: 30_000 })).items.map(
       (item) => item.id,
     ),
-    ["never", "old"],
+    ["old-never", "old"],
   );
   assert.deepEqual(
     queryKeepItems(items, { activity: { lastOpenedAfter: now - 10_000 } }).items.map((item) => item.id),
     ["recent"],
   );
+});
+
+test("merges lastOpenedAt independently from newer content", async () => {
+  const storage = new LocalStorageAdapter({ storage: createStorage() });
+  await storage.set({ ...itemA, note: "old", updatedAt: 20, lastOpenedAt: 100 });
+
+  const merged = await mergeKeepItems([{ ...itemA, note: "new", updatedAt: 30 }], storage);
+  assert.deepEqual(merged[0], { ...itemA, note: "new", updatedAt: 30, lastOpenedAt: 100 });
+
+  const activityMerged = await mergeKeepItems(
+    [{ ...itemA, note: "stale content", updatedAt: 10, lastOpenedAt: 200 }],
+    storage,
+  );
+  assert.deepEqual(activityMerged[0], { ...itemA, note: "new", updatedAt: 30, lastOpenedAt: 200 });
 });
 
 test("parses metadata with parse, safeParse, and Standard Schema contracts", async () => {
@@ -887,6 +912,62 @@ test("filters archive and collections and stably promotes pinned items", () => {
     queryKeepItems(source, { archived: true, pinnedFirst: true }).items.map((item) => item.id),
     ["c", "d"],
   );
+});
+
+test("filters organization fields and builds the default Inbox query", () => {
+  const source = [
+    { ...itemA, id: "inbox", note: "", tags: [] },
+    { ...itemA, id: "collection", collectionId: "reading" },
+    { ...itemA, id: "tagged", tags: ["read"] },
+    { ...itemA, id: "noted", note: "later" },
+  ];
+  assert.deepEqual(
+    queryKeepItems(source, createInboxQuery()).items.map((item) => item.id),
+    ["inbox", "tagged", "noted"],
+  );
+  assert.deepEqual(
+    queryKeepItems(source, { organization: { tags: "assigned" } }).items.map((item) => item.id),
+    ["tagged"],
+  );
+  assert.deepEqual(
+    queryKeepItems(source, { organization: { note: "unassigned" } }).items.map((item) => item.id),
+    ["inbox", "collection", "tagged"],
+  );
+});
+
+test("persists Saved Views separately from items", async () => {
+  let value: string | null = null;
+  const storage = new LocalStorageKeepSavedViewStorage({
+    storage: {
+      getItem: () => value,
+      setItem: (_key, next) => {
+        value = next;
+      },
+      removeItem: () => {
+        value = null;
+      },
+      clear: () => {
+        value = null;
+      },
+      key: () => null,
+      get length() {
+        return value === null ? 0 : 1;
+      },
+    },
+  });
+  const view = {
+    id: "inbox",
+    name: "Inbox",
+    query: { ...createInboxQuery(), savedBetween: [new Date(10), new Date(20)] as const },
+    createdAt: 1,
+    updatedAt: 1,
+  };
+  const persistedView = { ...view, query: { ...view.query, savedBetween: [10, 20] as const } };
+  await storage.set(view);
+  assert.deepEqual(await storage.getAll(), [persistedView]);
+  assert.deepEqual(await storage.get(view.id), persistedView);
+  await storage.remove(view.id);
+  assert.deepEqual(await storage.getAll(), []);
 });
 
 test("accepts new backup fields and rejects malformed values while preserving legacy backups", async () => {

@@ -72,9 +72,13 @@ export function useKeepUrlSync<TMeta = Record<string, unknown>>({
         ...previousQuery,
         ...(decoded.search ? { search: decoded.search } : { search: undefined }),
         ...(decoded.tags ? { tags: decoded.tags } : { tags: undefined }),
+        collectionId: decoded.collectionId,
         ...(decoded.sort ? { sort: decoded.sort } : {}),
         ...(decoded.pagination ? { pagination: { ...previousQuery.pagination, ...decoded.pagination } } : {}),
-        ...(decoded.activity ? { activity: decoded.activity } : {}),
+        activity: decoded.activity,
+        organization: decoded.organization,
+        pinnedFirst: decoded.pinnedFirst,
+        savedBetween: decoded.savedBetween,
         ...(decoded.archiveScope !== undefined
           ? { archived: decoded.archived, archiveScope: decoded.archiveScope }
           : decoded.archived !== undefined

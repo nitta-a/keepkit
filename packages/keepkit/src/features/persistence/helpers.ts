@@ -23,7 +23,18 @@ export function mergeKeepItemLists<TMeta>(
   const byId = new Map(remoteItems.map((item) => [item.id, item]));
   for (const localItem of localItems) {
     const remoteItem = byId.get(localItem.id);
-    if (!remoteItem || localItem.updatedAt > remoteItem.updatedAt) byId.set(localItem.id, localItem);
+    if (!remoteItem) {
+      byId.set(localItem.id, localItem);
+      continue;
+    }
+    const content = localItem.updatedAt > remoteItem.updatedAt ? localItem : remoteItem;
+    const lastOpenedAt =
+      remoteItem.lastOpenedAt === undefined
+        ? localItem.lastOpenedAt
+        : localItem.lastOpenedAt === undefined
+          ? remoteItem.lastOpenedAt
+          : Math.max(remoteItem.lastOpenedAt, localItem.lastOpenedAt);
+    byId.set(localItem.id, lastOpenedAt === undefined ? content : { ...content, lastOpenedAt });
   }
   return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
 }

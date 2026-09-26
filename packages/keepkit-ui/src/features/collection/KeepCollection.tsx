@@ -13,6 +13,7 @@ import { type KeepArchiveScope, KeepArchiveScopeSelect } from "../query/KeepArch
 import { KeepCollectionFilter } from "../query/KeepCollectionFilter";
 import { KeepTagFilter } from "../query/KeepTagFilter";
 import { KeepPagination, KeepSearchInput, KeepSortSelect } from "../query/query-controls";
+import { KeepSavedViews, KeepSaveViewButton } from "../saved-views/KeepSavedViews";
 import { useKeepCollection } from "./hooks/useKeepCollection";
 import { KeepCollectionCreate } from "./KeepCollectionCreate";
 import { KeepList, type KeepListState } from "./KeepList";
@@ -27,7 +28,8 @@ export type KeepCollectionFeature =
   | "tags"
   | "pin"
   | "archive"
-  | "note";
+  | "note"
+  | "savedViews";
 export type KeepLayoutPreset = "list" | "grid" | "compact" | "auto";
 export type KeepCollectionToolbarVariant = "plain" | "panel";
 export type KeepCollectionToolbarLayout = "flat" | "grouped";
@@ -268,24 +270,36 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
       data-loading={view.list.isLoading || view.list.isMutating ? "true" : undefined}
     >
       {toolbar}
+      {view.enabled.savedViews ? (
+        <div data-keepkit="saved-view-controls">
+          <KeepSavedViews<TMeta> onApply={view.applyQuery} />
+          <KeepSaveViewButton<TMeta> query={view.resolvedQuery} />
+        </div>
+      ) : null}
       {activeFilters === undefined ? (
         <KeepActiveFiltersSummary<TMeta>
           search={view.searchValue}
           tags={view.activeTags}
           collection={view.activeCollection}
           collectionLabel={activeCollectionLabel}
+          organization={view.resolvedQuery.organization}
+          savedBetween={view.resolvedQuery.savedBetween}
           activity={view.activity}
           archiveScope={view.archiveScope}
           totalCount={view.list.totalCount}
           onSearchChange={view.setSearchValue}
           onTagChange={view.removeTag}
           onCollectionChange={view.setCollection}
+          onOrganizationChange={view.setOrganization}
+          onSavedBetweenChange={view.setSavedBetween}
           onActivityChange={view.setActivity}
           onArchiveScopeChange={(next) => {
             view.setArchiveScope(next);
             onArchiveScopeChange?.(next);
           }}
           onClear={view.clearFilters}
+          onReset={view.resetFilters}
+          canReset={view.canReset}
         />
       ) : (
         resolveContent(activeFilters, view.list)

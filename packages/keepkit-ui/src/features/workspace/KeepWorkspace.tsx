@@ -1,5 +1,6 @@
 "use client";
 
+import { createInboxQuery } from "@keepkit/core/core";
 import type { HTMLAttributes, ReactNode } from "react";
 import { hasRenderableContent, type RenderProp, resolveContent } from "../../foundation/shared";
 import { KeepBackup, type KeepBackupProps } from "../actions/KeepBackup";
@@ -11,7 +12,7 @@ import { KeepSyncStatusBanner, type KeepSyncStatusBannerProps } from "../sync/Ke
 import { useKeepWorkspace } from "./hooks/useKeepWorkspace";
 
 export type KeepWorkspacePreset = "basic" | "standard" | "management" | "sync";
-export type KeepWorkspaceModule = "syncStatus" | "undo" | "recovery" | "backup" | "stalePrune";
+export type KeepWorkspaceModule = "syncStatus" | "undo" | "recovery" | "backup" | "stalePrune" | "inbox" | "savedViews";
 export type KeepWorkspaceRegion =
   | "before"
   | "syncStatus"
@@ -92,7 +93,18 @@ export function KeepWorkspace<TMeta = Record<string, unknown>>({
   };
   const resolvedCollectionProps = {
     ...collectionProps,
-    features: { ...view.collectionFeatures, ...collectionProps?.features },
+    query: view.modules.inbox
+      ? {
+          ...collectionProps?.query,
+          ...createInboxQuery<TMeta>({ organization: collectionProps?.query?.organization }),
+        }
+      : collectionProps?.query,
+    features: {
+      ...view.collectionFeatures,
+      ...(view.modules.inbox ? { bulkActions: true, note: true, archive: true, tags: true } : {}),
+      ...(view.modules.savedViews ? { savedViews: true } : {}),
+      ...collectionProps?.features,
+    },
   };
   const structuredRegions = surface !== undefined && surface !== "plain";
   const region = (name: KeepWorkspaceRegion, content: ReactNode): ReactNode => {

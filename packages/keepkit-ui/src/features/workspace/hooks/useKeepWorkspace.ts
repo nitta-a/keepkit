@@ -11,10 +11,42 @@ type KeepWorkspaceOptions = {
 };
 
 const PRESET_MODULES: Record<KeepWorkspacePreset, Record<KeepWorkspaceModule, boolean>> = {
-  basic: { syncStatus: false, undo: false, recovery: false, backup: false, stalePrune: false },
-  standard: { syncStatus: false, undo: true, recovery: false, backup: false, stalePrune: false },
-  management: { syncStatus: false, undo: true, recovery: false, backup: true, stalePrune: true },
-  sync: { syncStatus: true, undo: true, recovery: true, backup: false, stalePrune: false },
+  basic: {
+    syncStatus: false,
+    undo: false,
+    recovery: false,
+    backup: false,
+    stalePrune: false,
+    inbox: false,
+    savedViews: false,
+  },
+  standard: {
+    syncStatus: false,
+    undo: true,
+    recovery: false,
+    backup: false,
+    stalePrune: false,
+    inbox: false,
+    savedViews: false,
+  },
+  management: {
+    syncStatus: false,
+    undo: true,
+    recovery: false,
+    backup: true,
+    stalePrune: true,
+    inbox: false,
+    savedViews: false,
+  },
+  sync: {
+    syncStatus: true,
+    undo: true,
+    recovery: true,
+    backup: false,
+    stalePrune: false,
+    inbox: false,
+    savedViews: false,
+  },
 };
 
 const PRESET_COLLECTION_FEATURES: Record<KeepWorkspacePreset, Partial<Record<KeepCollectionFeature, boolean>>> = {

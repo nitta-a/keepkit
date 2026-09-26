@@ -13,8 +13,10 @@ type KeepSearchInputOptions = {
 
 export function useKeepSearchInput(options: KeepSearchInputOptions) {
   const { controlledValue, defaultValue, debounceMs, onValueChange } = options;
-  const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue);
-  const value = controlledValue ?? uncontrolledValue;
+  const [value, setValue] = useState(controlledValue ?? defaultValue);
+  useEffect(() => {
+    if (controlledValue !== undefined) setValue(controlledValue);
+  }, [controlledValue]);
   useEffect(() => {
     if (!onValueChange) return;
     if (debounceMs <= 0) {
@@ -29,7 +31,7 @@ export function useKeepSearchInput(options: KeepSearchInputOptions) {
     value,
     label: useUiLabel("search"),
     change: (event: ChangeEvent<HTMLInputElement>) => {
-      if (controlledValue === undefined) setUncontrolledValue(event.currentTarget.value);
+      setValue(event.currentTarget.value);
     },
   };
 }

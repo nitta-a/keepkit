@@ -57,7 +57,9 @@ function SavedArticles() {
 ```
 
 `keep.Collection`は検索、ソート、ページング、loading / empty / error、ARIA live通知を標準で提供します。検索は既定で300msデバウンスされます。`features={{ tagFilter: true, bulkActions: true }}`でタグフィルターと一括操作も有効にできます。個別の`KeepList`、`KeepSearchInput`、`KeepSortSelect`、`KeepPagination`、`KeepItemCheckbox`、`KeepTagEditor`などは高度なレイアウト用に利用できます。`KeepBulkActions`はrender propsで操作UIを差し替えられ、`isAllSelected` / `toggleSelectAll`で表示中アイテムを一括操作できます。`KeepNoteEditor`は既定300msのデバウンス保存に対応し、`debounceMs={0}`でフォーム送信のみへ戻せます。通知領域だけを明示的に置く場合は`KeepAnnouncer`（`KeepAnnouncements`のalias）を使えます。
-再発見には`useKeepItem(item).recordOpen()`で`lastOpenedAt`を記録し、`activity`クエリまたは`createRediscoveryQuery()` / `useKeepRediscovery()`を利用できます。`<KeepRediscovery strategy="forgotten" limit={5} />`は既存の`KeepList`を組み合わせた標準プリセットです。カード単位では`trackOpen`を指定したときだけ開封記録を有効にします。
+
+未分類アイテムを整理するには`<keep.Inbox />`を使います。Inboxは一括移動・archive・pinと、カードのnote/tag編集を有効にします。`KeepCollection features={{ savedViews: true }}`は現在のqueryを保存し、保存済みqueryの適用・名前変更・pin・削除を提供します。`KeepWorkspace modules={{ inbox: true, savedViews: true }}`でも両方をopt-inできます。Saved Viewデータはアイテムとは別の`keepkit:saved-views` localStorage keyに保存されます。
+再発見には`useKeepItem(item).recordOpen()`で`lastOpenedAt`を記録し、`activity`クエリまたは`createRediscoveryQuery()` / `useKeepRediscovery()`を利用できます。`inactiveForMs`は未閲覧なら`savedAt`、閲覧済みなら`lastOpenedAt`を基準にし、開封記録だけでは`updatedAt`を変更しません。`<KeepRediscovery strategy="forgotten" limit={5} />`は低レベルの一覧プリセット、`<KeepRediscoveryPanel strategy="forgotten" limit={5} />`は表示理由とActivityバッジ付きの標準UIです。カード単位では`trackOpen`を指定したときだけ開封記録を有効にします。
 保存確認から対象へ戻すには`revealRequest={{ requestId, itemId }}`を渡し、`onRevealResult`で結果を受け取れます。検索・タグ・保存先フィルターとページを調整して対象を表示します。
 `KeepWorkspace`はこれらのプリミティブを一つにまとめ、`basic`、`standard`、`management`、`sync`のプリセットを提供します。`createKeepKit()`を利用する場合は同じ実装を`keep.Workspace`から型付きで利用できます。`modules`、`slots`、子コンポーネントごとのpropsで部分的に差し替えられます。
 `KeepCollectionManager`は作成・名前変更・削除・件数表示をまとめたheadless UIです。`allowCreate`、`allowRename`、`allowDelete`、`showCounts`で機能を個別に切り替えられ、`collectionLabels`、`title`、`description`、`empty`で表示を差し替えられます。
@@ -109,7 +111,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.2では、利用履歴とRediscovery query、カード開封追跡に加えて、検索・タグ・コレクション・Activity・アーカイブ条件を表示して個別解除できるフィルターサマリーを追加しました。レイアウト領域を消費しないPortalベースのフローティング巡回UI、Tailwind CSS v4との統合、ホストテーマ変数との衝突回避も引き続き利用できます。
+v0.28.3ではInboxによる未分類アイテムの整理と、queryを保存・再適用できるSaved Viewsを追加しました。利用履歴、Rediscovery、個別解除できるフィルターサマリーも引き続き利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -200,6 +202,8 @@ function SavedArticles() {
 ```
 
 `keep.Collection` includes search, sorting, pagination, loading/empty/error states, and polite live announcements. Search is debounced by 300ms by default. Enable `features={{ tagFilter: true, bulkActions: true }}` for tag filtering and bulk operations. Use the individual `KeepList`, `KeepSearchInput`, `KeepSortSelect`, `KeepPagination`, `KeepItemCheckbox`, and `KeepTagEditor` primitives when you need a custom layout. `KeepBulkActions` supports render props and exposes `isAllSelected` / `toggleSelectAll` for visible-item selection. `KeepNoteEditor` auto-saves dirty notes after 300ms by default; set `debounceMs={0}` to use form submission only. Mount `KeepAnnouncer` (`KeepAnnouncements` alias) when you need the live region explicitly.
+
+Use `<keep.Inbox />` to triage unassigned items. It enables batch collection moves, archive/pin actions, and card note/tag editing. `KeepCollection features={{ savedViews: true }}` saves the current query and supports applying, renaming, pinning, and deleting saved queries. `KeepWorkspace modules={{ inbox: true, savedViews: true }}` opts into both. Saved Views use the separate `keepkit:saved-views` localStorage key.
 Pass `revealRequest={{ requestId, itemId }}` to return to an item from a save confirmation; `onRevealResult` reports the outcome after search, tag, collection, and pagination state is adjusted.
 `KeepWorkspace` composes these primitives into `basic`, `standard`, `management`, and `sync` presets. `createKeepKit()` exposes the same implementation as a typed `keep.Workspace`. Override individual areas through `modules`, `slots`, and child-component props.
 `KeepCollectionManager` is a headless collection-management UI for creating, renaming, deleting, and counting collections. Toggle each capability with `allowCreate`, `allowRename`, `allowDelete`, and `showCounts`; customize `collectionLabels`, `title`, `description`, and `empty`.
@@ -250,7 +254,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.2 adds activity tracking, Rediscovery queries, opt-in card open tracking, and a complete active-filter summary with removal and result-count feedback. The portal-rendered floating tour UI, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
+v0.28.3 adds Inbox triage and reusable Saved Views, alongside activity tracking, Rediscovery, and removable active-filter summaries. The portal-rendered floating tour UI, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme
@@ -294,7 +298,7 @@ import { KeepItemCard, KeepThemeProvider } from "@keepkit/ui";
 Use `[data-state="saved"]`, `[data-state="unsaved"]`, `[data-loading="true"]`, `[data-state="error"]`, `[data-state="empty"]`, `[data-state="stale"]`, `[data-status="expired"]`, `[data-status="removed"]`, and `[data-state="selected"]` from host CSS or Tailwind data variants. For migration, keep importing `@keepkit/ui/theme.css` while replacing direct `--keepkit-*` references with `--keep-*`. In the Pages Router, inject `createNextPagesRouterAdapter(router)` into `urlAdapter`.
 
 Collection queries use one canonical shape: `targetType`, `tags`, `search`, `sort`, `pagination`, `filter`, and `savedBetween`. Saved item inputs contain only `id`, `meta`, `targetType`, `note`, and `tags`; KeepKit owns persistence timestamps.
-For rediscovery, use `useKeepItem(item).recordOpen()` to persist `lastOpenedAt`, then query `activity` with `opened`, `lastOpenedBefore`, `lastOpenedAfter`, or `inactiveForMs`. `createRediscoveryQuery()` / `useKeepRediscovery()` provide standard `never-opened`, `forgotten`, and `recently-opened` views, while `<KeepRediscovery strategy="forgotten" limit={5} />` composes the UI list. `KeepItemCard trackOpen` opts into tracking without changing existing cards.
+For rediscovery, use `useKeepItem(item).recordOpen()` to persist `lastOpenedAt`, then query `activity` with `opened`, `lastOpenedBefore`, `lastOpenedAfter`, or `inactiveForMs`. `inactiveForMs` uses `savedAt` for never-opened items and `lastOpenedAt` for opened items; recording an open does not change `updatedAt`. `createRediscoveryQuery()` / `useKeepRediscovery()` provide standard `never-opened`, `forgotten`, and `recently-opened` views. `<KeepRediscovery>` remains the low-level list, while `<KeepRediscoveryPanel>` adds an explanation and Activity badges. `KeepItemCard trackOpen` opts into tracking without changing existing cards.
 
 Framework-neutral APIs remain available from `@keepkit/core/core`, low-level React bindings from `@keepkit/core/react`, and storage adapters from `@keepkit/core/storage`.
 

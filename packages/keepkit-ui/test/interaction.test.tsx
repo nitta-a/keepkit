@@ -25,6 +25,7 @@ import {
   KeepEmptyState,
   KeepErrorBoundary,
   KeepFloatingTour,
+  KeepInbox,
   KeepItemCard,
   KeepItemCardSkeleton,
   KeepItemCheckbox,
@@ -39,8 +40,11 @@ import {
   KeepPruneStaleButton,
   KeepQuickEditor,
   KeepRediscovery,
+  KeepRediscoveryPanel,
   KeepReorderableList,
+  KeepSavedViews,
   KeepSavePopover,
+  KeepSaveViewButton,
   KeepSearchInput,
   KeepSortSelect,
   KeepStaleNotice,
@@ -338,7 +342,7 @@ test("shows and removes collection, activity, and archive filters with the resul
       <KeepActiveFiltersSummary
         collection="reading"
         collectionLabel="Reading"
-        activity={{ inactiveForMs: 30 * 24 * 60 * 60 * 1000 }}
+        activity={{ opened: "ever", inactiveForMs: 30 * 24 * 60 * 60 * 1000 }}
         archiveScope="archived"
         totalCount={12}
         onCollectionChange={onCollectionChange}
@@ -349,15 +353,58 @@ test("shows and removes collection, activity, and archive filters with the resul
   );
 
   expect(screen.getByText("Reading")).not.toBeNull();
+  expect(screen.getByText("閲覧済み")).not.toBeNull();
   expect(screen.getByText("30日間未閲覧")).not.toBeNull();
   expect(screen.getByText("アーカイブ済み")).not.toBeNull();
   expect(screen.getByText(/12\s*件/)).not.toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Reading を解除" }));
+  fireEvent.click(screen.getByRole("button", { name: "閲覧済み を解除" }));
   fireEvent.click(screen.getByRole("button", { name: "30日間未閲覧 を解除" }));
   fireEvent.click(screen.getByRole("button", { name: "アーカイブ済み を解除" }));
   expect(onCollectionChange).toHaveBeenCalledWith(undefined);
-  expect(onActivityChange).toHaveBeenCalledWith(undefined);
+  expect(onActivityChange).toHaveBeenLastCalledWith({ opened: "ever" });
   expect(onArchiveScopeChange).toHaveBeenCalledWith("active");
+});
+
+test("separates clear from resetting the initial query", async () => {
+  render(
+    <KeepUiProvider locale="ja">
+      <KeepProvider<Meta> storage={createStorage([item])}>
+        <KeepCollection
+          query={{ activity: { inactiveForMs: 30 * 24 * 60 * 60 * 1000 } }}
+          features={{ search: false, sort: false, pagination: false }}
+        />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+
+  expect(await screen.findByText("30日間未閲覧")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "すべての条件をクリア" }));
+  expect(screen.queryByText("30日間未閲覧")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "初期状態に戻す" }));
+  expect(await screen.findByText("30日間未閲覧")).not.toBeNull();
+});
+
+test("summarizes and removes organization and saved-date filters", () => {
+  const onOrganizationChange = vi.fn();
+  const onSavedBetweenChange = vi.fn();
+  const { container } = render(
+    <KeepActiveFiltersSummary
+      organization={{ collection: "unassigned", tags: "assigned" }}
+      savedBetween={[10, 20]}
+      onOrganizationChange={onOrganizationChange}
+      onSavedBetweenChange={onSavedBetweenChange}
+    />,
+  );
+
+  const organizationChip = container.querySelector('[data-filter-kind="organization-collection"]');
+  const savedDateChip = container.querySelector('[data-filter-kind="saved-between"]');
+  expect(organizationChip).not.toBeNull();
+  expect(savedDateChip).not.toBeNull();
+  fireEvent.click(organizationChip?.querySelector("button") as HTMLButtonElement);
+  fireEvent.click(savedDateChip?.querySelector("button") as HTMLButtonElement);
+  expect(onOrganizationChange).toHaveBeenCalledWith({ tags: "assigned" });
+  expect(onSavedBetweenChange).toHaveBeenCalledWith(undefined);
 });
 
 test("clears URL-restored activity and archive filters", async () => {
@@ -377,6 +424,31 @@ test("clears URL-restored activity and archive filters", async () => {
   expect(screen.getByText("アーカイブ済み")).not.toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "すべての条件をクリア" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "すべての条件をクリア" })).toBeNull());
+});
+
+test("restores organization filters from URL history and removes their summary chips", async () => {
+  let currentUrl = "http://keepkit.test/items?collectionState=unassigned";
+  const listeners = new Set<() => void>();
+  const urlAdapter = {
+    getUrl: () => currentUrl,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    navigate: vi.fn(),
+  };
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepCollection urlSync urlAdapter={urlAdapter} features={{ search: false, sort: false, pagination: false }} />
+    </KeepProvider>,
+  );
+
+  const chip = await screen.findByText("collection: unassigned");
+  expect(screen.getByLabelText("Active filters")).not.toBeNull();
+  currentUrl = "http://keepkit.test/items";
+  for (const listener of listeners) listener();
+  await waitFor(() => expect(screen.queryByText("collection: unassigned")).toBeNull());
+  expect(chip).not.toBeNull();
 });
 
 test("configures label text and visibility without removing the accessible name", () => {
@@ -1276,6 +1348,113 @@ test("exposes visible-item select-all state and toggles all visible items", asyn
   expect(await screen.findByText("false:")).not.toBeNull();
 });
 
+test("KeepInbox lists unassigned items and excludes an item after collection assignment", async () => {
+  const storage = createStorage([item, { ...secondItem, collectionId: "reading" }]);
+  let moveToCollection: ((id: string, collectionId?: string) => Promise<void>) | undefined;
+  function CaptureActions() {
+    moveToCollection = useKeepContext<Meta>().moveToCollection;
+    return null;
+  }
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <CaptureActions />
+      <KeepInbox<Meta>
+        features={{ search: false, sort: false, pagination: false }}
+        itemCardProps={{ title: (saved) => saved.meta.title }}
+      />
+    </KeepProvider>,
+  );
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+  expect(screen.queryByRole("heading", { name: "Second interaction item" })).toBeNull();
+  await moveToCollection?.(item.id, "reading");
+  await waitFor(() => expect(screen.queryByRole("heading", { name: "Interaction item" })).toBeNull());
+});
+
+test("workspace Inbox module enables triage and Saved View controls", async () => {
+  window.localStorage.removeItem("keepkit:saved-views");
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepWorkspace
+        modules={{ inbox: true, savedViews: true }}
+        collectionProps={{ features: { search: false, sort: false, pagination: false } }}
+      />
+    </KeepProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+  expect(document.querySelector('[data-keepkit="bulk-actions"]')).not.toBeNull();
+  expect(screen.getByRole("textbox", { name: "View name" })).not.toBeNull();
+});
+
+test("applies batch archive, pin, and collection changes in the provider", async () => {
+  const storage = createStorage([item, secondItem]);
+  let actions: ReturnType<typeof useKeepContext<Meta>> | undefined;
+  function CaptureActions() {
+    actions = useKeepContext<Meta>();
+    return null;
+  }
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <CaptureActions />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(actions?.isHydrated).toBe(true));
+  await actions?.archiveBatch([item.id, secondItem.id]);
+  await actions?.pinBatch([item.id]);
+  await actions?.moveToCollectionBatch([item.id, secondItem.id], "reading");
+  const saved = await storage.getAll();
+  expect(saved.every((savedItem) => savedItem.archived === true && savedItem.collectionId === "reading")).toBe(true);
+  expect(saved.find((savedItem) => savedItem.id === item.id)?.pinned).toBe(true);
+});
+
+test("saves, applies, renames, pins, and deletes a Saved View", async () => {
+  window.localStorage.removeItem("keepkit:saved-views");
+  const applied: unknown[] = [];
+  render(
+    <KeepProvider<Meta> storage={createStorage()}>
+      <KeepSaveViewButton<Meta> query={{ search: { query: "reference" } }} />
+      <KeepSavedViews<Meta> onApply={(query) => applied.push(query)} />
+    </KeepProvider>,
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "View name" }), { target: { value: "References" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save View" }));
+  const viewButton = await screen.findByRole("button", { name: "References" });
+  fireEvent.click(viewButton);
+  await waitFor(() => expect(applied).toEqual([{ search: { query: "reference" } }]));
+  fireEvent.click(screen.getByRole("button", { name: "Pin References" }));
+  fireEvent.click(screen.getByText("Rename References"));
+  fireEvent.change(screen.getByRole("textbox", { name: "New name" }), { target: { value: "Reading" } });
+  fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+  expect(await screen.findByRole("button", { name: "Reading" })).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Delete Reading" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Reading" })).toBeNull());
+});
+
+test("applies a Saved View back into KeepCollection query state", async () => {
+  window.localStorage.removeItem("keepkit:saved-views");
+  render(
+    <KeepProvider<Meta> storage={createStorage([item, secondItem])}>
+      <KeepCollection<Meta>
+        urlSync
+        features={{ search: true, sort: false, pagination: false, savedViews: true }}
+        itemCardProps={{ title: (saved) => saved.meta.title }}
+      />
+    </KeepProvider>,
+  );
+  const search = await screen.findByRole("searchbox", { name: "Search saved items" });
+  fireEvent.change(search, { target: { value: "Second" } });
+  expect(await screen.findByRole("heading", { name: "Second interaction item" })).not.toBeNull();
+  await waitFor(() => expect(screen.queryByRole("heading", { name: "Interaction item" })).toBeNull());
+  fireEvent.change(screen.getByRole("textbox", { name: "View name" }), { target: { value: "Second only" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save View" }));
+  fireEvent.change(search, { target: { value: "" } });
+  expect(await screen.findByRole("heading", { name: "Interaction item" })).not.toBeNull();
+  fireEvent.click(await screen.findByRole("button", { name: "Second only" }));
+  await waitFor(() => expect(screen.queryByRole("heading", { name: "Interaction item" })).toBeNull());
+  expect(screen.getByRole("heading", { name: "Second interaction item" })).not.toBeNull();
+  await waitFor(() => expect(new URLSearchParams(window.location.search).get("q")).toBe("Second"));
+});
+
 test("exposes stable data attributes for CSS styling", async () => {
   render(
     <KeepProvider<Meta> storage={createStorage([item])}>
@@ -1557,7 +1736,11 @@ test("tracks card opens without replacing the consumer callback", async () => {
 
   fireEvent.click(await screen.findByRole("link", { name: "Interaction item" }));
   expect(onOpen).toHaveBeenCalledOnce();
-  await waitFor(async () => expect((await storage.getAll())[0]?.lastOpenedAt).toEqual(expect.any(Number)));
+  await waitFor(async () => {
+    const saved = (await storage.getAll())[0];
+    expect(saved?.lastOpenedAt).toEqual(expect.any(Number));
+    expect(saved?.updatedAt).toBe(item.updatedAt);
+  });
 });
 
 test("renders Rediscovery as a capped list with open tracking by default", async () => {
@@ -1571,6 +1754,19 @@ test("renders Rediscovery as a capped list with open tracking by default", async
   expect((await screen.findAllByRole("link")).length).toBe(1);
   fireEvent.click(screen.getByRole("link", { name: "Interaction item" }));
   await waitFor(async () => expect((await storage.getAll())[0]?.lastOpenedAt).toEqual(expect.any(Number)));
+});
+
+test("explains Rediscovery strategy and shows an activity badge", async () => {
+  render(
+    <KeepUiProvider locale="ja">
+      <KeepProvider<Meta> storage={createStorage([item])}>
+        <KeepRediscoveryPanel strategy="never-opened" limit={1} />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+
+  expect(screen.getByRole("heading", { name: "未閲覧" })).not.toBeNull();
+  expect((await screen.findAllByText("未閲覧")).length).toBeGreaterThan(1);
 });
 
 test("restores activity filters from a collection URL", async () => {

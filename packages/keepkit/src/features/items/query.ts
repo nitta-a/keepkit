@@ -9,6 +9,11 @@ export type KeepListQuery<TMeta = Record<string, unknown>> = {
   /** Optional explicit archive scope. When provided, this takes precedence over `archived`. */
   archiveScope?: "active" | "archived" | "all";
   collectionId?: string;
+  organization?: {
+    collection?: "assigned" | "unassigned";
+    tags?: "assigned" | "unassigned";
+    note?: "assigned" | "unassigned";
+  };
   pinnedFirst?: boolean;
   activity?: {
     opened?: "ever" | "never";
@@ -51,6 +56,13 @@ export type KeepRediscoveryOptions = {
   inactiveForMs?: number;
 };
 
+/** Build the default Inbox query: active items without a collection. */
+export function createInboxQuery<TMeta = Record<string, unknown>>(
+  options: { organization?: KeepListQuery<TMeta>["organization"] } = {},
+): KeepListQuery<TMeta> {
+  return { organization: { collection: "unassigned", ...options.organization } };
+}
+
 const DEFAULT_REDISCOVERY_INACTIVE_FOR_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Build a serializable query for common rediscovery views. */
@@ -79,6 +91,7 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
       (query.tags === undefined || query.tags.every((tag) => item.tags?.includes(tag))) &&
       matchesArchiveScope(item, query) &&
       (query.collectionId === undefined || item.collectionId === query.collectionId) &&
+      matchesOrganization(item, query.organization) &&
       matchesActivity(item, query.activity) &&
       (lowerBound === undefined || savedAt >= lowerBound) &&
       (upperBound === undefined || savedAt <= upperBound) &&
@@ -114,6 +127,19 @@ export function queryKeepItems<TMeta = Record<string, unknown>>(
   };
 }
 
+function matchesOrganization<TMeta>(
+  item: KeepItem<TMeta>,
+  organization: KeepListQuery<TMeta>["organization"],
+): boolean {
+  if (organization?.collection === "assigned" && !item.collectionId?.trim()) return false;
+  if (organization?.collection === "unassigned" && item.collectionId?.trim()) return false;
+  if (organization?.tags === "assigned" && !item.tags?.some((tag) => tag.trim())) return false;
+  if (organization?.tags === "unassigned" && item.tags?.some((tag) => tag.trim())) return false;
+  if (organization?.note === "assigned" && !item.note?.trim()) return false;
+  if (organization?.note === "unassigned" && item.note?.trim()) return false;
+  return true;
+}
+
 function matchesActivity<TMeta>(item: KeepItem<TMeta>, activity?: KeepListQuery<TMeta>["activity"]): boolean {
   if (!activity) return true;
   const lastOpenedAt = item.lastOpenedAt;
@@ -124,7 +150,8 @@ function matchesActivity<TMeta>(item: KeepItem<TMeta>, activity?: KeepListQuery<
   if (activity.lastOpenedAfter !== undefined && (!opened || lastOpenedAt <= activity.lastOpenedAfter)) return false;
   if (activity.inactiveForMs !== undefined) {
     const cutoff = Date.now() - activity.inactiveForMs;
-    if (opened && lastOpenedAt > cutoff) return false;
+    const lastActivityAt = item.lastOpenedAt ?? item.savedAt;
+    if (lastActivityAt > cutoff) return false;
   }
   return true;
 }

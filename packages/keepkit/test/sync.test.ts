@@ -377,6 +377,24 @@ test("pulls non-stale remote items, applies server revisions, and reports push f
   adapter.dispose();
 });
 
+test("pulls newer activity without rolling back newer content", async () => {
+  const localItem = { ...itemA, note: "new content", updatedAt: 20 };
+  const { local, values } = createLocal([localItem]);
+  const { queue } = createMemoryQueue();
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue,
+    remote: {
+      pull: async () => [{ ...itemA, note: "old content", updatedAt: 10, lastOpenedAt: 30 }],
+      push: async () => ({ type: "synced" }),
+    },
+  });
+
+  await adapter.flushSync();
+  assert.deepEqual(values.get(itemA.id), { ...localItem, lastOpenedAt: 30 });
+  adapter.dispose();
+});
+
 test("retries transient pushes and carries user and tenant scope", async () => {
   const { local } = createLocal();
   const queued: SyncOperation[] = [];
