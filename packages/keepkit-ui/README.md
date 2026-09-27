@@ -63,6 +63,7 @@ function SavedArticles() {
 保存確認から対象へ戻すには`revealRequest={{ requestId, itemId }}`を渡し、`onRevealResult`で結果を受け取れます。検索・タグ・保存先フィルターとページを調整して対象を表示します。
 `KeepWorkspace`はこれらのプリミティブを一つにまとめ、`basic`、`standard`、`management`、`sync`のプリセットを提供します。`createKeepKit()`を利用する場合は同じ実装を`keep.Workspace`から型付きで利用できます。`modules`、`slots`、子コンポーネントごとのpropsで部分的に差し替えられます。
 `KeepCollectionManager`は作成・名前変更・削除・件数表示をまとめたheadless UIです。`allowCreate`、`allowRename`、`allowDelete`、`showCounts`で機能を個別に切り替えられ、`collectionLabels`、`title`、`description`、`empty`で表示を差し替えられます。
+標準ブラウザーストレージは空のコレクションと変更後の名前を再読み込み後も復元します。独自の`StorageAdapter`では`getCollections`、`setCollection`、`removeCollection`を実装して永続化できます。
 画面領域を明示する場合は`surface="panel"`または領域別の`surface`と、`sectionGap="compact" | "comfortable"`を指定できます。空のslotは枠を生成せず、未指定時と`surface="plain"`では従来のDOM順序を維持します。
 
 ```tsx
@@ -111,7 +112,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.3ではInboxによる未分類アイテムの整理と、queryを保存・再適用できるSaved Viewsを追加しました。利用履歴、Rediscovery、個別解除できるフィルターサマリーも引き続き利用できます。
+v0.28.4では空のコレクションと変更後の名前が再読み込み後も復元されます。Inbox、Saved Views、利用履歴、Rediscovery、個別解除できるフィルターサマリーも利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -207,6 +208,7 @@ Use `<keep.Inbox />` to triage unassigned items. It enables batch collection mov
 Pass `revealRequest={{ requestId, itemId }}` to return to an item from a save confirmation; `onRevealResult` reports the outcome after search, tag, collection, and pagination state is adjusted.
 `KeepWorkspace` composes these primitives into `basic`, `standard`, `management`, and `sync` presets. `createKeepKit()` exposes the same implementation as a typed `keep.Workspace`. Override individual areas through `modules`, `slots`, and child-component props.
 `KeepCollectionManager` is a headless collection-management UI for creating, renaming, deleting, and counting collections. Toggle each capability with `allowCreate`, `allowRename`, `allowDelete`, and `showCounts`; customize `collectionLabels`, `title`, `description`, and `empty`.
+Standard browser storage restores empty collections and renamed labels after reload. Custom `StorageAdapter` implementations can persist them by implementing `getCollections`, `setCollection`, and `removeCollection`.
 Use `surface="panel"` or a per-region `surface` map together with `sectionGap="compact" | "comfortable"` to make workspace boundaries explicit. Empty slots do not create frames, and omitted `surface` or `surface="plain"` preserves the existing DOM order.
 
 ```tsx
@@ -254,7 +256,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.3 adds Inbox triage and reusable Saved Views, alongside activity tracking, Rediscovery, and removable active-filter summaries. The portal-rendered floating tour UI, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
+v0.28.4 restores empty collections and renamed labels after reload. Inbox triage, Saved Views, activity tracking, Rediscovery, and removable active-filter summaries are also available. The portal-rendered floating tour UI, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme

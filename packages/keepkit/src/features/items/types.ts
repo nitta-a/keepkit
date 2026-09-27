@@ -5,6 +5,8 @@ export type SyncScope = {
   tenantId?: string;
 };
 
+export type KeepCollectionDefinition = { id: string; name: string; scope?: SyncScope };
+
 export type KeepItem<TMeta = Record<string, unknown>> = {
   id: string;
   savedAt: number;
@@ -51,6 +53,10 @@ export type KeepItemInput<TMeta = Record<string, unknown>> = {
 
 export interface StorageAdapter<TMeta = Record<string, unknown>> {
   getAll(): Promise<KeepItem<TMeta>[]>;
+  /** Optional local collection metadata; independent of saved items and item backups. */
+  getCollections?(): Promise<KeepCollectionDefinition[]>;
+  setCollection?(collection: KeepCollectionDefinition): Promise<void>;
+  removeCollection?(id: string, scope?: SyncScope): Promise<void>;
   set(item: KeepItem<TMeta>): Promise<void>;
   setMany?(items: KeepItem<TMeta>[]): Promise<void>;
   remove(id: string): Promise<void>;

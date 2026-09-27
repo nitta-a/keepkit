@@ -1,4 +1,11 @@
-import type { KeepItem, StorageAdapter, SyncOperation, SyncQueueAdapter, SyncScope } from "../items/types";
+import type {
+  KeepCollectionDefinition,
+  KeepItem,
+  StorageAdapter,
+  SyncOperation,
+  SyncQueueAdapter,
+  SyncScope,
+} from "../items/types";
 
 export type KeepScope = SyncScope;
 
@@ -19,6 +26,9 @@ export function isSameKeepScope(left: KeepScope | undefined, right: KeepScope | 
  */
 export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements StorageAdapter<TMeta> {
   readonly storageKey?: string;
+  readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
+  readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
+  readonly removeCollection?: (id: string, scope?: SyncScope) => Promise<void>;
   private readonly base: StorageAdapter<TMeta>;
   private readonly scope?: KeepScope;
 
@@ -31,6 +41,20 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
         ? base.storageKey
         : `${base.storageKey}${scopeKey}`
       : undefined;
+    if (base.getCollections && base.setCollection && base.removeCollection) {
+      const getCollections = base.getCollections.bind(base);
+      const setCollection = base.setCollection.bind(base);
+      const removeCollection = base.removeCollection.bind(base);
+      this.getCollections = async () => {
+        const collections = await getCollections();
+        return this.scope
+          ? collections.filter((collection) => isSameKeepScope(collection.scope, this.scope))
+          : collections;
+      };
+      this.setCollection = (collection) =>
+        setCollection({ ...collection, ...(this.scope ? { scope: this.scope } : {}) });
+      this.removeCollection = (id) => removeCollection(id, this.scope);
+    }
   }
 
   async getAll(): Promise<KeepItem<TMeta>[]> {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createBrowserStorageAdapter,
+  createScopedStorageAdapter,
   createStorageAdapter,
   exportItems,
   FallbackStorageAdapter,
@@ -69,6 +70,75 @@ test("removes and clears items", async () => {
   await adapter.set(item);
   await adapter.clear();
   assert.deepEqual(await adapter.getAll(), []);
+});
+
+test("persists collection definitions in a separate localStorage key", async () => {
+  const storage = createStorage();
+  const adapter = new LocalStorageAdapter({ key: "collections-test", storage });
+  await adapter.set(item);
+  await adapter.setCollection({ id: "empty", name: "Empty" });
+  await adapter.setCollection({ id: "reading", name: "Reading" });
+  await adapter.setCollection({ id: "reading", name: "Read later" });
+  assert.match(storage.getItem("collections-test:collections"), /Read later/);
+
+  const reopened = new LocalStorageAdapter({ key: "collections-test", storage });
+  assert.deepEqual(await reopened.getCollections(), [
+    { id: "empty", name: "Empty" },
+    { id: "reading", name: "Read later" },
+  ]);
+  await reopened.clear();
+  assert.deepEqual(await reopened.getCollections(), await adapter.getCollections());
+  await reopened.removeCollection("reading");
+  assert.deepEqual(await adapter.getCollections(), [{ id: "empty", name: "Empty" }]);
+});
+
+test("rejects malformed collection metadata and reports collection write failures", async () => {
+  const storage = createStorage();
+  const adapter = new LocalStorageAdapter({ key: "invalid-collections", storage });
+  storage.setItem("invalid-collections:collections", JSON.stringify([{ id: "empty", name: " " }]));
+  await assert.rejects(adapter.getCollections(), KeepStorageParseError);
+
+  storage.removeItem("invalid-collections:collections");
+  const cause = Object.assign(new Error("full"), { name: "QuotaExceededError", code: 22 });
+  const failing = new LocalStorageAdapter({
+    key: "invalid-collections",
+    storage: {
+      ...storage,
+      setItem: () => {
+        throw cause;
+      },
+    },
+  });
+  await assert.rejects(failing.setCollection({ id: "empty", name: "Empty" }), KeepStorageQuotaError);
+});
+
+test("keeps fallback collection metadata current and migrates it when the primary is empty", async () => {
+  const primaryStorage = createStorage();
+  const fallbackStorage = createStorage();
+  const primary = new LocalStorageAdapter({ key: "primary", storage: primaryStorage });
+  const fallback = new LocalStorageAdapter({ key: "fallback", storage: fallbackStorage });
+  await fallback.setCollection({ id: "saved", name: "Saved" });
+  const adapter = new FallbackStorageAdapter({ primary, fallback, migrateFallbackOnEmpty: true, mirrorWrites: true });
+  assert.deepEqual(await adapter.getCollections?.(), [{ id: "saved", name: "Saved" }]);
+  assert.deepEqual(await primary.getCollections(), [{ id: "saved", name: "Saved" }]);
+  await adapter.setCollection?.({ id: "empty", name: "Empty" });
+  assert.deepEqual(await fallback.getCollections(), [
+    { id: "saved", name: "Saved" },
+    { id: "empty", name: "Empty" },
+  ]);
+});
+
+test("isolates collection definitions by user scope", async () => {
+  const base = new LocalStorageAdapter({ key: "scoped-collections", storage: createStorage() });
+  const alice = createScopedStorageAdapter(base, { userId: "alice" });
+  const bob = createScopedStorageAdapter(base, { userId: "bob" });
+  await alice.setCollection?.({ id: "route", name: "Alice route" });
+  await bob.setCollection?.({ id: "route", name: "Bob route" });
+  assert.deepEqual(await alice.getCollections?.(), [{ id: "route", name: "Alice route", scope: { userId: "alice" } }]);
+  assert.deepEqual(await bob.getCollections?.(), [{ id: "route", name: "Bob route", scope: { userId: "bob" } }]);
+  await alice.removeCollection?.("route");
+  assert.deepEqual(await alice.getCollections?.(), []);
+  assert.equal((await bob.getCollections?.())?.[0]?.name, "Bob route");
 });
 
 test("reports malformed JSON and invalid item arrays", async () => {

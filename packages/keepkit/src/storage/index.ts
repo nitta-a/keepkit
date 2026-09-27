@@ -1,4 +1,5 @@
 import {
+  type KeepCollectionDefinition,
   type KeepItem,
   KeepStorageAccessError,
   KeepStorageError,
@@ -7,8 +8,19 @@ import {
   KeepStorageQuotaError,
   type StorageAdapter,
 } from "../features/items/types";
-import { isKeepItemArray, isRecord, mergeKeepItemLists, persistKeepItems } from "../features/persistence/helpers";
-import { createScopedStorageAdapter, getKeepScopeKey, type KeepScope } from "../features/persistence/scope";
+import {
+  isKeepCollectionDefinition,
+  isKeepItemArray,
+  isRecord,
+  mergeKeepItemLists,
+  persistKeepItems,
+} from "../features/persistence/helpers";
+import {
+  createScopedStorageAdapter,
+  getKeepScopeKey,
+  isSameKeepScope,
+  type KeepScope,
+} from "../features/persistence/scope";
 
 export const DEFAULT_STORAGE_KEY = "keepkit:items";
 
@@ -32,6 +44,9 @@ export const DEFAULT_INDEXEDDB_STORE = "items";
 
 export type StorageAdapterFactoryOptions<TMeta = Record<string, unknown>> = {
   getAll: () => KeepItem<TMeta>[] | Promise<KeepItem<TMeta>[]>;
+  getCollections?: () => KeepCollectionDefinition[] | Promise<KeepCollectionDefinition[]>;
+  setCollection?: (collection: KeepCollectionDefinition) => void | Promise<void>;
+  removeCollection?: (id: string, scope?: KeepScope) => void | Promise<void>;
   set: (item: KeepItem<TMeta>) => void | Promise<void>;
   setMany?: (items: KeepItem<TMeta>[]) => void | Promise<void>;
   remove: (id: string) => void | Promise<void>;
@@ -60,6 +75,9 @@ export type FallbackStorageAdapterOptions<TMeta = Record<string, unknown>> = {
  */
 export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements StorageAdapter<TMeta> {
   public readonly storageKey: string | undefined;
+  readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
+  readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
+  readonly removeCollection?: (id: string, scope?: KeepScope) => Promise<void>;
   private readonly primary: StorageAdapter<TMeta>;
   private readonly fallback: StorageAdapter<TMeta>;
   private readonly shouldFallback: (error: unknown) => boolean;
@@ -77,6 +95,38 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
     this.migrateFallbackOnEmpty = options.migrateFallbackOnEmpty ?? false;
     this.mirrorWrites = options.mirrorWrites ?? false;
     this.storageKey = options.fallback.storageKey ?? options.primary.storageKey;
+    if (
+      this.primary.getCollections &&
+      this.primary.setCollection &&
+      this.primary.removeCollection &&
+      this.fallback.getCollections &&
+      this.fallback.setCollection &&
+      this.fallback.removeCollection
+    ) {
+      const fallbackGetCollections = this.fallback.getCollections.bind(this.fallback);
+      this.getCollections = async () => {
+        const collections = await this.execute((adapter) => {
+          if (!adapter.getCollections) throw new Error("Collection storage is unavailable.");
+          return adapter.getCollections();
+        });
+        if (this.active === "primary" && this.migrateFallbackOnEmpty && collections.length === 0) {
+          const fallbackCollections = await fallbackGetCollections();
+          for (const collection of fallbackCollections) await this.setCollection?.(collection);
+          return fallbackCollections;
+        }
+        return collections;
+      };
+      this.setCollection = (collection) =>
+        this.executeWrite((adapter) => {
+          if (!adapter.setCollection) throw new Error("Collection storage is unavailable.");
+          return adapter.setCollection(collection);
+        });
+      this.removeCollection = (id, scope) =>
+        this.executeWrite((adapter) => {
+          if (!adapter.removeCollection) throw new Error("Collection storage is unavailable.");
+          return adapter.removeCollection(id, scope);
+        });
+    }
   }
 
   get isUsingFallback(): boolean {
@@ -247,8 +297,18 @@ export function createStorageAdapter<TMeta = Record<string, unknown>>(
   const subscribe = options.subscribe;
   const setMany = options.setMany;
   const removeMany = options.removeMany;
+  const getCollections = options.getCollections;
+  const setCollection = options.setCollection;
+  const removeCollection = options.removeCollection;
   return {
     getAll: async () => options.getAll(),
+    ...(getCollections && setCollection && removeCollection
+      ? {
+          getCollections: async () => getCollections(),
+          setCollection: async (collection: KeepCollectionDefinition) => setCollection(collection),
+          removeCollection: async (id: string, scope?: KeepScope) => removeCollection(id, scope),
+        }
+      : {}),
     set: async (item) => options.set(item),
     ...(setMany ? { setMany: async (items: KeepItem<TMeta>[]) => setMany(items) } : {}),
     remove: async (id) => options.remove(id),
@@ -312,6 +372,48 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
     }
   }
 
+  async getCollections(): Promise<KeepCollectionDefinition[]> {
+    if (!this.storage) return [];
+    const storageKey = `${this.storageKey}:collections`;
+    let raw: string | null;
+    try {
+      raw = this.storage.getItem(storageKey);
+    } catch (cause) {
+      throw new KeepStorageAccessError({ operation: "getAll", storageKey, cause });
+    }
+    if (!raw) return [];
+    try {
+      const value: unknown = JSON.parse(raw);
+      if (!Array.isArray(value) || !value.every(isKeepCollectionDefinition)) {
+        throw new KeepStorageParseError({ operation: "getAll", storageKey });
+      }
+      return value;
+    } catch (cause) {
+      if (cause instanceof KeepStorageParseError) throw cause;
+      throw new KeepStorageParseError({ operation: "getAll", storageKey, cause });
+    }
+  }
+
+  async setCollection(collection: KeepCollectionDefinition): Promise<void> {
+    if (!isKeepCollectionDefinition(collection)) throw new Error("Collection id and name are required.");
+    const current = await this.getCollections();
+    await this.writeCollections(
+      [
+        ...current.filter((entry) => entry.id !== collection.id || !isSameKeepScope(entry.scope, collection.scope)),
+        collection,
+      ],
+      "set",
+    );
+  }
+
+  async removeCollection(id: string, scope?: KeepScope): Promise<void> {
+    const current = await this.getCollections();
+    await this.writeCollections(
+      current.filter((entry) => entry.id !== id || !isSameKeepScope(entry.scope, scope)),
+      "remove",
+    );
+  }
+
   async set(item: KeepItem<TMeta>): Promise<void> {
     await this.setMany([item]);
   }
@@ -359,7 +461,7 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
     if (typeof window === "undefined") return () => undefined;
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key !== null && event.key !== this.storageKey) return;
+      if (event.key !== null && event.key !== this.storageKey && event.key !== `${this.storageKey}:collections`) return;
       listener();
     };
 
@@ -386,6 +488,20 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
       });
     }
   }
+
+  private async writeCollections(
+    collections: KeepCollectionDefinition[],
+    operation: KeepStorageOperation,
+  ): Promise<void> {
+    if (!this.storage) return;
+    const storageKey = `${this.storageKey}:collections`;
+    try {
+      this.storage.setItem(storageKey, JSON.stringify(collections));
+    } catch (cause) {
+      if (isQuotaExceededError(cause)) throw new KeepStorageQuotaError({ operation, storageKey, cause });
+      throw new KeepStorageAccessError({ operation, storageKey, cause });
+    }
+  }
 }
 
 /** An async StorageAdapter backed by IndexedDB, with one object store per adapter. */
@@ -396,6 +512,7 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
   private readonly version: number;
   private readonly indexedDB: IDBFactory | undefined;
   private databasePromise: Promise<IDBDatabase | undefined> | undefined;
+  private collectionDatabasePromise: Promise<IDBDatabase | undefined> | undefined;
 
   constructor(options: IndexedDBAdapterOptions = {}) {
     this.databaseName = options.databaseName ?? options.dbName ?? options.key ?? DEFAULT_INDEXEDDB_DATABASE;
@@ -419,6 +536,37 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
       if (cause instanceof KeepStorageParseError) throw cause;
       throw new KeepStorageAccessError({ operation: "getAll", storageKey: this.storageKey, cause });
     }
+  }
+
+  async getCollections(): Promise<KeepCollectionDefinition[]> {
+    const database = await this.openCollections("getAll");
+    if (!database) return [];
+    const storageKey = `${this.storageKey}:collections`;
+    try {
+      const transaction = database.transaction("collections", "readonly");
+      const value: unknown = await requestToPromise(transaction.objectStore("collections").getAll());
+      if (
+        !Array.isArray(value) ||
+        !value.every((entry) => isRecord(entry) && typeof entry.key === "string" && isKeepCollectionDefinition(entry))
+      ) {
+        throw new KeepStorageParseError({ operation: "getAll", storageKey });
+      }
+      return value.map(({ key: _key, ...collection }) => collection);
+    } catch (cause) {
+      if (cause instanceof KeepStorageParseError) throw cause;
+      throw new KeepStorageAccessError({ operation: "getAll", storageKey, cause });
+    }
+  }
+
+  async setCollection(collection: KeepCollectionDefinition): Promise<void> {
+    if (!isKeepCollectionDefinition(collection)) throw new Error("Collection id and name are required.");
+    await this.writeCollection("set", (store) =>
+      store.put({ ...collection, key: collectionKey(collection.id, collection.scope) }),
+    );
+  }
+
+  async removeCollection(id: string, scope?: KeepScope): Promise<void> {
+    await this.writeCollection("remove", (store) => store.delete(collectionKey(id, scope)));
   }
 
   async set(item: KeepItem<TMeta>): Promise<void> {
@@ -498,6 +646,52 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
     channel.close();
   }
 
+  private async writeCollection(
+    operation: KeepStorageOperation,
+    write: (store: IDBObjectStore) => void,
+  ): Promise<void> {
+    const database = await this.openCollections(operation);
+    if (!database) return;
+    const storageKey = `${this.storageKey}:collections`;
+    try {
+      const transaction = database.transaction("collections", "readwrite");
+      write(transaction.objectStore("collections"));
+      await transactionToPromise(transaction);
+      this.notifySubscribers();
+    } catch (cause) {
+      if (isQuotaExceededError(cause)) throw new KeepStorageQuotaError({ operation, storageKey, cause });
+      throw new KeepStorageAccessError({ operation, storageKey, cause });
+    }
+  }
+
+  private openCollections(operation: KeepStorageOperation): Promise<IDBDatabase | undefined> {
+    if (!this.indexedDB) return Promise.resolve(undefined);
+    const storageKey = `${this.storageKey}:collections`;
+    if (!this.collectionDatabasePromise) {
+      this.collectionDatabasePromise = new Promise((resolve, reject) => {
+        let request: IDBOpenDBRequest;
+        try {
+          request = this.indexedDB?.open(storageKey, 1) as IDBOpenDBRequest;
+        } catch (cause) {
+          reject(cause);
+          return;
+        }
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains("collections")) {
+            request.result.createObjectStore("collections", { keyPath: "key" });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => reject(request.error ?? new Error("IndexedDB collection storage open was blocked."));
+      });
+    }
+    return this.collectionDatabasePromise.catch((cause) => {
+      this.collectionDatabasePromise = undefined;
+      throw new KeepStorageAccessError({ operation, storageKey, cause });
+    });
+  }
+
   private open(operation: KeepStorageOperation): Promise<IDBDatabase | undefined> {
     if (!this.indexedDB) return Promise.resolve(undefined);
     if (!this.databasePromise) {
@@ -525,6 +719,10 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
       throw new KeepStorageAccessError({ operation, storageKey: this.storageKey, cause });
     });
   }
+}
+
+function collectionKey(id: string, scope?: KeepScope): string {
+  return JSON.stringify([scope?.tenantId ?? null, scope?.userId ?? null, id]);
 }
 
 function getBrowserStorage(): Storage | undefined {

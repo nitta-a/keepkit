@@ -42,7 +42,7 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.28.3では、整理状態を検索できる`createInboxQuery()`と、Saved View用の独立した永続化adapterを追加しました。利用履歴、Rediscovery query、URL状態codec、認証付き同期も引き続き利用できます。
+v0.28.4では、空のコレクションと変更した名前をブラウザー内に永続化し、再読み込み後に復元できるようになりました。Inbox、Saved View、利用履歴、Rediscovery query、URL状態codec、認証付き同期も利用できます。
 
 `createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
@@ -91,7 +91,7 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-v0.28.3 adds `createInboxQuery()` for organization-state queries and a separate persistence adapter for Saved Views. Activity tracking, Rediscovery queries, URL state codecs, user/tenant isolation, and authenticated sync remain available.
+v0.28.4 persists empty collections and renamed labels in browser storage so they survive reloads. Inbox, Saved Views, activity tracking, Rediscovery queries, URL state codecs, user/tenant isolation, and authenticated sync are also available.
 
 `createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 
@@ -101,6 +101,10 @@ The v0.5 factory returns `Provider`, `Button`, `useContext`, `useItem`, `useList
 
 `KeepItem` and `KeepItemInput` accept optional `archived`, `pinned`, and `collectionId` fields. `useKeepList` defaults to unarchived items; pass `archived: true` for the archive, `archiveScope: "all"` for both scopes, `collectionId` for an exact collection filter, and `pinnedFirst: true` to stably promote pinned items without changing the existing order inside either group. `useKeepCollections({ targetType, orderBy })` derives de-duplicated collection IDs, names, and counts from the complete saved-item snapshot. `useKeepItem` and the provider expose `toggleArchive`, `archiveItem`, `unarchiveItem`, `togglePin`, and `moveToCollection` operations. Each operation updates `updatedAt`, removes an empty collection ID, and uses the normal persistence, rollback, plugin, and `onChange` pipeline.
 
+The standard browser adapters persist explicit collection definitions, including empty collections and renamed labels, separately from items. A custom `StorageAdapter` can opt in by implementing `getCollections`, `setCollection`, and `removeCollection`; without them, collection management remains in memory. `clear()` and JSON backups still affect items only, and collection definitions do not enter remote sync.
+
 ## アーカイブ・ピン留め・コレクション
 
 `KeepItem` と `KeepItemInput` は `archived`、`pinned`、`collectionId` を任意で受け取れます。`useKeepList` は未アーカイブを既定とし、`archived: true` でアーカイブを、`archiveScope: "all"` で両方を、`collectionId` で完全一致のコレクションを取得できます。`useKeepCollections({ targetType, orderBy })` は全保存アイテムからコレクションID・名前・件数を重複なく導出します。`pinnedFirst: true` は既存の順序を保ったままピン留め項目を先頭へ安定移動します。`useKeepItem` と Provider には `toggleArchive`、`archiveItem`、`unarchiveItem`、`togglePin`、`moveToCollection` を追加しました。各操作は `updatedAt` を更新し、空のコレクション ID はプロパティを削除して、既存の永続化・rollback・plugin・`onChange` 経路を利用します。
+
+標準ブラウザーストレージは、空のコレクションと変更した名前をアイテムとは別に永続化します。独自の`StorageAdapter`では`getCollections`、`setCollection`、`removeCollection`を実装すると永続化でき、未実装時は従来どおり画面内の状態として扱います。`clear()`とJSONバックアップは引き続きアイテムのみを対象とし、コレクション定義はリモート同期に含まれません。

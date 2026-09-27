@@ -40,7 +40,7 @@ class FakeObjectStore {
   }
 
   put(item) {
-    this.database.items.set(item.id, item);
+    this.database.items.set(item.key ?? item.id, item);
   }
 
   delete(id) {
@@ -157,6 +157,29 @@ test("returns empty results when IndexedDB is unavailable", async () => {
   await adapter.clear();
   assert.deepEqual(await adapter.merge([itemA]), [itemA]);
   assert.equal(typeof adapter.subscribe(() => undefined), "function");
+});
+
+test("persists collections separately from items without changing the item database version", async () => {
+  const indexedDB = createIndexedDB();
+  const adapter = new IndexedDBAdapter({ indexedDB, databaseName: "collections-test", version: 3 });
+  await adapter.set(itemA);
+  await adapter.setCollection({ id: "empty", name: "Empty" });
+  await adapter.setCollection({ id: "reading", name: "Reading" });
+  await adapter.setCollection({ id: "reading", name: "Read later" });
+
+  const reopened = new IndexedDBAdapter({ indexedDB, databaseName: "collections-test", version: 3 });
+  assert.deepEqual(await reopened.getCollections(), [
+    { id: "empty", name: "Empty" },
+    { id: "reading", name: "Read later" },
+  ]);
+  assert.deepEqual(await reopened.getAll(), [itemA]);
+  await reopened.clear();
+  assert.deepEqual(await reopened.getCollections(), [
+    { id: "empty", name: "Empty" },
+    { id: "reading", name: "Read later" },
+  ]);
+  await reopened.removeCollection("reading");
+  assert.deepEqual(await adapter.getCollections(), [{ id: "empty", name: "Empty" }]);
 });
 
 test("wraps IndexedDB open failures and retries after a failed open", async () => {

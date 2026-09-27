@@ -1,4 +1,5 @@
 import type {
+  KeepCollectionDefinition,
   KeepConflictResolver,
   KeepItem,
   KeepSyncConflict,
@@ -222,6 +223,9 @@ export class FallbackSyncQueueAdapter<TMeta = Record<string, unknown>> implement
 /** A local-first adapter that persists remote operations until they are acknowledged. */
 export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements SyncCapableStorageAdapter<TMeta> {
   readonly storageKey?: string;
+  readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
+  readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
+  readonly removeCollection?: (id: string, scope?: SyncScope) => Promise<void>;
   private readonly local: StorageAdapter<TMeta>;
   private readonly remote: RemoteSyncDriver<TMeta>;
   private readonly queue: SyncQueueAdapter<TMeta>;
@@ -255,6 +259,19 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     this.retryDelayMs = Math.max(0, options.retryDelayMs ?? 0);
     this.retryBackoff = Math.max(1, options.retryBackoff ?? 2);
     this.storageKey = this.local.storageKey;
+    if (this.local.getCollections && this.local.setCollection && this.local.removeCollection) {
+      const getCollections = this.local.getCollections.bind(this.local);
+      const setCollection = this.local.setCollection.bind(this.local);
+      const removeCollection = this.local.removeCollection.bind(this.local);
+      this.getCollections = async () => {
+        const collections = await getCollections();
+        const scope = this.scope;
+        return scope ? collections.filter((collection) => sameScope(collection.scope, scope)) : collections;
+      };
+      this.setCollection = (collection) =>
+        setCollection({ ...collection, ...(this.scope ? { scope: this.scope } : {}) });
+      this.removeCollection = (id) => removeCollection(id, this.scope);
+    }
     if (typeof window !== "undefined") {
       this.onlineHandler = () => void this.flushSync();
       window.addEventListener("online", this.onlineHandler);

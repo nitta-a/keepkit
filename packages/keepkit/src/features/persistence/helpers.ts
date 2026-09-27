@@ -1,4 +1,4 @@
-import type { KeepItem, StorageAdapter, SyncScope } from "../items/types";
+import type { KeepCollectionDefinition, KeepItem, StorageAdapter, SyncScope } from "../items/types";
 
 export async function persistKeepItems<TMeta>(storage: StorageAdapter<TMeta>, items: KeepItem<TMeta>[]): Promise<void> {
   if (storage.setMany) {
@@ -76,6 +76,17 @@ export function isKeepItem(value: unknown): value is KeepItem {
 
 export function isKeepItemArray(value: unknown): value is KeepItem[] {
   return Array.isArray(value) && value.every(isKeepItem);
+}
+
+export function isKeepCollectionDefinition(value: unknown): value is KeepCollectionDefinition {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    value.id.trim().length > 0 &&
+    typeof value.name === "string" &&
+    value.name.trim().length > 0 &&
+    (value.scope === undefined || isSyncScope(value.scope))
+  );
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

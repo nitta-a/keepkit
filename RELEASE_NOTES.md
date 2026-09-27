@@ -1,5 +1,19 @@
 # Release notes
 
+## [0.28.4] - 2026-09-27
+
+### 日本語
+
+- 空のコレクションと変更した名前をブラウザー内に永続化し、再読み込み後に復元できるようにしました。
+- 標準 localStorage、IndexedDB、fallback、ユーザースコープに対応し、独自の`StorageAdapter`では任意のコレクション保存メソッドで拡張できます。
+- コレクション削除時に保存アイテムの所属も解除し、永続化に失敗した場合は表示を更新しないようにしました。
+
+### English
+
+- Persisted empty collections and renamed labels in browser storage so they survive reloads.
+- Added support for localStorage, IndexedDB, fallback storage, and scoped storage; custom `StorageAdapter` implementations can opt in with optional collection methods.
+- Collection deletion now unassigns saved items and leaves the displayed state unchanged when persistence fails.
+
 ## [0.28.3] - 2026-09-26
 
 ### 日本語

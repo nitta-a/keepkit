@@ -138,6 +138,141 @@ test("renders an injected initial snapshot while storage hydrates", () => {
   expect(screen.getByTestId("items")).toHaveTextContent("a");
 });
 
+test("restores empty and renamed collections after remount", async () => {
+  const definitions = new Map<string, { id: string; name: string }>();
+  const storage = {
+    getAll: async () => [itemA],
+    set: async () => undefined,
+    remove: async () => undefined,
+    clear: async () => undefined,
+    getCollections: async () => [...definitions.values()],
+    setCollection: async (collection: { id: string; name: string }) => void definitions.set(collection.id, collection),
+    removeCollection: async (id: string) => void definitions.delete(id),
+  };
+  function CollectionProbe() {
+    const { collections, createCollection, renameCollection, isHydrated } = useKeepContext<Meta>();
+    return (
+      <>
+        <output data-testid="collections">{JSON.stringify(collections)}</output>
+        <output data-testid="collection-hydrated">{String(isHydrated)}</output>
+        <button type="button" onClick={() => void createCollection("empty", "Empty")}>
+          create-empty
+        </button>
+        <button type="button" onClick={() => void createCollection("reading", "Reading")}>
+          create-reading
+        </button>
+        <button type="button" onClick={() => void renameCollection("reading", "Read later")}>
+          rename-reading
+        </button>
+      </>
+    );
+  }
+  const view = render(
+    <KeepProvider<Meta> storage={storage}>
+      <CollectionProbe />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId("collection-hydrated")).toHaveTextContent("true"));
+  fireEvent.click(screen.getByRole("button", { name: "create-empty" }));
+  fireEvent.click(screen.getByRole("button", { name: "create-reading" }));
+  await waitFor(() => expect(screen.getByTestId("collections")).toHaveTextContent('"Reading"'));
+  fireEvent.click(screen.getByRole("button", { name: "rename-reading" }));
+  await waitFor(() => expect(screen.getByTestId("collections")).toHaveTextContent('"Read later"'));
+  view.unmount();
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <CollectionProbe />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId("collection-hydrated")).toHaveTextContent("true"));
+  expect(screen.getByTestId("collections")).toHaveTextContent('"Empty"');
+  expect(screen.getByTestId("collections")).toHaveTextContent('"Read later"');
+});
+
+test("deletes collection metadata and unassigns its items before the next mount", async () => {
+  let items: KeepItem<Meta>[] = [{ ...itemA, collectionId: "reading" }];
+  const definitions = new Map([["reading", { id: "reading", name: "Reading" }]]);
+  const storage = {
+    getAll: async () => [...items],
+    set: async (item: KeepItem<Meta>) => {
+      items = items.map((current) => (current.id === item.id ? item : current));
+    },
+    remove: async () => undefined,
+    clear: async () => undefined,
+    getCollections: async () => [...definitions.values()],
+    setCollection: async () => undefined,
+    removeCollection: async (id: string) => void definitions.delete(id),
+  };
+  function CollectionProbe() {
+    const { collections, items, removeCollection, isHydrated } = useKeepContext<Meta>();
+    return (
+      <>
+        <output data-testid="collections">{JSON.stringify(collections)}</output>
+        <output data-testid="membership">{items[0]?.collectionId ?? "none"}</output>
+        <output data-testid="collection-hydrated">{String(isHydrated)}</output>
+        <button type="button" onClick={() => void removeCollection("reading")}>
+          delete-reading
+        </button>
+      </>
+    );
+  }
+  const view = render(
+    <KeepProvider<Meta> storage={storage}>
+      <CollectionProbe />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId("collection-hydrated")).toHaveTextContent("true"));
+  fireEvent.click(screen.getByRole("button", { name: "delete-reading" }));
+  await waitFor(() => expect(screen.getByTestId("membership")).toHaveTextContent("none"));
+  view.unmount();
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <CollectionProbe />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId("collection-hydrated")).toHaveTextContent("true"));
+  expect(screen.getByTestId("collections")).toHaveTextContent("{}");
+  expect(screen.getByTestId("membership")).toHaveTextContent("none");
+});
+
+test("keeps the displayed collection name when a persistent rename fails", async () => {
+  const failure = new Error("collection write failed");
+  const storage = {
+    getAll: async () => [],
+    set: async () => undefined,
+    remove: async () => undefined,
+    clear: async () => undefined,
+    getCollections: async () => [{ id: "reading", name: "Reading" }],
+    setCollection: async () => {
+      throw failure;
+    },
+    removeCollection: async () => undefined,
+  };
+  function CollectionProbe() {
+    const { collections, renameCollection, error, isHydrated } = useKeepContext<Meta>();
+    return (
+      <>
+        <output data-testid="collections">{JSON.stringify(collections)}</output>
+        <output data-testid="error">{String(error === failure)}</output>
+        <output data-testid="collection-hydrated">{String(isHydrated)}</output>
+        <button type="button" onClick={() => void renameCollection("reading", "Changed").catch(() => undefined)}>
+          rename-reading
+        </button>
+      </>
+    );
+  }
+  render(
+    <KeepProvider<Meta> storage={storage}>
+      <CollectionProbe />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId("collection-hydrated")).toHaveTextContent("true"));
+  fireEvent.click(screen.getByRole("button", { name: "rename-reading" }));
+  await waitFor(() => expect(screen.getByTestId("error")).toHaveTextContent("true"));
+  expect(screen.getByTestId("collections")).toHaveTextContent('"Reading"');
+  expect(screen.getByTestId("collections")).not.toHaveTextContent('"Changed"');
+});
+
 test("refreshes metadata and cleans up explicitly selected unavailable items", async () => {
   const values = new Map<string, KeepItem<Meta>>([
     ["a", itemA],

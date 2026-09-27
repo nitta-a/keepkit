@@ -1,6 +1,7 @@
 import { type BrowserStorageAdapterOptions, createBrowserStorageAdapter } from "../../../storage";
 import { SyncStorageAdapter, type SyncStorageAdapterOptions } from "../../../storage/sync";
 import type {
+  KeepCollectionDefinition,
   KeepItem,
   KeepSyncAuthError,
   KeepSyncAuthStatus,
@@ -97,6 +98,9 @@ export function createAuthenticatedSyncKit<TMeta = Record<string, unknown>>(
 }
 
 class AuthenticatedSyncStorageController<TMeta = Record<string, unknown>> implements SyncCapableStorageAdapter<TMeta> {
+  readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
+  readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
+  readonly removeCollection?: (id: string, scope?: SyncScope) => Promise<void>;
   private readonly options: AuthenticatedSyncKitOptions<TMeta>;
   private currentScope: SyncScope | undefined;
   private current: SyncStorageAdapter<TMeta>;
@@ -113,6 +117,20 @@ class AuthenticatedSyncStorageController<TMeta = Record<string, unknown>> implem
     this.currentScope = options.scope;
     this.current = this.createAdapter(this.currentScope);
     this.attach(this.current);
+    if (this.current.getCollections && this.current.setCollection && this.current.removeCollection) {
+      this.getCollections = async () => {
+        await this.ensureScope();
+        return this.current.getCollections?.() ?? [];
+      };
+      this.setCollection = async (collection) => {
+        await this.ensureScope();
+        await this.current.setCollection?.(collection);
+      };
+      this.removeCollection = async (id) => {
+        await this.ensureScope();
+        await this.current.removeCollection?.(id);
+      };
+    }
   }
 
   get storageKey(): string | undefined {

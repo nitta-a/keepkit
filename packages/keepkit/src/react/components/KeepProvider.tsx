@@ -360,7 +360,13 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
           if (needsMigrationPersist) {
             await persistKeepItems(storage, next);
           }
+          const definitions = storage.getCollections ? await storage.getCollections() : undefined;
           setItems(next);
+          if (definitions) {
+            store.setState({
+              collections: Object.fromEntries(definitions.map(({ id, name }) => [id, { name }])),
+            });
+          }
           store.setState({ error: null });
         } catch (cause) {
           reportError(cause, { action: "refresh" });
@@ -388,7 +394,14 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       undoRef.current?.timer && clearTimeout(undoRef.current.timer);
       undoRef.current = undefined;
       itemsRef.current = [];
-      store.setState({ items: [], isHydrated: false, isLoading: true, error: null, undo: EMPTY_UNDO_STATE });
+      store.setState({
+        items: [],
+        collections: {},
+        isHydrated: false,
+        isLoading: true,
+        error: null,
+        undo: EMPTY_UNDO_STATE,
+      });
       void refresh();
     });
   }, [refresh, storage, store]);
@@ -684,49 +697,74 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   );
 
   const createCollection = useCallback(
-    async (id: string, name: string) => {
-      const trimmedId = id.trim();
-      const trimmedName = name.trim();
-      if (!trimmedId || !trimmedName) throw new Error("Collection id and name are required.");
-      const current = store.getSnapshot().collections;
-      if (current[trimmedId]) throw new Error(`Collection "${trimmedId}" already exists.`);
-      store.setState({ collections: { ...current, [trimmedId]: { name: trimmedName } } });
-    },
-    [store],
+    (id: string, name: string) =>
+      enqueueOperation(async () => {
+        const trimmedId = id.trim();
+        const trimmedName = name.trim();
+        if (!trimmedId || !trimmedName) throw new Error("Collection id and name are required.");
+        const current = store.getSnapshot().collections;
+        if (current[trimmedId]) throw new Error(`Collection "${trimmedId}" already exists.`);
+        try {
+          await storage.setCollection?.({ id: trimmedId, name: trimmedName });
+        } catch (cause) {
+          reportError(cause, { action: "collection", id: trimmedId });
+          throw cause;
+        }
+        store.setState({ collections: { ...current, [trimmedId]: { name: trimmedName } } });
+      }),
+    [enqueueOperation, reportError, storage, store],
   );
 
   const renameCollection = useCallback(
-    async (id: string, name: string) => {
-      const trimmedName = name.trim();
-      if (!trimmedName) throw new Error("Collection name is required.");
-      const current = store.getSnapshot().collections;
-      if (!current[id]) throw new Error(`Collection "${id}" does not exist.`);
-      store.setState({ collections: { ...current, [id]: { name: trimmedName } } });
-    },
-    [store],
+    (id: string, name: string) =>
+      enqueueOperation(async () => {
+        const trimmedName = name.trim();
+        if (!trimmedName) throw new Error("Collection name is required.");
+        const current = store.getSnapshot().collections;
+        if (!current[id]) throw new Error(`Collection "${id}" does not exist.`);
+        try {
+          await storage.setCollection?.({ id, name: trimmedName });
+        } catch (cause) {
+          reportError(cause, { action: "collection", id });
+          throw cause;
+        }
+        store.setState({ collections: { ...current, [id]: { name: trimmedName } } });
+      }),
+    [enqueueOperation, reportError, storage, store],
   );
 
   const removeCollection = useCallback(
-    async (id: string) => {
-      const current = store.getSnapshot().collections;
-      if (!current[id]) throw new Error(`Collection "${id}" does not exist.`);
-      const { [id]: _removed, ...remaining } = current;
-      store.setState({ collections: remaining });
-      // Move all items in this collection to uncategorized.
-      const affected = itemsRef.current.filter((item) => item.collectionId === id);
-      if (affected.length > 0) {
-        const nextItems = itemsRef.current.map((item) =>
-          item.collectionId === id ? { ...item, collectionId: undefined, updatedAt: Date.now() } : item,
-        );
-        itemsRef.current = nextItems;
-        store.setState({ items: nextItems });
-        for (const item of affected) {
-          const { collectionId: _, ...withoutCollection } = item;
-          await storage.set({ ...withoutCollection, collectionId: undefined, updatedAt: Date.now() });
+    (id: string) =>
+      enqueueOperation(async () => {
+        const current = store.getSnapshot().collections;
+        if (!current[id]) throw new Error(`Collection "${id}" does not exist.`);
+        const { [id]: _removed, ...remaining } = current;
+        const affected = itemsRef.current.filter((item) => item.collectionId === id);
+        const updated = affected.map((item) => {
+          const { collectionId: _collectionId, ...withoutCollection } = item;
+          return { ...withoutCollection, updatedAt: Date.now() };
+        });
+        try {
+          await persistKeepItems(storage, updated);
+          await storage.removeCollection?.(id);
+        } catch (cause) {
+          if (affected.length > 0) {
+            try {
+              await restoreItems(storage, affected);
+            } catch (rollbackError) {
+              reportError(rollbackError, { action: "collection", id });
+            }
+          }
+          reportError(cause, { action: "collection", id });
+          throw cause;
         }
-      }
-    },
-    [storage, store],
+        if (affected.length > 0) {
+          const updatedById = new Map(updated.map((item) => [item.id, item]));
+          setItems(itemsRef.current.map((item) => updatedById.get(item.id) ?? item));
+        }
+        store.setState({ collections: remaining });
+      }),
+    [enqueueOperation, reportError, setItems, storage, store],
   );
 
   const updateTagsBatch = useCallback(
