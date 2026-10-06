@@ -5,6 +5,7 @@ import {
   type KeepItem,
   KeepStorageAccessError,
   KeepSyncAuthError,
+  LocalStorageAdapter,
   type SyncOperation,
   type SyncQueueAdapter,
 } from "../dist/core.js";
@@ -473,6 +474,35 @@ test("authenticated sync refreshes tokens per request and isolates scope changes
   kit.dispose();
 });
 
+test("authenticated collection transport carries request tokens and the active scope", async () => {
+  const requests: Array<{ token: string | null; scope?: { userId?: string; tenantId?: string } }> = [];
+  const kit = createAuthenticatedSyncKit({
+    local: new LocalStorageAdapter({ key: "authenticated-collections", storage: createStorage() }),
+    queue: createMemoryQueue().queue,
+    scope: { userId: "user-a", tenantId: "tenant-a" },
+    getAuthToken: async () => "token-a",
+    transport: {
+      push: async () => ({ type: "synced" }),
+      pushCollection: async (_operation, context) => {
+        requests.push({ token: context.token, scope: context.scope });
+      },
+      pullCollections: async (context) => {
+        requests.push({ token: context.token, scope: context.scope });
+        return [];
+      },
+    },
+    now: () => 10,
+  });
+
+  await kit.storage.setCollection?.({ id: "course-a", name: "Course A" });
+  await kit.storage.flushSync();
+  assert.deepEqual(requests, [
+    { token: "token-a", scope: { userId: "user-a", tenantId: "tenant-a" } },
+    { token: "token-a", scope: { userId: "user-a", tenantId: "tenant-a" } },
+  ]);
+  kit.dispose();
+});
+
 test("authenticated sync reports 401/403 errors once without retrying them", async () => {
   const { local } = createLocal();
   const queue = createMemoryQueue();
@@ -591,4 +621,70 @@ test("surfaces queue-load errors and resumes persisted operations", async () => 
   assert.equal(resumed.getSyncState().status, "synced");
   assert.equal((await resumed.getAll())[0]?.revision, "server-1");
   resumed.dispose();
+});
+
+test("syncs collection definitions through the scoped durable queue", async () => {
+  const { queue, operations } = createMemoryQueue();
+  const remoteCollections = new Map<
+    string,
+    { id: string; name: string; scope?: { userId?: string; tenantId?: string } }
+  >();
+  const pushed: string[] = [];
+  const local = new LocalStorageAdapter({ key: "sync-collections", storage: createStorage() });
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue,
+    userId: "user-1",
+    tenantId: "tenant-1",
+    remote: {
+      push: async () => ({ type: "synced" }),
+      pushCollection: async (operation) => {
+        pushed.push(operation.type);
+        if (operation.type === "upsert" && operation.collection) {
+          assert.equal(
+            (await adapter.getCollections?.())?.some((entry) => entry.id === operation.id),
+            true,
+          );
+          remoteCollections.set(operation.id, operation.collection);
+        } else {
+          remoteCollections.delete(operation.id);
+        }
+      },
+      pullCollections: async () => [...remoteCollections.values()],
+    },
+  });
+
+  await adapter.setCollection?.({ id: "course-a", name: "Course A" });
+  assert.deepEqual(operations[0]?.scope, { userId: "user-1", tenantId: "tenant-1" });
+  await adapter.flushSync();
+  assert.equal(remoteCollections.get("course-a")?.name, "Course A");
+
+  await adapter.setCollection?.({ id: "course-a", name: "Renamed Course" });
+  await adapter.flushSync();
+  assert.equal(remoteCollections.get("course-a")?.name, "Renamed Course");
+  await adapter.removeCollection?.("course-a");
+  await adapter.flushSync();
+  assert.deepEqual(pushed, ["upsert", "upsert", "remove"]);
+  assert.equal(remoteCollections.has("course-a"), false);
+
+  await local.setCollection({
+    id: "removed-remotely",
+    name: "Stale Course",
+    scope: { userId: "user-1", tenantId: "tenant-1" },
+  });
+  await local.setCollectionMembership({
+    collectionId: "removed-remotely",
+    itemId: "guide-a",
+    order: 0,
+    scope: { userId: "user-1", tenantId: "tenant-1" },
+  });
+  remoteCollections.set("another-user-course", {
+    id: "another-user-course",
+    name: "Other User Course",
+    scope: { userId: "user-2", tenantId: "tenant-1" },
+  });
+  await adapter.flushSync();
+  assert.deepEqual(await adapter.getCollections?.(), []);
+  assert.deepEqual(await adapter.getCollectionMemberships?.(), []);
+  adapter.dispose();
 });

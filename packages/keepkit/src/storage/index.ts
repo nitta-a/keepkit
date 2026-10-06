@@ -1,5 +1,6 @@
 import {
   type KeepCollectionDefinition,
+  type KeepCollectionMembership,
   type KeepItem,
   KeepStorageAccessError,
   KeepStorageError,
@@ -10,6 +11,7 @@ import {
 } from "../features/items/types";
 import {
   isKeepCollectionDefinition,
+  isKeepCollectionMembership,
   isKeepItemArray,
   isRecord,
   mergeKeepItemLists,
@@ -47,6 +49,9 @@ export type StorageAdapterFactoryOptions<TMeta = Record<string, unknown>> = {
   getCollections?: () => KeepCollectionDefinition[] | Promise<KeepCollectionDefinition[]>;
   setCollection?: (collection: KeepCollectionDefinition) => void | Promise<void>;
   removeCollection?: (id: string, scope?: KeepScope) => void | Promise<void>;
+  getCollectionMemberships?: () => KeepCollectionMembership[] | Promise<KeepCollectionMembership[]>;
+  setCollectionMembership?: (membership: KeepCollectionMembership) => void | Promise<void>;
+  removeCollectionMembership?: (collectionId: string, itemId: string, scope?: KeepScope) => void | Promise<void>;
   set: (item: KeepItem<TMeta>) => void | Promise<void>;
   setMany?: (items: KeepItem<TMeta>[]) => void | Promise<void>;
   remove: (id: string) => void | Promise<void>;
@@ -78,6 +83,9 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
   readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
   readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
   readonly removeCollection?: (id: string, scope?: KeepScope) => Promise<void>;
+  readonly getCollectionMemberships?: () => Promise<KeepCollectionMembership[]>;
+  readonly setCollectionMembership?: (membership: KeepCollectionMembership) => Promise<void>;
+  readonly removeCollectionMembership?: (collectionId: string, itemId: string, scope?: KeepScope) => Promise<void>;
   private readonly primary: StorageAdapter<TMeta>;
   private readonly fallback: StorageAdapter<TMeta>;
   private readonly shouldFallback: (error: unknown) => boolean;
@@ -126,6 +134,31 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
           if (!adapter.removeCollection) throw new Error("Collection storage is unavailable.");
           return adapter.removeCollection(id, scope);
         });
+    }
+    if (
+      this.primary.getCollectionMemberships &&
+      this.primary.setCollectionMembership &&
+      this.primary.removeCollectionMembership &&
+      this.fallback.getCollectionMemberships &&
+      this.fallback.setCollectionMembership &&
+      this.fallback.removeCollectionMembership
+    ) {
+      const fallbackGetMemberships = this.fallback.getCollectionMemberships.bind(this.fallback);
+      this.getCollectionMemberships = async () => {
+        const memberships = await this.execute(
+          (adapter) => adapter.getCollectionMemberships?.() ?? Promise.resolve([]),
+        );
+        if (this.active !== "primary" || !this.migrateFallbackOnEmpty || memberships.length > 0) return memberships;
+        const fallbackMemberships = await fallbackGetMemberships();
+        for (const membership of fallbackMemberships) await this.setCollectionMembership?.(membership);
+        return fallbackMemberships;
+      };
+      this.setCollectionMembership = (membership) =>
+        this.executeWrite((adapter) => adapter.setCollectionMembership?.(membership) ?? Promise.resolve());
+      this.removeCollectionMembership = (collectionId, itemId, scope) =>
+        this.executeWrite(
+          (adapter) => adapter.removeCollectionMembership?.(collectionId, itemId, scope) ?? Promise.resolve(),
+        );
     }
   }
 
@@ -300,6 +333,9 @@ export function createStorageAdapter<TMeta = Record<string, unknown>>(
   const getCollections = options.getCollections;
   const setCollection = options.setCollection;
   const removeCollection = options.removeCollection;
+  const getCollectionMemberships = options.getCollectionMemberships;
+  const setCollectionMembership = options.setCollectionMembership;
+  const removeCollectionMembership = options.removeCollectionMembership;
   return {
     getAll: async () => options.getAll(),
     ...(getCollections && setCollection && removeCollection
@@ -307,6 +343,14 @@ export function createStorageAdapter<TMeta = Record<string, unknown>>(
           getCollections: async () => getCollections(),
           setCollection: async (collection: KeepCollectionDefinition) => setCollection(collection),
           removeCollection: async (id: string, scope?: KeepScope) => removeCollection(id, scope),
+        }
+      : {}),
+    ...(getCollectionMemberships && setCollectionMembership && removeCollectionMembership
+      ? {
+          getCollectionMemberships: async () => getCollectionMemberships(),
+          setCollectionMembership: async (membership: KeepCollectionMembership) => setCollectionMembership(membership),
+          removeCollectionMembership: async (collectionId: string, itemId: string, scope?: KeepScope) =>
+            removeCollectionMembership(collectionId, itemId, scope),
         }
       : {}),
     set: async (item) => options.set(item),
@@ -412,6 +456,54 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
       current.filter((entry) => entry.id !== id || !isSameKeepScope(entry.scope, scope)),
       "remove",
     );
+    const memberships = await this.getCollectionMemberships();
+    await this.writeMemberships(
+      memberships.filter((membership) => membership.collectionId !== id || !isSameKeepScope(membership.scope, scope)),
+      "remove",
+    );
+  }
+
+  async getCollectionMemberships(): Promise<KeepCollectionMembership[]> {
+    if (!this.storage) return [];
+    const storageKey = `${this.storageKey}:memberships`;
+    let raw: string | null;
+    try {
+      raw = this.storage.getItem(storageKey);
+    } catch (cause) {
+      throw new KeepStorageAccessError({ operation: "getAll", storageKey, cause });
+    }
+    if (!raw) return [];
+    try {
+      const value: unknown = JSON.parse(raw);
+      if (!Array.isArray(value) || !value.every(isKeepCollectionMembership)) {
+        throw new KeepStorageParseError({ operation: "getAll", storageKey });
+      }
+      return value;
+    } catch (cause) {
+      if (cause instanceof KeepStorageParseError) throw cause;
+      throw new KeepStorageParseError({ operation: "getAll", storageKey, cause });
+    }
+  }
+
+  async setCollectionMembership(membership: KeepCollectionMembership): Promise<void> {
+    if (!isKeepCollectionMembership(membership)) throw new Error("Collection membership is invalid.");
+    const current = await this.getCollectionMemberships();
+    const sameMembership = (entry: KeepCollectionMembership) =>
+      entry.collectionId === membership.collectionId &&
+      entry.itemId === membership.itemId &&
+      isSameKeepScope(entry.scope, membership.scope);
+    await this.writeMemberships([...current.filter((entry) => !sameMembership(entry)), membership], "set");
+  }
+
+  async removeCollectionMembership(collectionId: string, itemId: string, scope?: KeepScope): Promise<void> {
+    const current = await this.getCollectionMemberships();
+    await this.writeMemberships(
+      current.filter(
+        (entry) =>
+          entry.collectionId !== collectionId || entry.itemId !== itemId || !isSameKeepScope(entry.scope, scope),
+      ),
+      "remove",
+    );
   }
 
   async set(item: KeepItem<TMeta>): Promise<void> {
@@ -461,7 +553,13 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
     if (typeof window === "undefined") return () => undefined;
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key !== null && event.key !== this.storageKey && event.key !== `${this.storageKey}:collections`) return;
+      if (
+        event.key !== null &&
+        event.key !== this.storageKey &&
+        event.key !== `${this.storageKey}:collections` &&
+        event.key !== `${this.storageKey}:memberships`
+      )
+        return;
       listener();
     };
 
@@ -497,6 +595,20 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
     const storageKey = `${this.storageKey}:collections`;
     try {
       this.storage.setItem(storageKey, JSON.stringify(collections));
+    } catch (cause) {
+      if (isQuotaExceededError(cause)) throw new KeepStorageQuotaError({ operation, storageKey, cause });
+      throw new KeepStorageAccessError({ operation, storageKey, cause });
+    }
+  }
+
+  private async writeMemberships(
+    memberships: KeepCollectionMembership[],
+    operation: KeepStorageOperation,
+  ): Promise<void> {
+    if (!this.storage) return;
+    const storageKey = `${this.storageKey}:memberships`;
+    try {
+      this.storage.setItem(storageKey, JSON.stringify(memberships));
     } catch (cause) {
       if (isQuotaExceededError(cause)) throw new KeepStorageQuotaError({ operation, storageKey, cause });
       throw new KeepStorageAccessError({ operation, storageKey, cause });
@@ -567,6 +679,43 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
 
   async removeCollection(id: string, scope?: KeepScope): Promise<void> {
     await this.writeCollection("remove", (store) => store.delete(collectionKey(id, scope)));
+    const memberships = await this.getCollectionMemberships();
+    for (const membership of memberships) {
+      if (membership.collectionId === id && isSameKeepScope(membership.scope, scope)) {
+        await this.removeCollectionMembership(id, membership.itemId, scope);
+      }
+    }
+  }
+
+  async getCollectionMemberships(): Promise<KeepCollectionMembership[]> {
+    const database = await this.openCollections("getAll");
+    if (!database) return [];
+    const storageKey = `${this.storageKey}:memberships`;
+    try {
+      const transaction = database.transaction("memberships", "readonly");
+      const value: unknown = await requestToPromise(transaction.objectStore("memberships").getAll());
+      if (
+        !Array.isArray(value) ||
+        !value.every((entry) => isRecord(entry) && typeof entry.key === "string" && isKeepCollectionMembership(entry))
+      ) {
+        throw new KeepStorageParseError({ operation: "getAll", storageKey });
+      }
+      return value.map(({ key: _key, ...membership }) => membership);
+    } catch (cause) {
+      if (cause instanceof KeepStorageParseError) throw cause;
+      throw new KeepStorageAccessError({ operation: "getAll", storageKey, cause });
+    }
+  }
+
+  async setCollectionMembership(membership: KeepCollectionMembership): Promise<void> {
+    if (!isKeepCollectionMembership(membership)) throw new Error("Collection membership is invalid.");
+    await this.writeCollectionMembership("set", (store) =>
+      store.put({ ...membership, key: membershipKey(membership.collectionId, membership.itemId, membership.scope) }),
+    );
+  }
+
+  async removeCollectionMembership(collectionId: string, itemId: string, scope?: KeepScope): Promise<void> {
+    await this.writeCollectionMembership("remove", (store) => store.delete(membershipKey(collectionId, itemId, scope)));
   }
 
   async set(item: KeepItem<TMeta>): Promise<void> {
@@ -664,6 +813,24 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
     }
   }
 
+  private async writeCollectionMembership(
+    operation: KeepStorageOperation,
+    write: (store: IDBObjectStore) => void,
+  ): Promise<void> {
+    const database = await this.openCollections(operation);
+    if (!database) return;
+    const storageKey = `${this.storageKey}:memberships`;
+    try {
+      const transaction = database.transaction("memberships", "readwrite");
+      write(transaction.objectStore("memberships"));
+      await transactionToPromise(transaction);
+      this.notifySubscribers();
+    } catch (cause) {
+      if (isQuotaExceededError(cause)) throw new KeepStorageQuotaError({ operation, storageKey, cause });
+      throw new KeepStorageAccessError({ operation, storageKey, cause });
+    }
+  }
+
   private openCollections(operation: KeepStorageOperation): Promise<IDBDatabase | undefined> {
     if (!this.indexedDB) return Promise.resolve(undefined);
     const storageKey = `${this.storageKey}:collections`;
@@ -671,7 +838,7 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
       this.collectionDatabasePromise = new Promise((resolve, reject) => {
         let request: IDBOpenDBRequest;
         try {
-          request = this.indexedDB?.open(storageKey, 1) as IDBOpenDBRequest;
+          request = this.indexedDB?.open(storageKey, 2) as IDBOpenDBRequest;
         } catch (cause) {
           reject(cause);
           return;
@@ -679,6 +846,9 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
         request.onupgradeneeded = () => {
           if (!request.result.objectStoreNames.contains("collections")) {
             request.result.createObjectStore("collections", { keyPath: "key" });
+          }
+          if (!request.result.objectStoreNames.contains("memberships")) {
+            request.result.createObjectStore("memberships", { keyPath: "key" });
           }
         };
         request.onsuccess = () => resolve(request.result);
@@ -723,6 +893,10 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
 
 function collectionKey(id: string, scope?: KeepScope): string {
   return JSON.stringify([scope?.tenantId ?? null, scope?.userId ?? null, id]);
+}
+
+function membershipKey(collectionId: string, itemId: string, scope?: KeepScope): string {
+  return JSON.stringify([scope?.tenantId ?? null, scope?.userId ?? null, collectionId, itemId]);
 }
 
 function getBrowserStorage(): Storage | undefined {

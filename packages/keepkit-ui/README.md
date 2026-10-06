@@ -112,7 +112,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.4では空のコレクションと変更後の名前が再読み込み後も復元されます。Inbox、Saved Views、利用履歴、Rediscovery、個別解除できるフィルターサマリーも利用できます。
+v0.28.5では閲覧履歴・鑑賞記録、複数コース、コレクションを含むバックアップ、進行位置保存などのcore機能を利用できます。Inbox、Saved Views、利用履歴、Rediscovery、個別解除できるフィルターサマリーも利用できます。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -256,7 +256,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.4 restores empty collections and renamed labels after reload. Inbox triage, Saved Views, activity tracking, Rediscovery, and removable active-filter summaries are also available. The portal-rendered floating tour UI, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
+v0.28.5 includes core support for independent viewing history and records, multi-course memberships, collection-aware backups, scoped collection sync, and resumable reading or audio progress. Inbox triage, Saved Views, activity tracking, Rediscovery, and removable active-filter summaries are also available. The portal-rendered floating tour UI, Tailwind CSS v4 integration, host-theme isolation, and cascade-layer support remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme

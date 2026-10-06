@@ -55,9 +55,10 @@ async function runUiBuild() {
 
 async function runUiBuildCommand() {
   await new Promise((resolveBuild, rejectBuild) => {
-    const child = spawn("pnpm", ["--filter", "@keepkit/ui", "build"], {
+    const child = spawn(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["--filter", "@keepkit/ui", "build"], {
       cwd: repositoryRoot,
       stdio: "inherit",
+      ...(process.platform === "win32" ? { shell: true } : {}),
     });
     child.once("error", rejectBuild);
     child.once("exit", (code, signal) => {

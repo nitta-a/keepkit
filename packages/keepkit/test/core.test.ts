@@ -421,7 +421,7 @@ test("exports JSON and reports merge and replace import failures", async () => {
   const parsed = JSON.parse(exported);
   assert.deepEqual(parsed.items, [itemA]);
   assert.equal(parsed.format, "keepkit");
-  assert.equal(parsed.version, 1);
+  assert.equal(parsed.version, 2);
   assert.equal(typeof parsed.exportedAt, "number");
 
   const mergeCause = new Error("merge failed");

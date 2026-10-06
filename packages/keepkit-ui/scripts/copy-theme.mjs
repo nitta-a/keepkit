@@ -1,10 +1,16 @@
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, utimes } from "node:fs/promises";
 
 await mkdir("dist/styles", { recursive: true });
 await Promise.all([
-  copyFile("src/theme.css", "dist/theme.css"),
-  copyFile("src/tailwind.css", "dist/tailwind.css"),
+  copyThemeAsset("src/theme.css", "dist/theme.css"),
+  copyThemeAsset("src/tailwind.css", "dist/tailwind.css"),
   ...["base.css", "button.css", "collection.css", "status.css", "sync.css", "workspace.css"].map((name) =>
-    copyFile(`src/styles/${name}`, `dist/styles/${name}`),
+    copyThemeAsset(`src/styles/${name}`, `dist/styles/${name}`),
   ),
 ]);
+
+async function copyThemeAsset(source, destination) {
+  await copyFile(source, destination);
+  const timestamp = new Date();
+  await utimes(destination, timestamp, timestamp);
+}

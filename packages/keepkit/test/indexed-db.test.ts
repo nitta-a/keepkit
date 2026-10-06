@@ -25,49 +25,53 @@ class FakeTransaction {
 }
 
 class FakeObjectStore {
-  constructor(database, transaction) {
+  constructor(database, transaction, name) {
     this.database = database;
     this.transaction = transaction;
+    this.name = name;
   }
 
   getAll() {
     const request = new FakeRequest();
     queueMicrotask(() => {
-      request.result = [...this.database.items.values()];
+      request.result = [...(this.database.stores.get(this.name)?.values() ?? [])];
       request.onsuccess?.();
     });
     return request;
   }
 
   put(item) {
-    this.database.items.set(item.key ?? item.id, item);
+    this.database.stores.get(this.name)?.set(item.key ?? item.id, item);
   }
 
   delete(id) {
-    this.database.items.delete(id);
+    this.database.stores.get(this.name)?.delete(id);
   }
 
   clear() {
-    this.database.items.clear();
+    this.database.stores.get(this.name)?.clear();
   }
 }
 
 class FakeDatabase {
   constructor(name) {
     this.name = name;
-    this.items = new Map();
-    this.objectStoreNames = { contains: () => false };
+    this.stores = new Map();
+    this.objectStoreNames = { contains: (name) => this.stores.has(name) };
   }
 
-  createObjectStore() {
-    this.objectStoreNames = { contains: () => true };
+  createObjectStore(name) {
+    this.stores.set(name, new Map());
     return {};
   }
 
-  transaction() {
+  transaction(storeNames) {
     const transaction = new FakeTransaction();
-    const store = new FakeObjectStore(this, transaction);
-    transaction.objectStore = () => store;
+    const available = Array.isArray(storeNames) ? storeNames : [storeNames];
+    transaction.objectStore = (name) => {
+      if (!available.includes(name)) throw new Error(`Object store "${name}" is outside this transaction.`);
+      return new FakeObjectStore(this, transaction, name);
+    };
     queueMicrotask(() => transaction.complete());
     return transaction;
   }
@@ -173,6 +177,8 @@ test("persists collections separately from items without changing the item datab
     { id: "reading", name: "Read later" },
   ]);
   assert.deepEqual(await reopened.getAll(), [itemA]);
+  await reopened.setCollectionMembership({ collectionId: "reading", itemId: "a", order: 2 });
+  assert.deepEqual(await reopened.getCollectionMemberships(), [{ collectionId: "reading", itemId: "a", order: 2 }]);
   await reopened.clear();
   assert.deepEqual(await reopened.getCollections(), [
     { id: "empty", name: "Empty" },
@@ -180,6 +186,7 @@ test("persists collections separately from items without changing the item datab
   ]);
   await reopened.removeCollection("reading");
   assert.deepEqual(await adapter.getCollections(), [{ id: "empty", name: "Empty" }]);
+  assert.deepEqual(await adapter.getCollectionMemberships(), []);
 });
 
 test("wraps IndexedDB open failures and retries after a failed open", async () => {

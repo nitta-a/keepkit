@@ -204,7 +204,7 @@ test("exports and imports versioned backups", async () => {
   const result = await importItems(target, backup, { mode: "replace" });
 
   assert.equal(JSON.parse(backup).format, "keepkit");
-  assert.equal(JSON.parse(backup).version, 1);
+  assert.equal(JSON.parse(backup).version, 2);
   assert.equal(result.imported, 1);
   assert.equal(result.failed, 0);
   assert.deepEqual(await target.getAll(), [{ ...item, tags: ["reading"] }]);

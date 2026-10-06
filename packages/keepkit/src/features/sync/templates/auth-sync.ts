@@ -2,6 +2,8 @@ import { type BrowserStorageAdapterOptions, createBrowserStorageAdapter } from "
 import { SyncStorageAdapter, type SyncStorageAdapterOptions } from "../../../storage/sync";
 import type {
   KeepCollectionDefinition,
+  KeepCollectionMembership,
+  KeepCollectionSyncOperation,
   KeepItem,
   KeepSyncAuthError,
   KeepSyncAuthStatus,
@@ -26,6 +28,7 @@ export type AuthenticatedSyncRequestContext<TMeta = Record<string, unknown>> = {
   token: string | null;
   scope?: SyncScope;
   operation?: SyncOperation<TMeta>;
+  collectionOperation?: KeepCollectionSyncOperation;
 };
 
 /** Transport boundary for auth-aware requests; cookies and bearer tokens remain host concerns. */
@@ -35,10 +38,16 @@ export type AuthenticatedSyncTransport<TMeta = Record<string, unknown>> = {
     context: AuthenticatedSyncRequestContext<TMeta>,
   ) => Promise<RemoteSyncResult<TMeta>>;
   pull?: (context: AuthenticatedSyncRequestContext<TMeta>) => Promise<KeepItem<TMeta>[]>;
+  pushCollection?: (
+    operation: KeepCollectionSyncOperation,
+    context: AuthenticatedSyncRequestContext<TMeta>,
+  ) => Promise<void>;
+  pullCollections?: (context: AuthenticatedSyncRequestContext<TMeta>) => Promise<KeepCollectionDefinition[]>;
 };
 
 export type AuthenticatedSyncAuthContext<TMeta = Record<string, unknown>> = {
   operation?: SyncOperation<TMeta>;
+  collectionOperation?: KeepCollectionSyncOperation;
   scope?: SyncScope;
 };
 
@@ -101,6 +110,9 @@ class AuthenticatedSyncStorageController<TMeta = Record<string, unknown>> implem
   readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
   readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
   readonly removeCollection?: (id: string, scope?: SyncScope) => Promise<void>;
+  readonly getCollectionMemberships?: () => Promise<KeepCollectionMembership[]>;
+  readonly setCollectionMembership?: (membership: KeepCollectionMembership) => Promise<void>;
+  readonly removeCollectionMembership?: (collectionId: string, itemId: string, scope?: SyncScope) => Promise<void>;
   private readonly options: AuthenticatedSyncKitOptions<TMeta>;
   private currentScope: SyncScope | undefined;
   private current: SyncStorageAdapter<TMeta>;
@@ -129,6 +141,24 @@ class AuthenticatedSyncStorageController<TMeta = Record<string, unknown>> implem
       this.removeCollection = async (id) => {
         await this.ensureScope();
         await this.current.removeCollection?.(id);
+      };
+    }
+    if (
+      this.current.getCollectionMemberships &&
+      this.current.setCollectionMembership &&
+      this.current.removeCollectionMembership
+    ) {
+      this.getCollectionMemberships = async () => {
+        await this.ensureScope();
+        return this.current.getCollectionMemberships?.() ?? [];
+      };
+      this.setCollectionMembership = async (membership) => {
+        await this.ensureScope();
+        await this.current.setCollectionMembership?.(membership);
+      };
+      this.removeCollectionMembership = async (collectionId, itemId) => {
+        await this.ensureScope();
+        await this.current.removeCollectionMembership?.(collectionId, itemId);
       };
     }
   }
@@ -294,6 +324,7 @@ function createAuthenticatedRemote<TMeta>(
   scope: SyncScope | undefined,
 ): RemoteSyncDriver<TMeta> {
   const pull = options.transport.pull;
+  const pullCollections = options.transport.pullCollections;
   return {
     push: async (operation) => {
       try {
@@ -308,6 +339,26 @@ function createAuthenticatedRemote<TMeta>(
           try {
             const token = await options.getAuthToken();
             return await pull({ token, scope });
+          } catch (cause) {
+            return handleAuthFailure(cause, options, { scope });
+          }
+        }
+      : undefined,
+    pushCollection: options.transport.pushCollection
+      ? async (collectionOperation) => {
+          try {
+            const token = await options.getAuthToken();
+            await options.transport.pushCollection?.(collectionOperation, { token, scope, collectionOperation });
+          } catch (cause) {
+            return handleAuthFailure(cause, options, { collectionOperation, scope });
+          }
+        }
+      : undefined,
+    pullCollections: pullCollections
+      ? async () => {
+          try {
+            const token = await options.getAuthToken();
+            return await pullCollections({ token, scope });
           } catch (cause) {
             return handleAuthFailure(cause, options, { scope });
           }

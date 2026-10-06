@@ -1,17 +1,37 @@
-import type { KeepInvalidItemPolicy, KeepItem, KeepSchema, StorageAdapter } from "../items/types";
-import { isKeepItem, isRecord } from "./helpers";
+import type {
+  KeepCollectionDefinition,
+  KeepCollectionMembership,
+  KeepInvalidItemPolicy,
+  KeepItem,
+  KeepSchema,
+  StorageAdapter,
+} from "../items/types";
+import { isKeepCollectionDefinition, isKeepCollectionMembership, isKeepItem, isRecord } from "./helpers";
 import { mergeKeepItems } from "./migration";
 import { validateKeepItem } from "./schema";
 
 export const KEEP_BACKUP_FORMAT = "keepkit";
-export const KEEP_BACKUP_VERSION = 1;
+export const KEEP_BACKUP_VERSION = 2;
 
-export type KeepBackup<TMeta = Record<string, unknown>> = {
+export type KeepBackupV1<TMeta = Record<string, unknown>> = {
+  format: typeof KEEP_BACKUP_FORMAT;
+  version: 1;
+  exportedAt: number;
+  items: KeepItem<TMeta>[];
+};
+
+export type KeepBackupV2<TMeta = Record<string, unknown>> = {
   format: typeof KEEP_BACKUP_FORMAT;
   version: typeof KEEP_BACKUP_VERSION;
   exportedAt: number;
   items: KeepItem<TMeta>[];
+  collections: KeepCollectionDefinition[];
+  memberships: KeepCollectionMembership[];
 };
+
+export type KeepBackup<TMeta = Record<string, unknown>> = KeepBackupV1<TMeta> | KeepBackupV2<TMeta>;
+
+type ParsedKeepBackup<TMeta> = Omit<KeepBackupV2<TMeta>, "version"> & { version: 1 | typeof KEEP_BACKUP_VERSION };
 
 export type ImportItemsOptions<TMeta = unknown> = {
   mode?: "replace" | "merge";
@@ -64,11 +84,13 @@ export class KeepBackupImportError extends Error {
 
 /** Serialize all adapter data into a versioned JSON backup. */
 export async function exportItems<TMeta>(adapter: StorageAdapter<TMeta>): Promise<string> {
-  const backup: KeepBackup<TMeta> = {
+  const backup: KeepBackupV2<TMeta> = {
     format: KEEP_BACKUP_FORMAT,
     version: KEEP_BACKUP_VERSION,
     exportedAt: Date.now(),
     items: await adapter.getAll(),
+    collections: (await adapter.getCollections?.()) ?? [],
+    memberships: (await adapter.getCollectionMemberships?.()) ?? [],
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -81,6 +103,18 @@ export async function importItems<TMeta>(
 ): Promise<ImportItemsResult<TMeta>> {
   const backup = parseBackup<TMeta>(data);
   const mode = options.mode ?? "merge";
+  if (
+    (backup.collections.length > 0 &&
+      (!adapter.getCollections || !adapter.setCollection || !adapter.removeCollection)) ||
+    (backup.memberships.length > 0 &&
+      (!adapter.getCollectionMemberships || !adapter.setCollectionMembership || !adapter.removeCollectionMembership))
+  ) {
+    throw new KeepBackupImportError("The storage adapter cannot restore collection data from this backup.", {
+      mode,
+      imported: 0,
+      failed: backup.items.length + backup.collections.length + backup.memberships.length,
+    });
+  }
   const validItems: KeepItem<TMeta>[] = [];
   let failed = 0;
   for (const item of backup.items) {
@@ -104,6 +138,8 @@ export async function importItems<TMeta>(
   if (mode === "merge") {
     try {
       items = await mergeKeepItems(validItems, adapter);
+      await restoreCollections(adapter, backup.collections, "merge");
+      await restoreMemberships(adapter, backup.memberships, "merge");
     } catch (cause) {
       throw new KeepBackupImportError("KeepKit could not merge the backup.", {
         mode,
@@ -116,10 +152,14 @@ export async function importItems<TMeta>(
     let imported = 0;
     try {
       await adapter.clear();
+      await restoreCollections(adapter, [], "replace");
+      await restoreMemberships(adapter, [], "replace");
       for (const item of validItems) {
         await adapter.set(item);
         imported += 1;
       }
+      await restoreCollections(adapter, backup.collections, "replace");
+      await restoreMemberships(adapter, backup.memberships, "replace");
       items = await adapter.getAll();
     } catch (cause) {
       throw new KeepBackupImportError("KeepKit could not replace the stored items.", {
@@ -131,10 +171,16 @@ export async function importItems<TMeta>(
     }
   }
 
-  return { mode, imported: validItems.length, failed, total: items.length, items };
+  return {
+    mode,
+    imported: validItems.length,
+    failed,
+    total: items.length,
+    items,
+  };
 }
 
-function parseBackup<TMeta>(data: string | KeepBackup<TMeta>): KeepBackup<TMeta> {
+function parseBackup<TMeta>(data: string | KeepBackup<TMeta>): ParsedKeepBackup<TMeta> {
   let value: unknown = data;
   if (typeof data === "string") {
     try {
@@ -145,7 +191,7 @@ function parseBackup<TMeta>(data: string | KeepBackup<TMeta>): KeepBackup<TMeta>
   }
 
   if (!isRecord(value)) throw new KeepBackupParseError("KeepKit backup must be an object.");
-  if (value.format !== KEEP_BACKUP_FORMAT || value.version !== KEEP_BACKUP_VERSION) {
+  if (value.format !== KEEP_BACKUP_FORMAT || (value.version !== 1 && value.version !== KEEP_BACKUP_VERSION)) {
     throw new KeepBackupParseError("KeepKit backup format or version is unsupported.");
   }
   if (typeof value.exportedAt !== "number" || !Number.isFinite(value.exportedAt)) {
@@ -154,5 +200,52 @@ function parseBackup<TMeta>(data: string | KeepBackup<TMeta>): KeepBackup<TMeta>
   if (!Array.isArray(value.items) || !value.items.every(isKeepItem)) {
     throw new KeepBackupParseError("KeepKit backup contains invalid items.");
   }
-  return value as KeepBackup<TMeta>;
+  if (value.version === 1) {
+    return {
+      format: KEEP_BACKUP_FORMAT,
+      version: 1,
+      exportedAt: value.exportedAt,
+      items: value.items as KeepItem<TMeta>[],
+      collections: [],
+      memberships: [],
+    };
+  }
+  if (
+    !Array.isArray(value.collections) ||
+    !value.collections.every(isKeepCollectionDefinition) ||
+    !Array.isArray(value.memberships) ||
+    !value.memberships.every(isKeepCollectionMembership)
+  ) {
+    throw new KeepBackupParseError("KeepKit backup contains invalid collection data.");
+  }
+  return value as ParsedKeepBackup<TMeta>;
+}
+
+async function restoreCollections<TMeta>(
+  adapter: StorageAdapter<TMeta>,
+  collections: KeepCollectionDefinition[],
+  mode: "merge" | "replace",
+): Promise<void> {
+  if (!adapter.getCollections || !adapter.setCollection || !adapter.removeCollection) return;
+  if (mode === "replace") {
+    const current = await adapter.getCollections();
+    for (const collection of current) await adapter.removeCollection(collection.id, collection.scope);
+  }
+  for (const collection of collections) await adapter.setCollection(collection);
+}
+
+async function restoreMemberships<TMeta>(
+  adapter: StorageAdapter<TMeta>,
+  memberships: KeepCollectionMembership[],
+  mode: "merge" | "replace",
+): Promise<void> {
+  if (!adapter.getCollectionMemberships || !adapter.setCollectionMembership || !adapter.removeCollectionMembership)
+    return;
+  if (mode === "replace") {
+    const current = await adapter.getCollectionMemberships();
+    for (const membership of current) {
+      await adapter.removeCollectionMembership(membership.collectionId, membership.itemId, membership.scope);
+    }
+  }
+  for (const membership of memberships) await adapter.setCollectionMembership(membership);
 }

@@ -5,8 +5,11 @@
  * by Vue, Svelte, Solid, Vanilla JS, server loaders, and RSC code.
  */
 
+export * from "./features/items/activity";
+export * from "./features/items/collections";
 export * from "./features/items/navigation";
 export * from "./features/items/presets";
+export * from "./features/items/progress";
 export * from "./features/items/query";
 export * from "./features/items/revalidation";
 export * from "./features/items/saved-views";

@@ -1,8 +1,11 @@
 import type {
   KeepCollectionDefinition,
+  KeepCollectionMembership,
+  KeepCollectionSyncOperation,
   KeepConflictResolver,
   KeepItem,
   KeepSyncConflict,
+  KeepSyncQueueOperation,
   KeepSyncResolution,
   KeepSyncState,
   RemoteSyncDriver,
@@ -14,7 +17,13 @@ import type {
   SyncScope,
 } from "../features/items/types";
 import { isKeepSyncAuthError } from "../features/items/types";
-import { isRecord, mergeKeepItemLists, persistKeepItems, removeKeepItems } from "../features/persistence/helpers";
+import {
+  isKeepCollectionDefinition,
+  isRecord,
+  mergeKeepItemLists,
+  persistKeepItems,
+  removeKeepItems,
+} from "../features/persistence/helpers";
 
 export type LocalStorageSyncQueueOptions = {
   key?: string;
@@ -64,7 +73,7 @@ export class LocalStorageSyncQueueAdapter<TMeta = Record<string, unknown>> imple
     this.storage = options.storage ?? getBrowserStorage();
   }
 
-  async getAll(): Promise<SyncOperation<TMeta>[]> {
+  async getAll(): Promise<KeepSyncQueueOperation<TMeta>[]> {
     if (!this.storage) return [];
     const raw = this.storage.getItem(this.key);
     if (!raw) return [];
@@ -74,13 +83,13 @@ export class LocalStorageSyncQueueAdapter<TMeta = Record<string, unknown>> imple
     } catch (cause) {
       throw Object.assign(new Error("KeepKit sync queue contains invalid JSON."), { cause });
     }
-    if (!Array.isArray(value) || !value.every(isSyncOperation)) {
+    if (!Array.isArray(value) || !value.every(isSyncQueueOperation)) {
       throw new Error("KeepKit sync queue contains invalid operations.");
     }
-    return value as SyncOperation<TMeta>[];
+    return value as KeepSyncQueueOperation<TMeta>[];
   }
 
-  async setMany(operations: SyncOperation<TMeta>[]): Promise<void> {
+  async setMany(operations: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
     if (!this.storage) return;
     this.storage.setItem(this.key, JSON.stringify(operations));
   }
@@ -110,18 +119,18 @@ export class IndexedDBSyncQueueAdapter<TMeta = Record<string, unknown>> implemen
     this.indexedDB = options.indexedDB ?? getBrowserIndexedDB();
   }
 
-  async getAll(): Promise<SyncOperation<TMeta>[]> {
+  async getAll(): Promise<KeepSyncQueueOperation<TMeta>[]> {
     const database = await this.open();
     if (!database) return [];
     const transaction = database.transaction(this.storeName, "readonly");
     const value: unknown = await requestToPromise(transaction.objectStore(this.storeName).getAll());
-    if (!Array.isArray(value) || !value.every(isSyncOperation)) {
+    if (!Array.isArray(value) || !value.every(isSyncQueueOperation)) {
       throw new Error("KeepKit sync queue contains invalid operations.");
     }
-    return value as SyncOperation<TMeta>[];
+    return value as KeepSyncQueueOperation<TMeta>[];
   }
 
-  async setMany(operations: SyncOperation<TMeta>[]): Promise<void> {
+  async setMany(operations: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
     const database = await this.open();
     if (!database) return;
     const transaction = database.transaction(this.storeName, "readwrite");
@@ -192,11 +201,11 @@ export class FallbackSyncQueueAdapter<TMeta = Record<string, unknown>> implement
     return this.active === "fallback";
   }
 
-  getAll(): Promise<SyncOperation<TMeta>[]> {
+  getAll(): Promise<KeepSyncQueueOperation<TMeta>[]> {
     return this.execute((adapter) => adapter.getAll());
   }
 
-  setMany(operations: SyncOperation<TMeta>[]): Promise<void> {
+  setMany(operations: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
     return this.execute((adapter) => adapter.setMany(operations));
   }
 
@@ -226,6 +235,9 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
   readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
   readonly removeCollection?: (id: string, scope?: SyncScope) => Promise<void>;
+  readonly getCollectionMemberships?: () => Promise<KeepCollectionMembership[]>;
+  readonly setCollectionMembership?: (membership: KeepCollectionMembership) => Promise<void>;
+  readonly removeCollectionMembership?: (collectionId: string, itemId: string, scope?: SyncScope) => Promise<void>;
   private readonly local: StorageAdapter<TMeta>;
   private readonly remote: RemoteSyncDriver<TMeta>;
   private readonly queue: SyncQueueAdapter<TMeta>;
@@ -238,7 +250,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   private readonly retryBackoff: number;
   private readonly listeners = new Set<() => void>();
   private readonly dataListeners = new Set<() => void>();
-  private queueItems: SyncOperation<TMeta>[] = [];
+  private queueItems: KeepSyncQueueOperation<TMeta>[] = [];
   private queueLoaded = false;
   private queueLoadPromise: Promise<void> | undefined;
   private flushPromise: Promise<void> | undefined;
@@ -268,9 +280,63 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
         const scope = this.scope;
         return scope ? collections.filter((collection) => sameScope(collection.scope, scope)) : collections;
       };
-      this.setCollection = (collection) =>
-        setCollection({ ...collection, ...(this.scope ? { scope: this.scope } : {}) });
-      this.removeCollection = (id) => removeCollection(id, this.scope);
+      this.setCollection = async (collection) => {
+        const scopedCollection = { ...collection, ...(this.scope ? { scope: this.scope } : {}) };
+        if (this.remote.pushCollection) {
+          const operation = this.createCollectionOperation("upsert", scopedCollection.id, scopedCollection);
+          await this.enqueueBeforeLocalWrite(operation);
+          try {
+            await setCollection(scopedCollection);
+          } catch (cause) {
+            await this.removeQueued(operation.operationId);
+            throw cause;
+          }
+          this.notifyDataListeners();
+          this.setPendingState();
+          return;
+        }
+        await setCollection(scopedCollection);
+        this.notifyDataListeners();
+      };
+      this.removeCollection = async (id) => {
+        if (this.remote.pushCollection) {
+          const operation = this.createCollectionOperation("remove", id);
+          await this.enqueueBeforeLocalWrite(operation);
+          try {
+            await removeCollection(id, this.scope);
+          } catch (cause) {
+            await this.removeQueued(operation.operationId);
+            throw cause;
+          }
+          this.notifyDataListeners();
+          this.setPendingState();
+          return;
+        }
+        await removeCollection(id, this.scope);
+        this.notifyDataListeners();
+      };
+    }
+    if (
+      this.local.getCollectionMemberships &&
+      this.local.setCollectionMembership &&
+      this.local.removeCollectionMembership
+    ) {
+      const getMemberships = this.local.getCollectionMemberships.bind(this.local);
+      const setMembership = this.local.setCollectionMembership.bind(this.local);
+      const removeMembership = this.local.removeCollectionMembership.bind(this.local);
+      this.getCollectionMemberships = async () => {
+        const memberships = await getMemberships();
+        const scope = this.scope;
+        return scope ? memberships.filter((membership) => sameScope(membership.scope, scope)) : memberships;
+      };
+      this.setCollectionMembership = async (membership) => {
+        await setMembership({ ...membership, ...(this.scope ? { scope: this.scope } : {}) });
+        this.notifyDataListeners();
+      };
+      this.removeCollectionMembership = async (collectionId, itemId) => {
+        await removeMembership(collectionId, itemId, this.scope);
+        this.notifyDataListeners();
+      };
     }
     if (typeof window !== "undefined") {
       this.onlineHandler = () => void this.flushSync();
@@ -440,6 +506,16 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     for (const operation of [...this.queueItems]) {
       if (this.disposed) return;
       try {
+        if (isCollectionSyncOperation(operation)) {
+          if (!this.remote.pushCollection) throw new Error("Remote sync driver does not support collection sync.");
+          await this.pushCollectionWithRetry(operation);
+          await this.removeQueued(operation.operationId);
+          this.updateState({
+            status: this.queueItems.length > 0 ? "syncing" : "synced",
+            lastSyncedAt: this.now(),
+          });
+          continue;
+        }
         const result = await this.pushWithRetry(operation);
         if (result.type === "conflict") {
           const local = operation.item;
@@ -512,6 +588,22 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     };
   }
 
+  private createCollectionOperation(
+    type: KeepCollectionSyncOperation["type"],
+    id: string,
+    collection?: KeepCollectionDefinition,
+  ): KeepCollectionSyncOperation {
+    return {
+      operationId: `${this.clientId}:${this.now()}:${createId()}`,
+      type,
+      entity: "collection",
+      id,
+      ...(collection ? { collection } : {}),
+      createdAt: this.now(),
+      ...(this.scope ? { scope: this.scope } : {}),
+    };
+  }
+
   private applyScope(item: KeepItem<TMeta>): KeepItem<TMeta> {
     return this.scope ? { ...item, scope: this.scope } : item;
   }
@@ -530,16 +622,32 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     }
   }
 
-  private async enqueueBeforeLocalWrite(operation: SyncOperation<TMeta>): Promise<void> {
+  private async pushCollectionWithRetry(operation: KeepCollectionSyncOperation): Promise<void> {
+    let attempt = 0;
+    while (true) {
+      try {
+        await this.remote.pushCollection?.({ ...operation, attempts: attempt });
+        return;
+      } catch (error) {
+        if (isKeepSyncAuthError(error) || attempt >= this.maxRetries) throw error;
+        attempt += 1;
+        const delay = this.retryDelayMs * this.retryBackoff ** (attempt - 1);
+        if (delay > 0) await wait(delay);
+      }
+    }
+  }
+
+  private async enqueueBeforeLocalWrite(operation: KeepSyncQueueOperation<TMeta>): Promise<void> {
     await this.enqueueManyBeforeLocalWrite([operation]);
   }
 
-  private async enqueueManyBeforeLocalWrite(operations: SyncOperation<TMeta>[]): Promise<void> {
+  private async enqueueManyBeforeLocalWrite(operations: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
     await this.loadQueue();
     const next = [...this.queueItems];
     for (const operation of operations) {
       for (let index = next.length - 1; index >= 0; index -= 1) {
-        if (next[index]?.id !== operation.id) continue;
+        const queued = next[index];
+        if (!queued || getQueueIdentity(queued) !== getQueueIdentity(operation)) continue;
         next.splice(index, 1);
       }
       next.push(operation);
@@ -577,7 +685,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     }
   }
 
-  private async persistQueue(next: SyncOperation<TMeta>[]): Promise<void> {
+  private async persistQueue(next: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
     const previousIds = new Set(this.queueItems.map((operation) => operation.operationId));
     const nextIds = new Set(next.map((operation) => operation.operationId));
     const removed = [...previousIds].filter((id) => !nextIds.has(id));
@@ -609,30 +717,64 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   }
 
   private async pullRemote(): Promise<boolean> {
-    if (!this.remote.pull) return true;
+    if (!this.remote.pull && !this.remote.pullCollections) return true;
     try {
-      const remoteItems = await this.remote.pull();
-      const pendingIds = new Set(this.queueItems.map((operation) => operation.id));
-      const localItems = await this.getAll();
-      const localById = new Map(localItems.map((item) => [item.id, item]));
-      const remoteById = new Map<string, KeepItem<TMeta>>();
-      for (const item of remoteItems) {
-        if (this.scope && item.scope && !sameScope(item.scope, this.scope)) continue;
-        if (pendingIds.has(item.id)) continue;
-        const previous = remoteById.get(item.id);
-        remoteById.set(item.id, previous ? (mergeKeepItemLists([item], [previous])[0] ?? item) : item);
-      }
-      const incoming = [...remoteById.values()].flatMap((item) => {
-        const current = localById.get(item.id);
-        if (current && item.updatedAt < current.updatedAt && (item.lastOpenedAt ?? 0) <= (current.lastOpenedAt ?? 0)) {
-          return [];
+      if (this.remote.pull) {
+        const remoteItems = await this.remote.pull();
+        const pendingIds = new Set(
+          this.queueItems.filter((operation) => operation.entity !== "collection").map((operation) => operation.id),
+        );
+        const localItems = await this.getAll();
+        const localById = new Map(localItems.map((item) => [item.id, item]));
+        const remoteById = new Map<string, KeepItem<TMeta>>();
+        for (const item of remoteItems) {
+          if (this.scope && item.scope && !sameScope(item.scope, this.scope)) continue;
+          if (pendingIds.has(item.id)) continue;
+          const previous = remoteById.get(item.id);
+          remoteById.set(item.id, previous ? (mergeKeepItemLists([item], [previous])[0] ?? item) : item);
         }
-        const merged = current ? (mergeKeepItemLists([item], [current])[0] ?? item) : item;
-        return [this.applyScope(merged)];
-      });
-      if (incoming.length === 0) return true;
-      await persistKeepItems(this.local, incoming);
-      this.notifyDataListeners();
+        const incoming = [...remoteById.values()].flatMap((item) => {
+          const current = localById.get(item.id);
+          if (
+            current &&
+            item.updatedAt < current.updatedAt &&
+            (item.lastOpenedAt ?? 0) <= (current.lastOpenedAt ?? 0)
+          ) {
+            return [];
+          }
+          const merged = current ? (mergeKeepItemLists([item], [current])[0] ?? item) : item;
+          return [this.applyScope(merged)];
+        });
+        if (incoming.length > 0) {
+          await persistKeepItems(this.local, incoming);
+          this.notifyDataListeners();
+        }
+      }
+      if (
+        this.remote.pullCollections &&
+        this.local.getCollections &&
+        this.local.setCollection &&
+        this.local.removeCollection
+      ) {
+        const remoteCollections = await this.remote.pullCollections();
+        const localCollections = await this.local.getCollections();
+        const pendingIds = new Set(this.queueItems.filter(isCollectionSyncOperation).map((operation) => operation.id));
+        const remoteById = new Map(
+          remoteCollections
+            .filter((collection) => !this.scope || sameScope(collection.scope, this.scope))
+            .map((collection) => [collection.id, collection]),
+        );
+        for (const collection of remoteById.values()) {
+          if (pendingIds.has(collection.id)) continue;
+          await this.local.setCollection({ ...collection, ...(this.scope ? { scope: this.scope } : {}) });
+        }
+        for (const collection of localCollections) {
+          if (pendingIds.has(collection.id) || remoteById.has(collection.id)) continue;
+          if (this.scope && !sameScope(collection.scope, this.scope)) continue;
+          await this.local.removeCollection(collection.id, this.scope);
+        }
+        this.notifyDataListeners();
+      }
       return true;
     } catch (error) {
       this.updateState({ status: "error", error });
@@ -660,8 +802,31 @@ function isSyncOperation(value: unknown): value is SyncOperation {
     typeof value.operationId === "string" &&
     (value.type === "upsert" || value.type === "remove") &&
     typeof value.id === "string" &&
-    typeof value.createdAt === "number"
+    typeof value.createdAt === "number" &&
+    (value.entity === undefined || value.entity === "item" || value.entity === "collection") &&
+    (value.collection === undefined || isKeepCollectionDefinition(value.collection)) &&
+    (value.entity !== "collection" || value.type !== "upsert" || isKeepCollectionDefinition(value.collection))
   );
+}
+
+function isCollectionSyncOperation(value: unknown): value is KeepCollectionSyncOperation {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.operationId === "string" &&
+    value.entity === "collection" &&
+    (value.type === "upsert" || value.type === "remove") &&
+    typeof value.id === "string" &&
+    typeof value.createdAt === "number" &&
+    (value.collection === undefined || isKeepCollectionDefinition(value.collection))
+  );
+}
+
+function isSyncQueueOperation(value: unknown): value is KeepSyncQueueOperation {
+  return isSyncOperation(value) || isCollectionSyncOperation(value);
+}
+
+function getQueueIdentity<TMeta>(operation: KeepSyncQueueOperation<TMeta>): string {
+  return `${operation.entity === "collection" ? "collection" : "item"}:${operation.id}`;
 }
 
 function createId(): string {

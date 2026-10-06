@@ -1,5 +1,23 @@
 # Release notes
 
+## [0.28.5] - 2026-10-07
+
+### 日本語
+
+- 保存とは独立した閲覧履歴、鑑賞日時とメモを持つ鑑賞記録、保持件数設定を追加しました。
+- 同じガイドを複数コースへ登録し、コースごとに順序を維持できるようにしました。
+- コレクション定義と所属を含むバックアップv2を追加し、v1のアイテムのみのバックアップも復元できるようにしました。
+- コレクション定義のscope付き端末間同期と、コース・ガイド別の読書／音声進行位置保存を追加しました。
+- 言語またはコンテンツ版を記録した進行位置は、一致する期待値を指定しないと復元しないようにしました。
+
+### English
+
+- Added independent open history with a configurable retention limit and separate self-reported viewing records with notes.
+- Added multi-course memberships with independent ordering for each course.
+- Added backup v2 for collection definitions and memberships while retaining support for item-only v1 backups.
+- Added scoped cross-device collection-definition sync and course, reading, and audio progress storage.
+- Progress tagged with a language or content version is withheld unless matching compatibility values are provided.
+
 ## [0.28.4] - 2026-09-27
 
 ### 日本語

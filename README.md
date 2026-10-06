@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.4では空のコレクションと変更した名前をブラウザー内に保存し、再読み込み後に復元できるようになりました。Inbox、Saved Views、利用履歴、Rediscovery、フィルターサマリーも利用できます。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.5では、独立した閲覧・鑑賞履歴、複数コースの所属、コレクションを含むバックアップ、コース同期、閲覧進行の保存を追加しました。空のコレクション、Inbox、Saved Views、Rediscovery、フィルターサマリーも利用できます。
 
 ### インストール
 
@@ -79,7 +79,11 @@ export function SavedArticle({ article }: { article: Meta & { id: string } }) {
 
 `KeepWorkspace`は既存プリミティブを組み合わせ、`basic`、`standard`、`management`、`sync`のプリセットでコレクション画面一式を提供します。`createKeepKit()`を利用する場合は同じ実装を`keep.Workspace`から型付きで利用できます。`modules`、`slots`、子コンポーネントごとのpropsで必要な領域だけを上書きできます。
 `KeepCollectionManager`はコレクションの作成、名前変更、削除確認、件数表示をまとめたheadless UIです。`allowCreate`、`allowRename`、`allowDelete`、`showCounts`で機能を個別に切り替えられます。
-標準ブラウザーストレージでは、空のコレクションと変更した名前もアイテムとは別に保存され、再読み込み後に復元されます。独自の`StorageAdapter`で同じ動作が必要な場合は、任意の`getCollections`、`setCollection`、`removeCollection`を実装してください。`clear()`とJSONバックアップはアイテムのみを対象とし、コレクション定義は端末間同期されません。
+標準ブラウザーストレージでは、空のコレクション、変更した名前、コース別のガイド所属と順序をアイテムとは別に保存します。`addKeepItemToCollection` / `reorderKeepCollectionItems` / `removeKeepItemFromCollection`で複数コースへの所属を管理でき、共有アイテムのメモや保存状態は維持されます。`LocalStorageKeepHistoryStorage`は未保存ガイドも含む閲覧履歴を独立して保持し、`LocalStorageKeepViewingRecordStorage`は開封とは異なる自己申告の鑑賞記録を保存します。`LocalStorageKeepProgressStorage`はコース再開項目とガイドごとの音声・読書位置を保存します。記録に言語またはコンテンツ版がある場合は、一致する値を取得時に指定しないと位置を返しません。音声再開はViewer上で利用者が操作した後に行ってください。
+
+`exportItems()`のv2バックアップは空のコレクション定義とコース所属を含み、v1のアイテムのみのバックアップも復元できます。mergeでは同一IDの定義名と同一コース・ガイドの順序をバックアップ側で更新し、別IDの同名コレクションは別々に残します。replaceではアイテム、定義、所属を置き換えます。端末間同期には`RemoteSyncDriver`の`pushCollection` / `pullCollections`を実装してください。操作はユーザー／テナントscopeで分離し、pullは全件snapshotとして扱います。pending中のローカル変更を優先し、snapshotにない定義を削除済みとして扱い、所属も削除します。同時変更はリモートtransportで受信順に適用し、最後に受理された操作を採用します。
+
+独自の`StorageAdapter`で複数所属やバックアップ復元を使う場合は、任意の`getCollections`、`setCollection`、`removeCollection`、`getCollectionMemberships`、`setCollectionMembership`、`removeCollectionMembership`を実装してください。`clear()`はこれまでどおり保存アイテムのみを消去します。
 
 Inboxには`<keep.Inbox />`を使います。`KeepListQuery.organization`でcollection / tags / noteの整理状態を絞り込め、`createInboxQuery()`は未分類アイテムを返します。`KeepCollection features={{ savedViews: true }}`は現在のqueryを保存して再適用できます。`KeepWorkspace modules={{ inbox: true, savedViews: true }}`で両方を統合でき、Saved Viewはアイテムとは別のlocalStorage keyに保存されます。
 
@@ -189,7 +193,7 @@ shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keep
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.4 persists empty collections and renamed labels in browser storage so they survive reloads. Inbox triage, Saved Views, activity tracking, Rediscovery, and active-filter summaries are also available.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.5 adds independent viewing history and records, multi-course memberships, collection-aware backups, scoped collection sync, and resumable reading or audio progress. Empty collections, Inbox triage, Saved Views, Rediscovery, and active-filter summaries are also available.
 
 ### Installation
 
@@ -255,7 +259,11 @@ The theme also defines WCAG-oriented `--keep-highlight-bg` / `--keep-highlight-f
 
 `KeepWorkspace` composes the existing primitives into `basic`, `standard`, `management`, and `sync` collection-screen presets. `createKeepKit()` exposes the same implementation as a typed `keep.Workspace`. Override individual areas through `modules`, `slots`, and child-component props.
 `KeepCollectionManager` is a headless UI for creating, renaming, confirming deletion, and counting collections. Toggle each capability with `allowCreate`, `allowRename`, `allowDelete`, and `showCounts`.
-Standard browser storage saves empty collections and renamed labels separately from items and restores them after reload. Custom `StorageAdapter` implementations can opt in with `getCollections`, `setCollection`, and `removeCollection`. `clear()` and JSON backups still cover items only; collection definitions are not synced across devices.
+Standard browser storage saves empty collections, renamed labels, and course-specific guide memberships and ordering separately from saved items. Use `addKeepItemToCollection`, `reorderKeepCollectionItems`, and `removeKeepItemFromCollection` to organize one item in several courses while preserving its shared note and saved state. `LocalStorageKeepHistoryStorage` records opens for saved or unsaved guides; `LocalStorageKeepViewingRecordStorage` stores separate self-reported viewing events. `LocalStorageKeepProgressStorage` stores a course resume item and per-guide audio or reading positions. When a record includes a language or content version, `getItem()` withholds the offset unless matching values are provided. Audio playback should resume only after a user action in the Viewer.
+
+`exportItems()` writes backup v2 with empty collection definitions and course memberships and still restores item-only v1 backups. Merge updates the name for a matching collection ID and the order for a matching course/item pair; same-name collections with different IDs remain distinct. Replace overwrites items, definitions, and memberships. Implement `RemoteSyncDriver.pushCollection` / `pullCollections` to sync definitions across devices. Operations remain scoped to the user and tenant. Pull uses a full authoritative snapshot, preserves pending local changes, treats missing definitions as deleted, and removes their memberships. Concurrent changes use arrival-order last-write-wins at the remote transport.
+
+Custom `StorageAdapter` implementations should add `getCollections`, `setCollection`, `removeCollection`, `getCollectionMemberships`, `setCollectionMembership`, and `removeCollectionMembership` to use courses and restore backups containing them. `clear()` continues to clear saved items only.
 
 Use `<keep.Inbox />` for unassigned items. `KeepListQuery.organization` filters collection, tag, and note organization state; `createInboxQuery()` returns unassigned items. `KeepCollection features={{ savedViews: true }}` saves and reapplies the current query. Enable both through `KeepWorkspace modules={{ inbox: true, savedViews: true }}`. Saved Views use a separate localStorage key.
 

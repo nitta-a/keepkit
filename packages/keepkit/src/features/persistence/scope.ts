@@ -1,8 +1,9 @@
 import type {
   KeepCollectionDefinition,
+  KeepCollectionMembership,
   KeepItem,
+  KeepSyncQueueOperation,
   StorageAdapter,
-  SyncOperation,
   SyncQueueAdapter,
   SyncScope,
 } from "../items/types";
@@ -29,6 +30,9 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
   readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
   readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
   readonly removeCollection?: (id: string, scope?: SyncScope) => Promise<void>;
+  readonly getCollectionMemberships?: () => Promise<KeepCollectionMembership[]>;
+  readonly setCollectionMembership?: (membership: KeepCollectionMembership) => Promise<void>;
+  readonly removeCollectionMembership?: (collectionId: string, itemId: string, scope?: SyncScope) => Promise<void>;
   private readonly base: StorageAdapter<TMeta>;
   private readonly scope?: KeepScope;
 
@@ -54,6 +58,20 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
       this.setCollection = (collection) =>
         setCollection({ ...collection, ...(this.scope ? { scope: this.scope } : {}) });
       this.removeCollection = (id) => removeCollection(id, this.scope);
+    }
+    if (base.getCollectionMemberships && base.setCollectionMembership && base.removeCollectionMembership) {
+      const getMemberships = base.getCollectionMemberships.bind(base);
+      const setMembership = base.setCollectionMembership.bind(base);
+      const removeMembership = base.removeCollectionMembership.bind(base);
+      this.getCollectionMemberships = async () => {
+        const memberships = await getMemberships();
+        return this.scope
+          ? memberships.filter((membership) => isSameKeepScope(membership.scope, this.scope))
+          : memberships;
+      };
+      this.setCollectionMembership = (membership) =>
+        setMembership({ ...membership, ...(this.scope ? { scope: this.scope } : {}) });
+      this.removeCollectionMembership = (collectionId, itemId) => removeMembership(collectionId, itemId, this.scope);
     }
   }
 
@@ -126,12 +144,12 @@ export class ScopedSyncQueueAdapter<TMeta = Record<string, unknown>> implements 
     this.scope = scope;
   }
 
-  async getAll(): Promise<SyncOperation<TMeta>[]> {
+  async getAll(): Promise<KeepSyncQueueOperation<TMeta>[]> {
     const operations = await this.base.getAll();
     return this.scope ? operations.filter((operation) => isSameKeepScope(operation.scope, this.scope)) : operations;
   }
 
-  async setMany(operations: SyncOperation<TMeta>[]): Promise<void> {
+  async setMany(operations: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
     const current = await this.base.getAll();
     const scoped = operations.map((operation) => ({ ...operation, ...(this.scope ? { scope: this.scope } : {}) }));
     const ids = new Set(scoped.map((operation) => operation.operationId));

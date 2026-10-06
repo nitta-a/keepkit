@@ -47,9 +47,14 @@ for (const directory of packageDirectories) {
 if (publishablePackages.length === 0) throw new Error("No publishable packages were found under packages/.");
 
 for (const { packageDirectory, packageJson } of publishablePackages) {
-  const { stdout, stderr } = await execFileAsync("pnpm", ["pack", "--dry-run", "--json"], {
-    cwd: packageDirectory,
-  });
+  const { stdout, stderr } = await execFileAsync(
+    process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    ["pack", "--dry-run", "--json"],
+    {
+      cwd: packageDirectory,
+      ...(process.platform === "win32" ? { shell: true } : {}),
+    },
+  );
 
   if (stdout) process.stdout.write(stdout);
   if (stderr) process.stderr.write(stderr);
