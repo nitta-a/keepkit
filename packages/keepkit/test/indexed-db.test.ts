@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  addKeepItemToCollection,
   createBrowserStorageAdapter,
   createScopedStorageAdapter,
+  exportItems,
+  importItems,
   KeepStorageAccessError,
   KeepStorageParseError,
   KeepStorageQuotaError,
+  removeKeepItemFromCollection,
+  reorderKeepCollectionItems,
 } from "../dist/core.js";
 import {
   DEFAULT_INDEXEDDB_DATABASE,
@@ -194,6 +199,38 @@ test("removing IndexedDB items clears their collection memberships", async () =>
   assert.deepEqual(await adapter.getCollectionMemberships(), []);
 });
 
+test("serializes concurrent IndexedDB collection edits without losing memberships or order", async () => {
+  const adapter = new IndexedDBAdapter({ indexedDB: createIndexedDB(), databaseName: "parallel-memberships" });
+  await adapter.setMany([itemA, itemB, { id: "c", savedAt: 3, updatedAt: 3, meta: { title: "C" } }]);
+  await Promise.all([
+    addKeepItemToCollection(adapter, "course", "a"),
+    addKeepItemToCollection(adapter, "course", "b"),
+    addKeepItemToCollection(adapter, "course", "c"),
+    reorderKeepCollectionItems(adapter, "course", ["c", "a"]),
+  ]);
+
+  assert.deepEqual(
+    (await adapter.getCollectionMemberships()).sort((left, right) => left.order - right.order),
+    [
+      { collectionId: "course", itemId: "c", order: 0 },
+      { collectionId: "course", itemId: "a", order: 1 },
+      { collectionId: "course", itemId: "b", order: 2 },
+    ],
+  );
+  await Promise.all([
+    removeKeepItemFromCollection(adapter, "course", "a"),
+    addKeepItemToCollection(adapter, "course", "a", 0),
+  ]);
+  assert.deepEqual(
+    (await adapter.getCollectionMemberships()).sort((left, right) => left.order - right.order),
+    [
+      { collectionId: "course", itemId: "a", order: 0 },
+      { collectionId: "course", itemId: "c", order: 1 },
+      { collectionId: "course", itemId: "b", order: 2 },
+    ],
+  );
+});
+
 test("clearing adapters removes orphaned memberships without removing collection definitions", async () => {
   const indexedDB = new IndexedDBAdapter({ indexedDB: createIndexedDB() });
   await indexedDB.setCollection({ id: "course-a", name: "Course A" });
@@ -269,6 +306,61 @@ test("persists collections separately from items without changing the item datab
   await reopened.removeCollection("reading");
   assert.deepEqual(await adapter.getCollections(), [{ id: "empty", name: "Empty" }]);
   assert.deepEqual(await adapter.getCollectionMemberships(), []);
+});
+
+test("IndexedDB backup merge keeps same IDs and collection names separate by scope", async () => {
+  const indexedDB = createIndexedDB();
+  const adapter = new IndexedDBAdapter({ indexedDB, databaseName: "scoped-backup-merge" });
+  const alice = { userId: "alice" };
+  const bob = { userId: "bob" };
+  await adapter.set({ ...itemA, note: "Alice memo", updatedAt: 2, lastOpenedAt: 20, scope: alice });
+  await adapter.set({ ...itemA, note: "Bob memo", updatedAt: 3, lastOpenedAt: 30, scope: bob });
+  await adapter.setCollection({ id: "course", name: "Alice course", scope: alice });
+  await adapter.setCollection({ id: "course", name: "Bob course", scope: bob });
+  await adapter.setCollectionMembership({ collectionId: "course", itemId: itemA.id, order: 1, scope: alice });
+  await adapter.setCollectionMembership({ collectionId: "course", itemId: itemA.id, order: 2, scope: bob });
+
+  const backup = await exportItems(adapter);
+  await importItems(adapter, backup, { mode: "merge", collectionNameConflict: "existing" });
+
+  assert.deepEqual(
+    (await adapter.getAll()).map(({ scope, note, lastOpenedAt }) => ({ scope, note, lastOpenedAt })),
+    [
+      { scope: bob, note: "Bob memo", lastOpenedAt: 30 },
+      { scope: alice, note: "Alice memo", lastOpenedAt: 20 },
+    ],
+  );
+  assert.deepEqual(
+    (await adapter.getCollections()).map(({ scope, name }) => ({ scope, name })),
+    [
+      { scope: alice, name: "Alice course" },
+      { scope: bob, name: "Bob course" },
+    ],
+  );
+  assert.deepEqual(
+    (await adapter.getCollectionMemberships()).map(({ scope, order }) => ({ scope, order })),
+    [
+      { scope: alice, order: 1 },
+      { scope: bob, order: 2 },
+    ],
+  );
+
+  const restored = new IndexedDBAdapter({ indexedDB, databaseName: "scoped-backup-merge-restored" });
+  await importItems(restored, backup, { mode: "merge", collectionNameConflict: "existing" });
+  const firstRestore = {
+    items: await restored.getAll(),
+    collections: await restored.getCollections(),
+    memberships: await restored.getCollectionMemberships(),
+  };
+  await importItems(restored, backup, { mode: "merge", collectionNameConflict: "existing" });
+  assert.deepEqual(
+    {
+      items: await restored.getAll(),
+      collections: await restored.getCollections(),
+      memberships: await restored.getCollectionMemberships(),
+    },
+    firstRestore,
+  );
 });
 
 test("wraps IndexedDB open failures and retries after a failed open", async () => {

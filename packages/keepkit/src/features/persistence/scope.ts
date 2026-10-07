@@ -7,12 +7,13 @@ import type {
   SyncQueueAdapter,
   SyncScope,
 } from "../items/types";
+import { mergeKeepItemLists } from "./helpers";
 
 export type KeepScope = SyncScope;
 
 /** Return a stable, human-readable namespace for browser storage and queues. */
 export function getKeepScopeKey(scope?: KeepScope): string {
-  if (!scope?.userId && !scope?.tenantId) return "";
+  if (scope?.userId === undefined && scope?.tenantId === undefined) return "";
   return `:${encodeURIComponent(scope.tenantId ?? "_")}:${encodeURIComponent(scope.userId ?? "_")}`;
 }
 
@@ -126,8 +127,10 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
   }
 
   async merge(items: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
-    await this.setMany(items);
-    return this.getAll();
+    const scopedItems = items.map((item) => ({ ...item, ...(this.scope ? { scope: this.scope } : {}) }));
+    const merged = mergeKeepItemLists(await this.getAll(), scopedItems);
+    await this.setMany(merged);
+    return merged;
   }
 
   subscribe(listener: () => void): () => void {

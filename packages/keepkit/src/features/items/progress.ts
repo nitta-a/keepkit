@@ -1,3 +1,5 @@
+import { withLocalStorageWriteLock } from "../persistence/write-lock";
+
 export type KeepCourseProgress = {
   kind: "course";
   courseId: string;
@@ -53,7 +55,6 @@ export class LocalStorageKeepProgressStorage implements KeepProgressStorage {
   private readonly key: string;
   private readonly storage: Storage | undefined;
   private readonly now: () => number;
-  private writes: Promise<unknown> = Promise.resolve();
 
   constructor(options: LocalStorageProgressOptions = {}) {
     this.key = options.key ?? DEFAULT_KEEP_PROGRESS_KEY;
@@ -91,29 +92,52 @@ export class LocalStorageKeepProgressStorage implements KeepProgressStorage {
   }
 
   async saveCourse(courseId: string, currentItemId?: string): Promise<KeepCourseProgress> {
-    const record: KeepCourseProgress = {
-      kind: "course",
-      courseId: normalizeId(courseId, "course"),
-      ...(currentItemId?.trim() ? { currentItemId: currentItemId.trim() } : {}),
-      updatedAt: this.now(),
-    };
-    await this.set(record);
-    return record;
+    const id = normalizeId(courseId, "course");
+    return this.withWriteLock(async () => {
+      const records = await this.getAll();
+      const previous = records.find((entry) => entry.kind === "course" && entry.courseId === id);
+      const record: KeepCourseProgress = {
+        kind: "course",
+        courseId: id,
+        ...(currentItemId?.trim() ? { currentItemId: currentItemId.trim() } : {}),
+        updatedAt: Math.max(this.now(), (previous?.updatedAt ?? -1) + 1),
+      };
+      this.writeRecords([
+        ...records.filter((entry) => getProgressIdentity(entry) !== getProgressIdentity(record)),
+        record,
+      ]);
+      return record;
+    });
   }
 
   async saveItem(
     itemId: string,
     progress: Omit<KeepItemProgress, "kind" | "itemId" | "updatedAt">,
   ): Promise<KeepItemProgress> {
-    const record: KeepItemProgress = {
-      kind: "item",
-      itemId: normalizeId(itemId, "item"),
-      ...progress,
-      ...(progress.audioId?.trim() ? { audioId: progress.audioId.trim() } : {}),
-      updatedAt: this.now(),
-    };
-    await this.set(record);
-    return record;
+    const id = normalizeId(itemId, "item");
+    return this.withWriteLock(async () => {
+      const records = await this.getAll();
+      const previous = records.find((entry) => entry.kind === "item" && entry.itemId === id);
+      const record: KeepItemProgress = {
+        ...previous,
+        ...progress,
+        kind: "item",
+        itemId: id,
+        ...(progress.audioId !== undefined
+          ? progress.audioId.trim()
+            ? { audioId: progress.audioId.trim() }
+            : { audioId: undefined }
+          : {}),
+        updatedAt: Math.max(this.now(), (previous?.updatedAt ?? -1) + 1),
+      };
+      const normalized = normalizeProgressRecord(record);
+      if (normalized.kind !== "item") throw new TypeError("KeepKit progress record is invalid.");
+      this.writeRecords([
+        ...records.filter((entry) => getProgressIdentity(entry) !== getProgressIdentity(normalized)),
+        normalized,
+      ]);
+      return normalized;
+    });
   }
 
   async set(record: KeepProgressRecord): Promise<void> {
@@ -121,7 +145,9 @@ export class LocalStorageKeepProgressStorage implements KeepProgressStorage {
       const normalized = normalizeProgressRecord(record);
       const records = await this.getAll();
       const identity = getProgressIdentity(normalized);
-      this.writeRecords([...records.filter((entry) => getProgressIdentity(entry) !== identity), normalized]);
+      const previous = records.find((entry) => getProgressIdentity(entry) === identity);
+      const resolved = previous && previous.updatedAt > normalized.updatedAt ? previous : normalized;
+      this.writeRecords([...records.filter((entry) => getProgressIdentity(entry) !== identity), resolved]);
     });
   }
 
@@ -163,9 +189,12 @@ export class LocalStorageKeepProgressStorage implements KeepProgressStorage {
   }
 
   private withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
-    const next = this.writes.then(operation);
-    this.writes = next.catch(() => undefined);
-    return next;
+    if (!this.storage) return operation();
+    return withLocalStorageWriteLock(
+      this.key,
+      operation,
+      new KeepProgressStorageError("KeepKit needs the Web Locks API to safely update progress across tabs.", this.key),
+    );
   }
 }
 

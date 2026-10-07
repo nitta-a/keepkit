@@ -1,3 +1,5 @@
+import { withLocalStorageWriteLock } from "../persistence/write-lock";
+
 export type KeepHistoryEntry = {
   itemId: string;
   lastViewedAt: number;
@@ -55,7 +57,6 @@ export class LocalStorageKeepHistoryStorage implements KeepHistoryStorage {
   private readonly storage: Storage | undefined;
   private readonly initialLimit: number;
   private readonly now: () => number;
-  private writes: Promise<unknown> = Promise.resolve();
 
   constructor(options: LocalStorageActivityOptions = {}) {
     this.key = options.key ?? DEFAULT_KEEP_HISTORY_KEY;
@@ -130,9 +131,12 @@ export class LocalStorageKeepHistoryStorage implements KeepHistoryStorage {
   }
 
   private withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
-    const next = this.writes.then(operation);
-    this.writes = next.catch(() => undefined);
-    return next;
+    if (!this.storage) return operation();
+    return withLocalStorageWriteLock(
+      this.key,
+      operation,
+      new KeepActivityStorageError("KeepKit needs the Web Locks API to safely update history across tabs.", this.key),
+    );
   }
 
   private async read<T>(key: string, validate: (value: unknown) => value is T, label: string): Promise<T> {
@@ -168,7 +172,6 @@ export class LocalStorageKeepViewingRecordStorage implements KeepViewingRecordSt
   private readonly storage: Storage | undefined;
   private readonly now: () => number;
   private readonly createId: () => string;
-  private writes: Promise<unknown> = Promise.resolve();
 
   constructor(options: LocalStorageActivityOptions = {}) {
     this.key = options.key ?? DEFAULT_KEEP_VIEWING_RECORDS_KEY;
@@ -205,11 +208,18 @@ export class LocalStorageKeepViewingRecordStorage implements KeepViewingRecordSt
     return this.withWriteLock(async () => {
       const records = await this.readRecords();
       const previous = records.find((entry) => entry.id === normalized.id);
+      if (
+        previous?.updatedAt !== undefined &&
+        normalized.updatedAt !== undefined &&
+        previous.updatedAt > normalized.updatedAt
+      ) {
+        return { ...previous };
+      }
       const now = this.now();
       const next = {
         ...normalized,
         createdAt: previous?.createdAt ?? normalized.createdAt ?? now,
-        updatedAt: now,
+        updatedAt: Math.max(now, (previous?.updatedAt ?? -1) + 1, normalized.updatedAt ?? -1),
       };
       this.writeRecords([...records.filter((entry) => entry.id !== normalized.id), next]);
       return { ...next };
@@ -263,9 +273,15 @@ export class LocalStorageKeepViewingRecordStorage implements KeepViewingRecordSt
   }
 
   private withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
-    const next = this.writes.then(operation);
-    this.writes = next.catch(() => undefined);
-    return next;
+    if (!this.storage) return operation();
+    return withLocalStorageWriteLock(
+      this.key,
+      operation,
+      new KeepActivityStorageError(
+        "KeepKit needs the Web Locks API to safely update viewing records across tabs.",
+        this.key,
+      ),
+    );
   }
 }
 

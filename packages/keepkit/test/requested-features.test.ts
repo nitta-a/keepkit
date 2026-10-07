@@ -12,6 +12,7 @@ import {
   LocalStorageKeepHistoryStorage,
   LocalStorageKeepProgressStorage,
   LocalStorageKeepViewingRecordStorage,
+  mergeKeepItems,
   migrateLegacyCollectionMemberships,
   removeKeepItemFromCollection,
   reorderKeepCollectionItems,
@@ -29,6 +30,34 @@ function createStorage() {
 }
 
 const savedItem = { id: "guide-a", savedAt: 1, updatedAt: 1, meta: { title: "Guide A" } };
+
+test("empty-string scope identifiers get a distinct browser storage key", () => {
+  const storage = createStorage();
+  const unscoped = createBrowserStorageAdapter({ key: "empty-scope-key", indexedDB: undefined, storage });
+  const emptyObject = createBrowserStorageAdapter({
+    key: "empty-scope-key",
+    indexedDB: undefined,
+    scope: {},
+    storage,
+  });
+  const emptyUser = createBrowserStorageAdapter({
+    key: "empty-scope-key",
+    indexedDB: undefined,
+    scope: { userId: "" },
+    storage,
+  });
+  const emptyTenant = createBrowserStorageAdapter({
+    key: "empty-scope-key",
+    indexedDB: undefined,
+    scope: { tenantId: "" },
+    storage,
+  });
+
+  assert.equal(emptyObject.storageKey, unscoped.storageKey);
+  assert.notEqual(emptyUser.storageKey, unscoped.storageKey);
+  assert.notEqual(emptyTenant.storageKey, unscoped.storageKey);
+  assert.notEqual(emptyTenant.storageKey, emptyUser.storageKey);
+});
 
 test("history tracks unsaved guides independently and enforces the configured limit", async () => {
   const storage = createStorage();
@@ -135,6 +164,49 @@ test("collection memberships reuse items and reorder independently per collectio
   );
   assert.equal((await adapter.getCollectionMemberships?.())?.length, 3);
   assert.equal((await adapter.getAll()).length, 3);
+});
+
+test("serializes parallel collection additions and reorder operations on one adapter", async () => {
+  const adapter = new LocalStorageAdapter({ key: "request:parallel-collections", storage: createStorage() });
+  await adapter.setMany([
+    savedItem,
+    { id: "guide-b", savedAt: 2, updatedAt: 2, meta: { title: "Guide B" } },
+    { id: "guide-c", savedAt: 3, updatedAt: 3, meta: { title: "Guide C" } },
+  ]);
+
+  await Promise.all([
+    addKeepItemToCollection(adapter, "course", "guide-a"),
+    addKeepItemToCollection(adapter, "course", "guide-b"),
+    addKeepItemToCollection(adapter, "course", "guide-c"),
+    reorderKeepCollectionItems(adapter, "course", ["guide-c", "guide-a"]),
+  ]);
+
+  assert.deepEqual(await adapter.getCollectionMemberships(), [
+    { collectionId: "course", itemId: "guide-c", order: 0 },
+    { collectionId: "course", itemId: "guide-a", order: 1 },
+    { collectionId: "course", itemId: "guide-b", order: 2 },
+  ]);
+  assert.equal((await adapter.getAll()).length, 3);
+});
+
+test("parallel low-level membership upserts and removals preserve other entries", async () => {
+  const adapter = new LocalStorageAdapter({ key: "request:parallel-membership-writes", storage: createStorage() });
+  await Promise.all([
+    adapter.setCollectionMembership({ collectionId: "course", itemId: "guide-a", order: 0 }),
+    adapter.setCollectionMembership({ collectionId: "course", itemId: "guide-b", order: 1 }),
+    adapter.setCollectionMembership({ collectionId: "course", itemId: "guide-c", order: 2 }),
+  ]);
+  assert.deepEqual((await adapter.getCollectionMemberships()).map((entry) => entry.itemId).sort(), [
+    "guide-a",
+    "guide-b",
+    "guide-c",
+  ]);
+
+  await Promise.all([
+    adapter.removeCollectionMembership("course", "guide-a"),
+    adapter.removeCollectionMembership("course", "guide-b"),
+  ]);
+  assert.deepEqual(await adapter.getCollectionMemberships(), [{ collectionId: "course", itemId: "guide-c", order: 2 }]);
 });
 
 test("backups preserve empty collections and memberships while accepting v1 item-only backups", async () => {
@@ -262,6 +334,101 @@ test("concurrent activity writes preserve distinct records and newer history con
   );
 });
 
+test("same-key activity updates from separate instances use cross-context locks", async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const lockNames: string[] = [];
+  let queue: Promise<unknown> = Promise.resolve();
+  const locks = {
+    request: <T>(name: string, operation: () => Promise<T>): Promise<T> => {
+      lockNames.push(name);
+      const next = queue.then(operation);
+      queue = next.catch(() => undefined);
+      return next;
+    },
+  };
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: { locks } });
+
+  try {
+    const storage = createStorage();
+    const historyA = new LocalStorageKeepHistoryStorage({ key: "cross-context:history", storage });
+    const historyB = new LocalStorageKeepHistoryStorage({ key: "cross-context:history", storage });
+    const viewingA = new LocalStorageKeepViewingRecordStorage({
+      key: "cross-context:viewings",
+      storage,
+      createId: () => "view-a",
+    });
+    const viewingB = new LocalStorageKeepViewingRecordStorage({
+      key: "cross-context:viewings",
+      storage,
+      createId: () => "view-b",
+    });
+    const progressA = new LocalStorageKeepProgressStorage({ key: "cross-context:progress", storage, now: () => 1 });
+    const progressB = new LocalStorageKeepProgressStorage({ key: "cross-context:progress", storage, now: () => 2 });
+
+    await Promise.all([
+      historyA.record("history-a", 10),
+      historyB.record("history-b", 20),
+      viewingA.add("view-a", { viewedAt: 10 }),
+      viewingB.add("view-b", { viewedAt: 20 }),
+      progressA.saveItem("progress-a", { readingPosition: "section-a" }),
+      progressB.saveItem("progress-b", { readingPosition: "section-b" }),
+    ]);
+
+    assert.deepEqual((await historyA.getAll()).map((entry) => entry.itemId).sort(), ["history-a", "history-b"]);
+    assert.deepEqual((await viewingA.getAll()).map((entry) => entry.id).sort(), ["view-a", "view-b"]);
+    const originalViewing = (await viewingA.getAll()).find((entry) => entry.id === "view-a");
+    assert.ok(originalViewing?.updatedAt !== undefined);
+    await viewingA.set({ ...originalViewing, note: "newer", updatedAt: originalViewing.updatedAt + 10 });
+    await viewingB.set({ ...originalViewing, note: "stale", updatedAt: originalViewing.updatedAt + 5 });
+    assert.equal((await viewingA.getAll()).find((entry) => entry.id === "view-a")?.note, "newer");
+    assert.deepEqual(
+      (await progressA.getAll())
+        .filter((entry) => entry.kind === "item")
+        .map((entry) => entry.itemId)
+        .sort(),
+      ["progress-a", "progress-b"],
+    );
+    await Promise.all([
+      progressA.saveItem("shared-progress", { readingPosition: "section-a" }),
+      progressB.saveItem("shared-progress", { audioPositionMs: 45, audioId: "track-a" }),
+    ]);
+    const sharedProgress = await progressA.getItem("shared-progress", { audioId: "track-a" });
+    assert.equal(sharedProgress?.readingPosition, "section-a");
+    assert.equal(sharedProgress?.audioPositionMs, 45);
+    assert.equal(sharedProgress?.audioId, "track-a");
+    await progressA.set({ kind: "item", itemId: "conflicted-progress", readingPosition: "latest", updatedAt: 50 });
+    await progressB.set({ kind: "item", itemId: "conflicted-progress", readingPosition: "stale", updatedAt: 40 });
+    assert.equal((await progressA.getItem("conflicted-progress"))?.readingPosition, "latest");
+    assert.deepEqual([...new Set(lockNames)].sort(), [
+      "keepkit:local-storage:cross-context:history",
+      "keepkit:local-storage:cross-context:progress",
+      "keepkit:local-storage:cross-context:viewings",
+    ]);
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else Reflect.deleteProperty(globalThis, "navigator");
+  }
+});
+
+test("browser activity writes fail before mutation when cross-tab locking is unavailable", async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: {} });
+  Object.defineProperty(globalThis, "window", { configurable: true, value: {} });
+
+  try {
+    const storage = createStorage();
+    const history = new LocalStorageKeepHistoryStorage({ key: "no-lock:history", storage });
+    await assert.rejects(history.record("guide-a", 1), /Web Locks API/);
+    assert.equal(storage.getItem("no-lock:history"), null);
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else Reflect.deleteProperty(globalThis, "navigator");
+    if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+  }
+});
+
 test("activity and progress writes reject when persistent storage is unavailable", async () => {
   const history = new LocalStorageKeepHistoryStorage({ key: "unavailable:history" });
   const records = new LocalStorageKeepViewingRecordStorage({ key: "unavailable:viewings" });
@@ -383,7 +550,26 @@ test("replace restore clears scoped data and reports partial application stage",
   const base = new LocalStorageAdapter({ key: "scoped-replace", storage: createStorage() });
   await base.set({ ...savedItem, scope: { userId: "alice" } });
   await base.set({ ...savedItem, scope: { userId: "bob" } });
+  await base.setCollection({ id: "course", name: "Alice course", scope: { userId: "alice" } });
+  await base.setCollection({ id: "course", name: "Bob course", scope: { userId: "bob" } });
+  await base.setCollectionMembership({
+    collectionId: "course",
+    itemId: savedItem.id,
+    order: 1,
+    scope: { userId: "alice" },
+  });
+  await base.setCollectionMembership({
+    collectionId: "course",
+    itemId: savedItem.id,
+    order: 2,
+    scope: { userId: "bob" },
+  });
   const alice = createScopedStorageAdapter(base, { userId: "alice" });
+  const beforeRejectedImport = {
+    items: await base.getAll(),
+    collections: await base.getCollections(),
+    memberships: await base.getCollectionMemberships(),
+  };
   const empty = JSON.stringify({
     format: "keepkit",
     version: 2,
@@ -406,6 +592,14 @@ test("replace restore clears scoped data and reports partial application stage",
       { mode: "replace" },
     ),
     (error) => error.failedStage === "validation",
+  );
+  assert.deepEqual(
+    {
+      items: await base.getAll(),
+      collections: await base.getCollections(),
+      memberships: await base.getCollectionMemberships(),
+    },
+    beforeRejectedImport,
   );
   assert.deepEqual(
     (await alice.getAll()).map((item) => item.id),
@@ -488,6 +682,137 @@ test("backup merge can keep existing names and v1 results report missing definit
   );
   assert.deepEqual(legacy.missingCollectionIds, ["old-course"]);
   assert.deepEqual(legacy.includedData, ["items"]);
+});
+
+test("shared local storage backup merge preserves same IDs across users and tenants", async () => {
+  const storage = createStorage();
+  const adapter = new LocalStorageAdapter({ key: "multi-scope-merge", storage });
+  const alice = { userId: "alice", tenantId: "tenant-1" };
+  const bob = { userId: "bob", tenantId: "tenant-1" };
+  const tenantTwo = { userId: "alice", tenantId: "tenant-2" };
+  await adapter.set({ ...savedItem, id: "guide-1", note: "Alice memo", updatedAt: 2, lastOpenedAt: 20, scope: alice });
+  await adapter.set({ ...savedItem, id: "guide-1", note: "Bob memo", updatedAt: 3, lastOpenedAt: 30, scope: bob });
+  await adapter.set({
+    ...savedItem,
+    id: "guide-1",
+    note: "Tenant memo",
+    updatedAt: 4,
+    lastOpenedAt: 40,
+    scope: tenantTwo,
+  });
+  await adapter.setCollection({ id: "X", name: "Aの予定", scope: alice });
+  await adapter.setCollection({ id: "X", name: "Bの予定", scope: bob });
+  await adapter.setCollection({ id: "X", name: "別テナント", scope: tenantTwo });
+  await adapter.setCollectionMembership({ collectionId: "X", itemId: "guide-1", order: 1, scope: alice });
+  await adapter.setCollectionMembership({ collectionId: "X", itemId: "guide-1", order: 2, scope: bob });
+  await adapter.setCollectionMembership({ collectionId: "X", itemId: "guide-1", order: 3, scope: tenantTwo });
+
+  const backup = await exportItems(adapter);
+  await importItems(adapter, backup, { mode: "merge", collectionNameConflict: "existing" });
+  await importItems(adapter, backup, { mode: "merge", collectionNameConflict: "existing" });
+
+  const items = await adapter.getAll();
+  assert.equal(items.length, 3);
+  assert.deepEqual(
+    items.map(({ scope, note, lastOpenedAt }) => ({ scope, note, lastOpenedAt })),
+    [
+      { scope: tenantTwo, note: "Tenant memo", lastOpenedAt: 40 },
+      { scope: bob, note: "Bob memo", lastOpenedAt: 30 },
+      { scope: alice, note: "Alice memo", lastOpenedAt: 20 },
+    ],
+  );
+  assert.deepEqual(
+    (await adapter.getCollections()).map(({ scope, name }) => ({ scope, name })),
+    [
+      { scope: alice, name: "Aの予定" },
+      { scope: bob, name: "Bの予定" },
+      { scope: tenantTwo, name: "別テナント" },
+    ],
+  );
+  assert.deepEqual(
+    (await adapter.getCollectionMemberships()).map(({ scope, order }) => ({ scope, order })),
+    [
+      { scope: alice, order: 1 },
+      { scope: bob, order: 2 },
+      { scope: tenantTwo, order: 3 },
+    ],
+  );
+
+  const backupWins = new LocalStorageAdapter({ key: "multi-scope-backup-name", storage });
+  await backupWins.setCollection({ id: "X", name: "Old Alice name", scope: alice });
+  await backupWins.setCollection({ id: "X", name: "Old Bob name", scope: bob });
+  await backupWins.setCollection({ id: "X", name: "Old tenant name", scope: tenantTwo });
+  await importItems(backupWins, backup, { mode: "merge", collectionNameConflict: "backup" });
+  assert.deepEqual(
+    (await backupWins.getCollections()).map(({ scope, name }) => ({ scope, name })),
+    [
+      { scope: alice, name: "Aの予定" },
+      { scope: bob, name: "Bの予定" },
+      { scope: tenantTwo, name: "別テナント" },
+    ],
+  );
+
+  const restored = new LocalStorageAdapter({ key: "multi-scope-merge-restored", storage });
+  await importItems(restored, backup, { mode: "merge", collectionNameConflict: "existing" });
+  const firstRestore = {
+    items: await restored.getAll(),
+    collections: await restored.getCollections(),
+    memberships: await restored.getCollectionMemberships(),
+  };
+  await importItems(restored, backup, { mode: "merge", collectionNameConflict: "existing" });
+  assert.deepEqual(
+    {
+      items: await restored.getAll(),
+      collections: await restored.getCollections(),
+      memberships: await restored.getCollectionMemberships(),
+    },
+    firstRestore,
+  );
+});
+
+test("mergeKeepItems fallback identifies records by scope and ID", async () => {
+  const storage = createStorage();
+  const base = new LocalStorageAdapter({ key: "merge-keep-items-scoped", storage });
+  const alice = { userId: "alice", tenantId: "tenant-1" };
+  const bob = { userId: "bob", tenantId: "tenant-1" };
+  await base.set({ ...savedItem, id: "guide-1", note: "Alice old", updatedAt: 1, lastOpenedAt: 4, scope: alice });
+  await base.set({ ...savedItem, id: "guide-1", note: "Bob", updatedAt: 2, lastOpenedAt: 8, scope: bob });
+  const target: StorageAdapter = {
+    getAll: () => base.getAll(),
+    set: (item) => base.set(item),
+    setMany: (items) => base.setMany?.(items) ?? Promise.all(items.map((item) => base.set(item))).then(() => undefined),
+    remove: (id, scope) => base.remove(id, scope),
+    clear: () => base.clear(),
+  };
+
+  const merged = await mergeKeepItems(
+    [{ ...savedItem, id: "guide-1", note: "Alice new", updatedAt: 3, lastOpenedAt: 5, scope: alice }],
+    target,
+  );
+
+  assert.equal(merged.length, 2);
+  assert.deepEqual(
+    merged.find((item) => item.scope?.userId === "alice"),
+    {
+      ...savedItem,
+      id: "guide-1",
+      note: "Alice new",
+      updatedAt: 3,
+      lastOpenedAt: 5,
+      scope: alice,
+    },
+  );
+  assert.deepEqual(
+    merged.find((item) => item.scope?.userId === "bob"),
+    {
+      ...savedItem,
+      id: "guide-1",
+      note: "Bob",
+      updatedAt: 2,
+      lastOpenedAt: 8,
+      scope: bob,
+    },
+  );
 });
 
 test("history context, viewing timestamps, and stable reading anchors are retained", async () => {

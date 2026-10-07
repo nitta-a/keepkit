@@ -466,6 +466,10 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
   }
 
   async getCollectionMemberships(): Promise<KeepCollectionMembership[]> {
+    return this.readMemberships();
+  }
+
+  private readMemberships(): KeepCollectionMembership[] {
     if (!this.storage) return [];
     const storageKey = `${this.storageKey}:memberships`;
     let raw: string | null;
@@ -489,7 +493,7 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
 
   async setCollectionMembership(membership: KeepCollectionMembership): Promise<void> {
     if (!isKeepCollectionMembership(membership)) throw new Error("Collection membership is invalid.");
-    const current = await this.getCollectionMemberships();
+    const current = this.readMemberships();
     const sameMembership = (entry: KeepCollectionMembership) =>
       entry.collectionId === membership.collectionId &&
       entry.itemId === membership.itemId &&
@@ -498,7 +502,7 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
   }
 
   async removeCollectionMembership(collectionId: string, itemId: string, scope?: KeepScope): Promise<void> {
-    const current = await this.getCollectionMemberships();
+    const current = this.readMemberships();
     await this.writeMemberships(
       current.filter(
         (entry) =>

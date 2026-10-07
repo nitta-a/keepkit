@@ -26,11 +26,12 @@ export function mergeKeepItemLists<TMeta>(
   remoteItems: KeepItem<TMeta>[],
   localItems: KeepItem<TMeta>[],
 ): KeepItem<TMeta>[] {
-  const byId = new Map(remoteItems.map((item) => [item.id, item]));
+  const byScopeAndId = new Map(remoteItems.map((item) => [itemStorageKey(item), item]));
   for (const localItem of localItems) {
-    const remoteItem = byId.get(localItem.id);
+    const key = itemStorageKey(localItem);
+    const remoteItem = byScopeAndId.get(key);
     if (!remoteItem) {
-      byId.set(localItem.id, localItem);
+      byScopeAndId.set(key, localItem);
       continue;
     }
     const content = localItem.updatedAt > remoteItem.updatedAt ? localItem : remoteItem;
@@ -40,9 +41,13 @@ export function mergeKeepItemLists<TMeta>(
         : localItem.lastOpenedAt === undefined
           ? remoteItem.lastOpenedAt
           : Math.max(remoteItem.lastOpenedAt, localItem.lastOpenedAt);
-    byId.set(localItem.id, lastOpenedAt === undefined ? content : { ...content, lastOpenedAt });
+    byScopeAndId.set(key, lastOpenedAt === undefined ? content : { ...content, lastOpenedAt });
   }
-  return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  return [...byScopeAndId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+function itemStorageKey(item: Pick<KeepItem, "id" | "scope">): string {
+  return JSON.stringify([item.scope?.tenantId ?? null, item.scope?.userId ?? null, item.id]);
 }
 
 export function isKeepItem(value: unknown): value is KeepItem {

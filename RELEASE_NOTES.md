@@ -1,5 +1,21 @@
 # Release notes
 
+## [0.28.7] - 2026-10-07
+
+### 日本語
+
+- 項目・コレクションの結合識別に`tenantId`と`userId`を含め、同じIDを持つ別scopeのデータ、メモ、開封日時、名前、所属を分離して保持します。
+- スコープ付きadapterが別scopeのバックアップを変更前に拒否し、未指定scope・空scope・空文字のscope IDの扱いを明確にしました。
+- 同じadapterへのコース所属の追加・削除・並べ替えを直列化し、LocalStorageとIndexedDBで並行変更時の所属と順序を保ちます。
+- 同じlocalStorageキーへの履歴・鑑賞記録・進行位置の更新をWeb Locks APIでタブ間直列化します。APIが使えないブラウザーでは書き込み前に型付きエラーを返します。
+
+### English
+
+- Scope-aware item and collection identities preserve same-ID records, notes, last-opened timestamps, names, and memberships from different users or tenants.
+- Scoped adapters reject backups containing another scope before mutation, and scope behavior is documented for omitted, empty, and empty-string identifiers.
+- Serialized course membership additions, removals, and reorders on the same adapter preserve memberships and ordering in LocalStorage and IndexedDB.
+- Web Locks serialize same-key history, viewing-record, and progress writes across browser tabs. Browsers without the API receive typed errors before writes begin.
+
 ## [0.28.6] - 2026-10-07
 
 ### 日本語

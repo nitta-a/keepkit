@@ -341,7 +341,9 @@ async function restoreCollections<TMeta>(
     for (const collection of existing) await adapter.removeCollection(collection.id, collection.scope);
   }
   for (const collection of collections) {
-    const current = existing.find((entry) => entry.id === collection.id);
+    const current = existing.find(
+      (entry) => entry.id === collection.id && sameScope(entry.scope ?? {}, collection.scope),
+    );
     const value =
       mode === "merge" && conflict === "existing" && current ? { ...collection, name: current.name } : collection;
     await adapter.setCollection(value);

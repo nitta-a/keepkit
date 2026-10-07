@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.6では、並行保存・スコープ分離・バックアップ復元・所属同期を補強し、閲覧履歴の文脈、鑑賞記録の作成／更新日時、見出しIDによる読書位置を追加しました。空のコレクション、Inbox、Saved Views、Rediscovery、フィルターサマリーも利用できます。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.7では、スコープをまたぐ結合と並行所属変更を補強し、履歴・鑑賞記録・進行位置の同一キー更新を保護します。閲覧履歴の文脈、鑑賞記録の作成／更新日時、見出しIDによる読書位置も利用できます。
 
 ### インストール
 
@@ -191,13 +191,13 @@ import { KeepThemeProvider } from "@keepkit/ui";
 
 shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keepkit/ui/tailwind"`を使えます。KeepKitはホストの`--color-background`などを上書きせず、`--color-keep-*`としてTailwindへ公開します。機能別に`@keepkit/ui/styles/base.css`、`button.css`、`collection.css`、`sync.css`だけを読み込むこともできます。`KeepButton`は`icons={{ save, saved, remove }}`、`iconOnly`、render propsで表示を差し替えられます。すべての標準コンポーネントは`data-state`、`data-loading`、`data-disabled`とARIA属性を維持します。
 
-### v0.28.6の保存・復元補完
+### v0.28.7の保存・復元補完
 
-同じストレージインスタンスへの閲覧履歴・鑑賞記録・進行位置の並行書き込みは直列化されます。タブや別インスタンス間の排他は保証しません。ブラウザー保存先が利用できない状態でこれらを書き込むと、`KeepActivityStorageError` または `KeepProgressStorageError` が返ります。SSRでは生成できますが、永続化が必要な操作はブラウザー側で行ってください。
+同じlocalStorageキーへの履歴・鑑賞記録・進行位置の書き込みは、Web Locks APIが使えるブラウザーではタブ・インスタンス間で直列化されます。同一realm内の複数インスタンスもキーごとに直列化します。`saveItem()`は同じガイドの既存進行情報を読み、指定フィールドだけ更新して他の位置情報を保ちます。鑑賞記録・進行レコードの`set()`で古い`updatedAt`の値が届いた場合は、新しい保存値を残します。ブラウザーにWeb Locks APIがなく、`window`がある場合は、競合上書きを避けるため書き込み前に`KeepActivityStorageError`または`KeepProgressStorageError`で失敗します。ブラウザー保存先がない場合も同じエラー型で失敗します。SSRでは初期化できますが、永続化が必要な操作はブラウザー側で行ってください。
 
-旧単一コレクション項目は、既存ストレージを開いた後、コース別所属を読む機能を使う前に`migrateLegacyCollectionMemberships(storage)`で移行できます。移行後は旧`collectionId`を項目から除き、既存の所属は上書きしません。所属保存に失敗した場合はadapterのエラーが返り、再実行は重複せず続きから処理できます。定義名が存在しないコレクションIDは`missingCollectionIds`で返します。保存アイテムを削除すると、標準のlocalStorage・IndexedDB・スコープadapterでもその所属が消えます。
+旧単一コレクション項目は、既存ストレージを開いた後、コース別所属を読む機能を使う前に`migrateLegacyCollectionMemberships(storage)`で移行できます。移行後は旧`collectionId`を項目から除き、既存の所属は上書きしません。所属保存に失敗した場合はadapterのエラーが返り、再実行は重複せず続きから処理できます。定義名が存在しないコレクションIDは`missingCollectionIds`で返します。保存アイテムを削除すると、標準のlocalStorage・IndexedDB・スコープadapterでもその所属が消えます。同じadapterに対する`addKeepItemToCollection()`・`removeKeepItemFromCollection()`・`reorderKeepCollectionItems()`は、読み取りから順序の再採番・書き込みまで直列化されます。
 
-バックアップは保存アイテム・コレクション定義・所属のみを含み、閲覧履歴・鑑賞記録・進行位置は含みません。置換は空のバックアップも含めて対象scopeを置き換えます。v2バックアップと`importItems()`結果は記録に含まれる`scopes`とデータ種別を示します。別のscopeを含むバックアップはスコープ付きadapterで変更前に拒否します。`imported`、`failed`、`total`は保存アイテムの件数で、`applied`は項目・定義・所属ごとの適用数です。結果は旧v1で失われたコレクションIDも返します。途中で失敗した場合は`KeepBackupImportError.failedStage`と`applied`で部分適用を確認できます。置換はロールバックしません。結合時の同ID名は既定でバックアップを採用し、`collectionNameConflict: "existing"`で既存名を維持できます。
+バックアップは保存アイテム・コレクション定義・所属のみを含み、閲覧履歴・鑑賞記録・進行位置は含みません。置換は空のバックアップも含めて対象scopeを置き換えます。v2バックアップと`importItems()`結果は記録に含まれる`scopes`とデータ種別を示します。別のscopeを含むバックアップはスコープ付きadapterで変更前に拒否します。`imported`、`failed`、`total`は保存アイテムの件数で、`applied`は項目・定義・所属ごとの適用数です。結果は旧v1で失われたコレクションIDも返します。途中で失敗した場合は`KeepBackupImportError.failedStage`と`applied`で部分適用を確認できます。置換はロールバックしません。結合時の同ID名は既定でバックアップを採用し、`collectionNameConflict: "existing"`で既存名を維持できます。共有adapterは項目ID・コレクションIDに加え、`tenantId`と`userId`の組み合わせで結合します。同じIDでも別scopeのメモ・日時・名前・所属は混ざりません。scope未指定と空のscope（`{}`）は同じ扱いで、空文字列の`userId`または`tenantId`は明示値として別scopeです。複数scopeを含むバックアップを全体adapterへ復元できます。スコープ付きadapterは異なるscopeのデータを変更前に拒否します。
 
 閲覧履歴は`record(itemId, viewedAt, { language: "ja" })`のように文脈を保持します。鑑賞記録は`viewedAt`と`createdAt` / `updatedAt`を分け、既存レコードの作成日時がない場合は最初の更新時刻で補います。読書位置は数値と安定した見出しID文字列に対応します。音声ID・言語・コンテンツ版を`getItem()`へ渡すと、不一致の位置を返しません。
 
@@ -205,7 +205,7 @@ shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keep
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.6 strengthens concurrent persistence, scope isolation, backup restore, and membership sync, and adds history context, viewing-record timestamps, and heading-ID reading positions. Empty collections, Inbox triage, Saved Views, Rediscovery, and active-filter summaries are also available.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.7 strengthens scope-aware merging, concurrent membership changes, and same-key updates to history, viewing records, and progress. It also includes history context, viewing-record timestamps, and heading-ID reading positions.
 
 ### Installation
 
@@ -334,13 +334,13 @@ Color themes are `default`, `ocean`, `forest`, `sunset`, and `lavender`. Existin
 
 The UI includes complete built-in dictionaries for 16 locales: `en`, `ja`, `ko`, `zh-Hans`, `zh-Hant`, `th`, `fr`, `es`, `pt-BR`, `it`, `de`, `ru`, `fil`, `vi`, `id`, and `ms`. `zh-CN` and `zh-TW` remain supported aliases.
 
-### Persistence and restore improvements in v0.28.6
+### Persistence and restore improvements in v0.28.7
 
-Concurrent writes to history, viewing records, and progress are serialized within one storage instance. They are not locked across tabs or separate instances. Writes throw `KeepActivityStorageError` or `KeepProgressStorageError` when browser storage is unavailable. The classes can be constructed during SSR, but persistent writes must run in the browser.
+Writes to history, viewing records, and progress using the same localStorage key are serialized across tabs and instances when the browser provides the Web Locks API. Separate instances in one realm are also serialized by key. `saveItem()` reads existing progress for the same guide and updates only the supplied fields, preserving other positions. For viewing records and progress, `set()` does not replace a newer record with a value whose `updatedAt` is older. In a browser without Web Locks, writes fail before mutation with `KeepActivityStorageError` or `KeepProgressStorageError` to avoid silently overwriting concurrent data. The same error types report unavailable browser storage. The classes can be constructed during SSR, but persistent writes must run in the browser.
 
-After opening existing storage and before reading course-specific memberships, run `migrateLegacyCollectionMemberships(storage)`. It moves the old `collectionId` into a membership, clears that legacy item field after migration, and leaves existing memberships untouched. Adapter write errors are returned; rerunning after a partial failure is safe and does not duplicate memberships. Collection IDs without a same-scope definition name are returned in `missingCollectionIds`. Removing a saved item also removes its memberships in the standard localStorage, IndexedDB, and scoped adapters.
+After opening existing storage and before reading course-specific memberships, run `migrateLegacyCollectionMemberships(storage)`. It moves the old `collectionId` into a membership, clears that legacy item field after migration, and leaves existing memberships untouched. Adapter write errors are returned; rerunning after a partial failure is safe and does not duplicate memberships. Collection IDs without a same-scope definition name are returned in `missingCollectionIds`. Removing a saved item also removes its memberships in the standard localStorage, IndexedDB, and scoped adapters. `addKeepItemToCollection()`, `removeKeepItemFromCollection()`, and `reorderKeepCollectionItems()` serialize their read, reindex, and write steps when called concurrently with the same adapter instance.
 
-Backups include saved items, collection definitions, and memberships. They exclude history, viewing records, and progress. Replace imports replace the requested scope even when the backup is empty. Version 2 backups and `importItems()` results expose the `scopes` and data types represented by their records. A scoped adapter rejects a backup containing another scope before changing data. `imported`, `failed`, and `total` count saved items; `applied` reports item, definition, and membership counts separately. Results also return missing collection IDs from v1 backups. If an operation fails partway through, `KeepBackupImportError.failedStage` and `applied` report the partial result. Replace has no rollback. Merge uses the backup's name for same-ID collection conflicts by default; set `collectionNameConflict: "existing"` to keep the existing name.
+Backups include saved items, collection definitions, and memberships. They exclude history, viewing records, and progress. Replace imports replace the requested scope even when the backup is empty. Version 2 backups and `importItems()` results expose the `scopes` and data types represented by their records. A scoped adapter rejects a backup containing another scope before changing data. `imported`, `failed`, and `total` count saved items; `applied` reports item, definition, and membership counts separately. Results also return missing collection IDs from v1 backups. If an operation fails partway through, `KeepBackupImportError.failedStage` and `applied` report the partial result. Replace has no rollback. Merge uses the backup's name for same-ID collection conflicts by default; set `collectionNameConflict: "existing"` to keep the existing name. Shared adapters identify items and collections by ID plus the `tenantId` and `userId` scope, so same-ID notes, timestamps, names, and memberships from separate scopes remain independent. An omitted scope and an empty scope object (`{}`) are equivalent; an empty-string `userId` or `tenantId` is an explicit, distinct value. A shared adapter can restore backups containing multiple scopes, while a scoped adapter rejects records from another scope before mutation.
 
 Store revisit context with `record(itemId, viewedAt, { language: "ja" })`. Viewing records separate self-reported `viewedAt` from `createdAt` and `updatedAt`; a legacy record without creation metadata gets its first-update time as a migration value. Reading positions accept numeric offsets or stable heading ID strings. Pass audio ID, language, and content version to `getItem()` to withhold incompatible positions.
 
