@@ -12,6 +12,7 @@ const registry = "https://registry.npmjs.org";
 const releaseTag = process.argv[2];
 const maxAttempts = 60;
 const pollIntervalMs = 10_000;
+const maxInstallAttempts = 12;
 
 if (!/^v\d+\.\d+\.\d+$/.test(releaseTag ?? "")) {
   throw new Error(`Expected a semantic-version tag such as v0.1.0, received: ${releaseTag ?? "(missing)"}`);
@@ -30,18 +31,7 @@ console.log(
 const verificationDirectory = await mkdtemp(join(tmpdir(), "keepkit-release-"));
 try {
   await run("npm", ["init", "--yes"], verificationDirectory);
-  await run(
-    "npm",
-    [
-      "install",
-      "--ignore-scripts",
-      "--no-package-lock",
-      "--no-audit",
-      "--no-fund",
-      ...packageNames.map((name) => `${name}@latest`),
-    ],
-    verificationDirectory,
-  );
+  await installPublishedPackages(packageNames, verificationDirectory);
   await run(
     "node",
     [
@@ -92,12 +82,14 @@ async function waitForLatestVersions(packageNames, expectedVersion) {
 
 async function getLatestVersion(packageName) {
   try {
+    const executable = getNpmExecutable();
     const { stdout } = await execFileAsync(
-      "npm",
+      executable,
       ["view", `${packageName}@latest`, "version", `--registry=${registry}`],
       {
         cwd: repositoryRoot,
         maxBuffer: 1024 * 1024,
+        ...(executable.endsWith(".cmd") ? { shell: true } : {}),
       },
     );
     return stdout.trim();
@@ -106,13 +98,52 @@ async function getLatestVersion(packageName) {
   }
 }
 
+async function installPublishedPackages(packageNames, cwd) {
+  const args = [
+    "install",
+    "--ignore-scripts",
+    "--no-package-lock",
+    "--no-audit",
+    "--no-fund",
+    ...packageNames.map((name) => `${name}@latest`),
+  ];
+  for (let attempt = 1; attempt <= maxInstallAttempts; attempt += 1) {
+    try {
+      await run("npm", args, cwd);
+      return;
+    } catch (error) {
+      if (!isTarballPropagationError(error) || attempt === maxInstallAttempts) throw error;
+      console.log(`Waiting for published npm tarballs (attempt ${attempt}/${maxInstallAttempts}).`);
+      await wait(pollIntervalMs);
+    }
+  }
+}
+
+function isTarballPropagationError(error) {
+  return (
+    error instanceof Error &&
+    error.message.includes("npm error code E404") &&
+    error.message.includes("registry.npmjs.org/") &&
+    error.message.includes(".tgz")
+  );
+}
+
 async function run(command, args, cwd) {
+  const executable = command === "npm" ? getNpmExecutable() : command;
   try {
-    await execFileAsync(command, args, { cwd, maxBuffer: 8 * 1024 * 1024 });
+    await execFileAsync(executable, args, {
+      cwd,
+      maxBuffer: 8 * 1024 * 1024,
+      ...(executable.endsWith(".cmd") ? { shell: true } : {}),
+    });
   } catch (error) {
     const output = [error.stdout, error.stderr].filter(Boolean).join("\n").trim();
-    throw new Error(`${command} ${args.join(" ")} failed${output ? `:\n${output}` : "."}`, { cause: error });
+    throw new Error(`${executable} ${args.join(" ")} failed${output ? `:\n${output}` : "."}`, { cause: error });
   }
+}
+
+function getNpmExecutable() {
+  return process.platform === "win32" ? "npm.cmd" : "npm";
 }
 
 function wait(delayMs) {
