@@ -1,9 +1,12 @@
 import type {
   KeepCollectionDefinition,
   KeepCollectionMembership,
+  KeepCollectionSyncConflict,
   KeepCollectionSyncOperation,
+  KeepCollectionSyncResult,
   KeepConflictResolver,
   KeepItem,
+  KeepMembershipSyncOperation,
   KeepSyncConflict,
   KeepSyncQueueOperation,
   KeepSyncResolution,
@@ -19,11 +22,12 @@ import type {
 import { isKeepSyncAuthError } from "../features/items/types";
 import {
   isKeepCollectionDefinition,
+  isKeepCollectionMembership,
   isRecord,
   mergeKeepItemLists,
   persistKeepItems,
-  removeKeepItems,
 } from "../features/persistence/helpers";
+import { ScopedSyncQueueAdapter } from "../features/persistence/scope";
 
 export type LocalStorageSyncQueueOptions = {
   key?: string;
@@ -244,7 +248,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   private readonly clientId: string;
   private readonly now: () => number;
   private readonly resolveConflict?: KeepConflictResolver<TMeta>;
-  private readonly scope?: SyncScope;
+  readonly scope?: SyncScope;
   private readonly maxRetries: number;
   private readonly retryDelayMs: number;
   private readonly retryBackoff: number;
@@ -262,11 +266,12 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   constructor(options: SyncStorageAdapterOptions<TMeta>) {
     this.local = options.local;
     this.remote = options.remote;
-    this.queue = options.queue ?? createDefaultQueue<TMeta>(options);
+    this.scope = getSyncScope(options);
+    const queue = options.queue ?? createDefaultQueue<TMeta>(options);
+    this.queue = this.scope ? new ScopedSyncQueueAdapter(queue, this.scope) : queue;
     this.clientId = options.clientId ?? createId();
     this.now = options.now ?? Date.now;
     this.resolveConflict = options.resolveConflict;
-    this.scope = getSyncScope(options);
     this.maxRetries = Math.max(0, options.maxRetries ?? 3);
     this.retryDelayMs = Math.max(0, options.retryDelayMs ?? 0);
     this.retryBackoff = Math.max(1, options.retryBackoff ?? 2);
@@ -283,7 +288,13 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
       this.setCollection = async (collection) => {
         const scopedCollection = { ...collection, ...(this.scope ? { scope: this.scope } : {}) };
         if (this.remote.pushCollection) {
-          const operation = this.createCollectionOperation("upsert", scopedCollection.id, scopedCollection);
+          const current = (await this.getCollections?.())?.find((entry) => entry.id === scopedCollection.id);
+          const operation = this.createCollectionOperation(
+            "upsert",
+            scopedCollection.id,
+            scopedCollection,
+            current?.revision,
+          );
           await this.enqueueBeforeLocalWrite(operation);
           try {
             await setCollection(scopedCollection);
@@ -299,13 +310,20 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
         this.notifyDataListeners();
       };
       this.removeCollection = async (id) => {
+        const memberships = (await this.getCollectionMemberships?.()) ?? [];
+        const membershipOperations = this.remote.pushMembership
+          ? memberships
+              .filter((membership) => membership.collectionId === id)
+              .map((membership) => this.createMembershipOperation("remove", membership.collectionId, membership.itemId))
+          : [];
         if (this.remote.pushCollection) {
-          const operation = this.createCollectionOperation("remove", id);
-          await this.enqueueBeforeLocalWrite(operation);
+          const current = (await this.getCollections?.())?.find((collection) => collection.id === id);
+          const operation = this.createCollectionOperation("remove", id, undefined, current?.revision);
+          await this.enqueueManyBeforeLocalWrite([...membershipOperations, operation]);
           try {
             await removeCollection(id, this.scope);
           } catch (cause) {
-            await this.removeQueued(operation.operationId);
+            await this.removeQueued([operation.operationId, ...membershipOperations.map((entry) => entry.operationId)]);
             throw cause;
           }
           this.notifyDataListeners();
@@ -330,11 +348,36 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
         return scope ? memberships.filter((membership) => sameScope(membership.scope, scope)) : memberships;
       };
       this.setCollectionMembership = async (membership) => {
-        await setMembership({ ...membership, ...(this.scope ? { scope: this.scope } : {}) });
+        const scoped = { ...membership, ...(this.scope ? { scope: this.scope } : {}) };
+        if (this.remote.pushMembership) {
+          const operation = this.createMembershipOperation("upsert", scoped.collectionId, scoped.itemId, scoped);
+          await this.enqueueBeforeLocalWrite(operation);
+          try {
+            await setMembership(scoped);
+          } catch (cause) {
+            await this.removeQueued(operation.operationId);
+            throw cause;
+          }
+          this.setPendingState();
+        } else {
+          await setMembership(scoped);
+        }
         this.notifyDataListeners();
       };
       this.removeCollectionMembership = async (collectionId, itemId) => {
-        await removeMembership(collectionId, itemId, this.scope);
+        if (this.remote.pushMembership) {
+          const operation = this.createMembershipOperation("remove", collectionId, itemId);
+          await this.enqueueBeforeLocalWrite(operation);
+          try {
+            await removeMembership(collectionId, itemId, this.scope);
+          } catch (cause) {
+            await this.removeQueued(operation.operationId);
+            throw cause;
+          }
+          this.setPendingState();
+        } else {
+          await removeMembership(collectionId, itemId, this.scope);
+        }
         this.notifyDataListeners();
       };
     }
@@ -398,11 +441,17 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
 
   async remove(id: string): Promise<void> {
     const operation = this.createOperation("remove", id);
-    await this.enqueueBeforeLocalWrite(operation);
+    const memberships = (await this.getCollectionMemberships?.()) ?? [];
+    const membershipOperations = this.remote.pushMembership
+      ? memberships
+          .filter((membership) => membership.itemId === id)
+          .map((membership) => this.createMembershipOperation("remove", membership.collectionId, membership.itemId))
+      : [];
+    await this.enqueueManyBeforeLocalWrite([...membershipOperations, operation]);
     try {
-      await this.local.remove(id);
+      await this.local.remove(id, this.scope);
     } catch (cause) {
-      await this.removeQueued(operation.operationId);
+      await this.removeQueued([operation.operationId, ...membershipOperations.map((entry) => entry.operationId)]);
       throw cause;
     }
     this.notifyDataListeners();
@@ -411,11 +460,19 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
 
   async removeMany(ids: string[]): Promise<void> {
     const operations = [...new Set(ids)].map((id) => this.createOperation("remove", id));
-    await this.enqueueManyBeforeLocalWrite(operations);
+    const idSet = new Set(ids);
+    const memberships = (await this.getCollectionMemberships?.()) ?? [];
+    const membershipOperations = this.remote.pushMembership
+      ? memberships
+          .filter((membership) => idSet.has(membership.itemId))
+          .map((membership) => this.createMembershipOperation("remove", membership.collectionId, membership.itemId))
+      : [];
+    await this.enqueueManyBeforeLocalWrite([...membershipOperations, ...operations]);
     try {
-      await removeKeepItems(this.local, ids);
+      if (this.local.removeMany) await this.local.removeMany(ids, this.scope);
+      else await Promise.all(ids.map((id) => this.local.remove(id, this.scope)));
     } catch (cause) {
-      await this.removeQueued(operations.map((operation) => operation.operationId));
+      await this.removeQueued([...operations, ...membershipOperations].map((operation) => operation.operationId));
       throw cause;
     }
     this.notifyDataListeners();
@@ -425,10 +482,18 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   async clear(): Promise<void> {
     const items = await this.getAll();
     await this.removeMany(items.map((item) => item.id));
-    await this.local.clear();
+    if (!this.scope) await this.local.clear();
   }
 
   async merge(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
+    if (this.scope) {
+      const merged = mergeKeepItemLists(
+        await this.getAll(),
+        localItems.map((item) => this.applyScope(item)),
+      );
+      await this.setMany(localItems);
+      return merged;
+    }
     const merged = this.local.merge
       ? await this.local.merge(localItems)
       : mergeKeepItemLists(await this.local.getAll(), localItems);
@@ -487,6 +552,55 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     if (resolution !== "remote" && this.queueItems.length > 0) await this.flushSync();
   }
 
+  async resolveCollectionSyncConflict(
+    id: string,
+    resolution: "local" | "remote",
+    collection?: KeepCollectionDefinition,
+  ): Promise<void> {
+    await this.loadQueue();
+    const conflict = (this.state.collectionConflicts ?? []).find((entry) => entry.operation.id === id);
+    if (!conflict) return;
+    if (!this.local.getCollections || !this.local.setCollection || !this.local.removeCollection) {
+      throw new Error("KeepKit collection storage is unavailable.");
+    }
+    if (resolution === "remote") {
+      if (conflict.deleted) await this.local.removeCollection(id, this.scope);
+      else {
+        if (!conflict.collection) throw new Error("Remote collection conflict is missing its selected definition.");
+        await this.local.setCollection({
+          ...conflict.collection,
+          ...(conflict.revision ? { revision: conflict.revision } : {}),
+          ...(this.scope ? { scope: this.scope } : {}),
+        });
+      }
+      await this.removeQueued(conflict.operation.operationId);
+      this.updateState({
+        collectionConflicts: (this.state.collectionConflicts ?? []).filter((entry) => entry.operation.id !== id),
+      });
+      return;
+    }
+
+    if (collection && collection.id !== id) {
+      throw new TypeError("KeepKit collection conflict resolution must use the requested collection ID.");
+    }
+    const chosen = collection ?? (await this.getCollections?.())?.find((entry) => entry.id === id);
+    const retry: KeepCollectionSyncOperation = {
+      ...conflict.operation,
+      operationId: `${this.clientId}:${this.now()}:${createId()}`,
+      ...(conflict.operation.type === "upsert" && chosen
+        ? { collection: { ...chosen, ...(this.scope ? { scope: this.scope } : {}) } }
+        : {}),
+      createdAt: this.now(),
+      baseRevision: conflict.revision,
+      attempts: 0,
+    };
+    await this.replaceQueued(conflict.operation, retry);
+    this.updateState({
+      collectionConflicts: (this.state.collectionConflicts ?? []).filter((entry) => entry.operation.id !== id),
+    });
+    await this.flushSync();
+  }
+
   dispose(): void {
     this.disposed = true;
     if (this.onlineHandler) window.removeEventListener("online", this.onlineHandler);
@@ -508,7 +622,29 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
       try {
         if (isCollectionSyncOperation(operation)) {
           if (!this.remote.pushCollection) throw new Error("Remote sync driver does not support collection sync.");
-          await this.pushCollectionWithRetry(operation);
+          const result = await this.pushCollectionWithRetry(operation);
+          if (result?.type === "conflict" && result.resolution === "manual") {
+            const conflict = createCollectionSyncConflict(operation, result);
+            this.updateState({
+              status: "conflict",
+              collectionConflicts: [
+                ...(this.state.collectionConflicts ?? []).filter((entry) => entry.operation.id !== operation.id),
+                conflict,
+              ],
+            });
+            continue;
+          }
+          await this.applyCollectionPushResult(operation, result);
+          await this.removeQueued(operation.operationId);
+          this.updateState({
+            status: this.queueItems.length > 0 ? "syncing" : "synced",
+            lastSyncedAt: this.now(),
+          });
+          continue;
+        }
+        if (isMembershipSyncOperation(operation)) {
+          if (!this.remote.pushMembership) throw new Error("Remote sync driver does not support membership sync.");
+          await this.pushMembershipWithRetry(operation);
           await this.removeQueued(operation.operationId);
           this.updateState({
             status: this.queueItems.length > 0 ? "syncing" : "synced",
@@ -592,6 +728,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     type: KeepCollectionSyncOperation["type"],
     id: string,
     collection?: KeepCollectionDefinition,
+    baseRevision?: string,
   ): KeepCollectionSyncOperation {
     return {
       operationId: `${this.clientId}:${this.now()}:${createId()}`,
@@ -599,6 +736,26 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
       entity: "collection",
       id,
       ...(collection ? { collection } : {}),
+      createdAt: this.now(),
+      ...(baseRevision ? { baseRevision } : {}),
+      ...(this.scope ? { scope: this.scope } : {}),
+    };
+  }
+
+  private createMembershipOperation(
+    type: KeepMembershipSyncOperation["type"],
+    collectionId: string,
+    itemId: string,
+    membership?: KeepCollectionMembership,
+  ): KeepMembershipSyncOperation {
+    return {
+      operationId: `${this.clientId}:${this.now()}:${createId()}`,
+      type,
+      entity: "membership",
+      id: getMembershipId(collectionId, itemId),
+      collectionId,
+      itemId,
+      ...(membership ? { membership } : {}),
       createdAt: this.now(),
       ...(this.scope ? { scope: this.scope } : {}),
     };
@@ -622,11 +779,66 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     }
   }
 
-  private async pushCollectionWithRetry(operation: KeepCollectionSyncOperation): Promise<void> {
+  private async pushCollectionWithRetry(
+    operation: KeepCollectionSyncOperation,
+    // biome-ignore lint/suspicious/noConfusingVoidType: Preserve drivers whose collection push returns void.
+  ): Promise<void | KeepCollectionSyncResult> {
     let attempt = 0;
     while (true) {
       try {
-        await this.remote.pushCollection?.({ ...operation, attempts: attempt });
+        return await this.remote.pushCollection?.({ ...operation, attempts: attempt });
+      } catch (error) {
+        if (isKeepSyncAuthError(error) || attempt >= this.maxRetries) throw error;
+        attempt += 1;
+        const delay = this.retryDelayMs * this.retryBackoff ** (attempt - 1);
+        if (delay > 0) await wait(delay);
+      }
+    }
+  }
+
+  private async applyCollectionPushResult(
+    operation: KeepCollectionSyncOperation,
+    // biome-ignore lint/suspicious/noConfusingVoidType: A legacy driver signals success by returning void.
+    result: void | KeepCollectionSyncResult,
+  ): Promise<void> {
+    if (!this.local.getCollections || !this.local.setCollection || !this.local.removeCollection) return;
+    if (!result) return;
+    const outcome = result.type === "conflict" ? result.resolution : "remote";
+    if (outcome === "manual") return;
+    const deleted =
+      outcome === "local"
+        ? operation.type === "remove"
+        : (result.deleted ?? (operation.type === "remove" && outcome === "remote"));
+    if (deleted) {
+      await this.local.removeCollection(operation.id, this.scope);
+    } else if (result.type === "synced" || outcome === "remote" || outcome === "local") {
+      const current =
+        (outcome === "local" ? operation.collection : result.collection) ??
+        (await this.getCollections?.())?.find((entry) => entry.id === operation.id);
+      if (!current) return;
+      await this.local.setCollection({
+        ...current,
+        ...(result.revision ? { revision: result.revision } : current.revision ? { revision: current.revision } : {}),
+        ...(this.scope ? { scope: this.scope } : {}),
+      });
+    }
+    if (result.type === "conflict") {
+      const conflict = createCollectionSyncConflict(operation, result);
+      this.updateState({
+        status: "conflict",
+        collectionConflicts: [
+          ...(this.state.collectionConflicts ?? []).filter((entry) => entry.operation.id !== operation.id),
+          conflict,
+        ],
+      });
+    }
+  }
+
+  private async pushMembershipWithRetry(operation: KeepMembershipSyncOperation): Promise<void> {
+    let attempt = 0;
+    while (true) {
+      try {
+        await this.remote.pushMembership?.({ ...operation, attempts: attempt });
         return;
       } catch (error) {
         if (isKeepSyncAuthError(error) || attempt >= this.maxRetries) throw error;
@@ -717,7 +929,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   }
 
   private async pullRemote(): Promise<boolean> {
-    if (!this.remote.pull && !this.remote.pullCollections) return true;
+    if (!this.remote.pull && !this.remote.pullCollections && !this.remote.pullMemberships) return true;
     try {
       if (this.remote.pull) {
         const remoteItems = await this.remote.pull();
@@ -761,7 +973,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
         const pendingIds = new Set(this.queueItems.filter(isCollectionSyncOperation).map((operation) => operation.id));
         const remoteById = new Map(
           remoteCollections
-            .filter((collection) => !this.scope || sameScope(collection.scope, this.scope))
+            .filter((collection) => !this.scope || !collection.scope || sameScope(collection.scope, this.scope))
             .map((collection) => [collection.id, collection]),
         );
         for (const collection of remoteById.values()) {
@@ -772,6 +984,40 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
           if (pendingIds.has(collection.id) || remoteById.has(collection.id)) continue;
           if (this.scope && !sameScope(collection.scope, this.scope)) continue;
           await this.local.removeCollection(collection.id, this.scope);
+        }
+        this.notifyDataListeners();
+      }
+      if (
+        this.remote.pullMemberships &&
+        this.getCollections &&
+        this.local.getCollectionMemberships &&
+        this.local.setCollectionMembership &&
+        this.local.removeCollectionMembership
+      ) {
+        const remoteMemberships = await this.remote.pullMemberships();
+        const localMemberships = await this.local.getCollectionMemberships();
+        const pendingIds = new Set(this.queueItems.filter(isMembershipSyncOperation).map((operation) => operation.id));
+        const itemIds = new Set((await this.getAll()).map((item) => item.id));
+        const collectionIds = new Set((await this.getCollections()).map((collection) => collection.id));
+        const remoteById = new Map(
+          remoteMemberships
+            .filter((membership) => {
+              if (this.scope && membership.scope && !sameScope(membership.scope, this.scope)) return false;
+              if (!itemIds.has(membership.itemId)) return false;
+              return collectionIds.has(membership.collectionId);
+            })
+            .map((membership) => [getMembershipId(membership.collectionId, membership.itemId), membership]),
+        );
+        for (const membership of remoteById.values()) {
+          const id = getMembershipId(membership.collectionId, membership.itemId);
+          if (pendingIds.has(id)) continue;
+          await this.local.setCollectionMembership({ ...membership, ...(this.scope ? { scope: this.scope } : {}) });
+        }
+        for (const membership of localMemberships) {
+          const id = getMembershipId(membership.collectionId, membership.itemId);
+          if (pendingIds.has(id) || remoteById.has(id)) continue;
+          if (this.scope && !sameScope(membership.scope, this.scope)) continue;
+          await this.local.removeCollectionMembership(membership.collectionId, membership.itemId, this.scope);
         }
         this.notifyDataListeners();
       }
@@ -821,12 +1067,44 @@ function isCollectionSyncOperation(value: unknown): value is KeepCollectionSyncO
   );
 }
 
+function isMembershipSyncOperation(value: unknown): value is KeepMembershipSyncOperation {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.operationId === "string" &&
+    value.entity === "membership" &&
+    (value.type === "upsert" || value.type === "remove") &&
+    typeof value.id === "string" &&
+    typeof value.collectionId === "string" &&
+    typeof value.itemId === "string" &&
+    typeof value.createdAt === "number" &&
+    (value.membership === undefined || isKeepCollectionMembership(value.membership)) &&
+    (value.type !== "upsert" || isKeepCollectionMembership(value.membership))
+  );
+}
+
 function isSyncQueueOperation(value: unknown): value is KeepSyncQueueOperation {
-  return isSyncOperation(value) || isCollectionSyncOperation(value);
+  return isSyncOperation(value) || isCollectionSyncOperation(value) || isMembershipSyncOperation(value);
 }
 
 function getQueueIdentity<TMeta>(operation: KeepSyncQueueOperation<TMeta>): string {
-  return `${operation.entity === "collection" ? "collection" : "item"}:${operation.id}`;
+  return `${operation.entity ?? "item"}:${operation.id}`;
+}
+
+function getMembershipId(collectionId: string, itemId: string): string {
+  return `${collectionId}\u0000${itemId}`;
+}
+
+function createCollectionSyncConflict(
+  operation: KeepCollectionSyncOperation,
+  result: Extract<KeepCollectionSyncResult, { type: "conflict" }>,
+): KeepCollectionSyncConflict {
+  const details = {
+    operation,
+    resolution: result.resolution,
+    ...(result.revision ? { revision: result.revision } : {}),
+  };
+  if (result.deleted) return { ...details, deleted: true };
+  return { ...details, deleted: false, collection: result.collection };
 }
 
 function createId(): string {

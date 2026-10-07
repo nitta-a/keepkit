@@ -1,12 +1,20 @@
 export type KeepHistoryEntry = {
   itemId: string;
   lastViewedAt: number;
+  context?: KeepHistoryContext;
 };
+
+/** Application-owned revisit details such as language or deck. */
+export type KeepHistoryContext = Record<string, string>;
 
 export type KeepViewingRecord = {
   id: string;
   itemId: string;
   viewedAt: number;
+  /** Omitted on legacy records written before timestamp tracking was added. */
+  createdAt?: number;
+  /** Omitted on legacy records written before timestamp tracking was added. */
+  updatedAt?: number;
   note?: string;
 };
 
@@ -14,7 +22,7 @@ export interface KeepHistoryStorage {
   getAll(): Promise<KeepHistoryEntry[]>;
   getLimit(): Promise<number>;
   setLimit(limit: number): Promise<void>;
-  record(itemId: string, viewedAt?: number): Promise<KeepHistoryEntry[]>;
+  record(itemId: string, viewedAt?: number, context?: KeepHistoryContext): Promise<KeepHistoryEntry[]>;
   remove(itemId: string): Promise<void>;
   clear(): Promise<void>;
 }
@@ -47,6 +55,7 @@ export class LocalStorageKeepHistoryStorage implements KeepHistoryStorage {
   private readonly storage: Storage | undefined;
   private readonly initialLimit: number;
   private readonly now: () => number;
+  private writes: Promise<unknown> = Promise.resolve();
 
   constructor(options: LocalStorageActivityOptions = {}) {
     this.key = options.key ?? DEFAULT_KEEP_HISTORY_KEY;
@@ -75,37 +84,55 @@ export class LocalStorageKeepHistoryStorage implements KeepHistoryStorage {
 
   async setLimit(limit: number): Promise<void> {
     const normalized = normalizeLimit(limit);
-    this.writeRaw(this.limitKey, JSON.stringify(normalized), "history-limit");
-    const entries = await this.getAll();
-    await this.writeEntries(entries.slice(0, normalized));
+    await this.withWriteLock(async () => {
+      this.writeRaw(this.limitKey, JSON.stringify(normalized), "history-limit");
+      const entries = await this.getAll();
+      await this.writeEntries(entries.slice(0, normalized));
+    });
   }
 
-  async record(itemId: string, viewedAt = this.now()): Promise<KeepHistoryEntry[]> {
+  async record(itemId: string, viewedAt = this.now(), context?: KeepHistoryContext): Promise<KeepHistoryEntry[]> {
     const normalizedId = normalizeId(itemId);
     assertTimestamp(viewedAt);
-    const entries = await this.getAll();
-    const previous = entries.find((entry) => entry.itemId === normalizedId);
-    const next = [
-      { itemId: normalizedId, lastViewedAt: Math.max(previous?.lastViewedAt ?? 0, viewedAt) },
-      ...entries.filter((entry) => entry.itemId !== normalizedId),
-    ]
-      .sort((left, right) => right.lastViewedAt - left.lastViewedAt)
-      .slice(0, await this.getLimit());
-    await this.writeEntries(next);
-    return cloneHistoryEntries(next);
+    return this.withWriteLock(async () => {
+      const entries = await this.getAll();
+      const previous = entries.find((entry) => entry.itemId === normalizedId);
+      const isNewer = viewedAt >= (previous?.lastViewedAt ?? -1);
+      const nextContext = isNewer ? normalizeHistoryContext(context) : previous?.context;
+      const next = [
+        {
+          itemId: normalizedId,
+          lastViewedAt: Math.max(previous?.lastViewedAt ?? 0, viewedAt),
+          ...(nextContext ? { context: nextContext } : {}),
+        },
+        ...entries.filter((entry) => entry.itemId !== normalizedId),
+      ]
+        .sort((left, right) => right.lastViewedAt - left.lastViewedAt)
+        .slice(0, await this.getLimit());
+      await this.writeEntries(next);
+      return cloneHistoryEntries(next);
+    });
   }
 
   async remove(itemId: string): Promise<void> {
     const normalizedId = normalizeId(itemId);
-    await this.writeEntries((await this.getAll()).filter((entry) => entry.itemId !== normalizedId));
+    await this.withWriteLock(async () =>
+      this.writeEntries((await this.getAll()).filter((entry) => entry.itemId !== normalizedId)),
+    );
   }
 
   async clear(): Promise<void> {
-    this.writeRaw(this.key, "[]", "history");
+    await this.withWriteLock(async () => this.writeRaw(this.key, "[]", "history"));
   }
 
   private async writeEntries(entries: KeepHistoryEntry[]): Promise<void> {
     this.writeRaw(this.key, JSON.stringify(entries), "history");
+  }
+
+  private withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    const next = this.writes.then(operation);
+    this.writes = next.catch(() => undefined);
+    return next;
   }
 
   private async read<T>(key: string, validate: (value: unknown) => value is T, label: string): Promise<T> {
@@ -125,8 +152,10 @@ export class LocalStorageKeepHistoryStorage implements KeepHistoryStorage {
   }
 
   private writeRaw(key: string, value: string, label: string): void {
+    if (!this.storage)
+      throw new KeepActivityStorageError(`KeepKit cannot persist ${label} data without browser storage.`, key);
     try {
-      this.storage?.setItem(key, value);
+      this.storage.setItem(key, value);
     } catch (cause) {
       throw new KeepActivityStorageError(`KeepKit could not write ${label} data.`, key, cause);
     }
@@ -139,6 +168,7 @@ export class LocalStorageKeepViewingRecordStorage implements KeepViewingRecordSt
   private readonly storage: Storage | undefined;
   private readonly now: () => number;
   private readonly createId: () => string;
+  private writes: Promise<unknown> = Promise.resolve();
 
   constructor(options: LocalStorageActivityOptions = {}) {
     this.key = options.key ?? DEFAULT_KEEP_VIEWING_RECORDS_KEY;
@@ -154,33 +184,53 @@ export class LocalStorageKeepViewingRecordStorage implements KeepViewingRecordSt
   }
 
   async set(record: KeepViewingRecord): Promise<void> {
-    const normalized = normalizeViewingRecord(record);
-    const records = await this.readRecords();
-    this.writeRecords([...records.filter((entry) => entry.id !== normalized.id), normalized]);
+    await this.saveRecord(record);
   }
 
   async add(itemId: string, options: { viewedAt?: number; note?: string } = {}): Promise<KeepViewingRecord> {
+    const timestamp = this.now();
     const record: KeepViewingRecord = {
       id: this.createId(),
       itemId: normalizeId(itemId),
-      viewedAt: options.viewedAt ?? this.now(),
+      viewedAt: options.viewedAt ?? timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
       ...(options.note?.trim() ? { note: options.note.trim() } : {}),
     };
-    await this.set(record);
-    return { ...record };
+    return this.saveRecord(record);
+  }
+
+  private async saveRecord(record: KeepViewingRecord): Promise<KeepViewingRecord> {
+    const normalized = normalizeViewingRecord(record);
+    return this.withWriteLock(async () => {
+      const records = await this.readRecords();
+      const previous = records.find((entry) => entry.id === normalized.id);
+      const now = this.now();
+      const next = {
+        ...normalized,
+        createdAt: previous?.createdAt ?? normalized.createdAt ?? now,
+        updatedAt: now,
+      };
+      this.writeRecords([...records.filter((entry) => entry.id !== normalized.id), next]);
+      return { ...next };
+    });
   }
 
   async remove(id: string): Promise<void> {
-    this.writeRecords((await this.readRecords()).filter((record) => record.id !== id));
+    await this.withWriteLock(async () =>
+      this.writeRecords((await this.readRecords()).filter((record) => record.id !== id)),
+    );
   }
 
   async removeForItem(itemId: string): Promise<void> {
     const normalizedId = normalizeId(itemId);
-    this.writeRecords((await this.readRecords()).filter((record) => record.itemId !== normalizedId));
+    await this.withWriteLock(async () =>
+      this.writeRecords((await this.readRecords()).filter((record) => record.itemId !== normalizedId)),
+    );
   }
 
   async clear(): Promise<void> {
-    this.writeRecords([]);
+    await this.withWriteLock(async () => this.writeRecords([]));
   }
 
   private async readRecords(): Promise<KeepViewingRecord[]> {
@@ -202,11 +252,20 @@ export class LocalStorageKeepViewingRecordStorage implements KeepViewingRecordSt
   }
 
   private writeRecords(records: KeepViewingRecord[]): void {
+    if (!this.storage) {
+      throw new KeepActivityStorageError("KeepKit cannot persist viewing records without browser storage.", this.key);
+    }
     try {
-      this.storage?.setItem(this.key, JSON.stringify(records));
+      this.storage.setItem(this.key, JSON.stringify(records));
     } catch (cause) {
       throw new KeepActivityStorageError("KeepKit could not write viewing records.", this.key, cause);
     }
+  }
+
+  private withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    const next = this.writes.then(operation);
+    this.writes = next.catch(() => undefined);
+    return next;
   }
 }
 
@@ -231,7 +290,8 @@ function isHistoryEntryArray(value: unknown): value is KeepHistoryEntry[] {
         typeof entry.itemId === "string" &&
         entry.itemId.length > 0 &&
         typeof entry.lastViewedAt === "number" &&
-        Number.isFinite(entry.lastViewedAt),
+        Number.isFinite(entry.lastViewedAt) &&
+        (entry.context === undefined || isHistoryContext(entry.context)),
     )
   );
 }
@@ -250,6 +310,8 @@ function isViewingRecord(value: unknown): value is KeepViewingRecord {
     typeof value.viewedAt === "number" &&
     Number.isFinite(value.viewedAt) &&
     value.viewedAt >= 0 &&
+    (value.createdAt === undefined || (typeof value.createdAt === "number" && Number.isFinite(value.createdAt))) &&
+    (value.updatedAt === undefined || (typeof value.updatedAt === "number" && Number.isFinite(value.updatedAt))) &&
     (value.note === undefined || typeof value.note === "string")
   );
 }
@@ -259,6 +321,8 @@ function normalizeViewingRecord(record: KeepViewingRecord): KeepViewingRecord {
     id: normalizeId(record.id),
     itemId: normalizeId(record.itemId),
     viewedAt: record.viewedAt,
+    ...(record.createdAt !== undefined ? { createdAt: record.createdAt } : {}),
+    ...(record.updatedAt !== undefined ? { updatedAt: record.updatedAt } : {}),
     ...(record.note?.trim() ? { note: record.note.trim() } : {}),
   };
   assertTimestamp(normalized.viewedAt);
@@ -281,7 +345,17 @@ function assertTimestamp(value: number): void {
 }
 
 function cloneHistoryEntries(entries: KeepHistoryEntry[]): KeepHistoryEntry[] {
-  return entries.map((entry) => ({ ...entry }));
+  return entries.map((entry) => ({ ...entry, ...(entry.context ? { context: { ...entry.context } } : {}) }));
+}
+
+function normalizeHistoryContext(context?: KeepHistoryContext): KeepHistoryContext | undefined {
+  if (!context) return undefined;
+  const entries = Object.entries(context).filter(([key, value]) => key.trim() && typeof value === "string");
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function isHistoryContext(value: unknown): value is KeepHistoryContext {
+  return isRecord(value) && Object.values(value).every((entry) => typeof entry === "string");
 }
 
 function parseJson(raw: string, key: string, label: string): unknown {

@@ -1,5 +1,23 @@
 # Release notes
 
+## [0.28.6] - 2026-10-07
+
+### 日本語
+
+- 同じストレージインスタンス内の履歴・鑑賞記録・進行位置の並行更新を直列化し、保存先が利用できない書き込みは型付きエラーにしました。
+- 保存解除で複数コースの所属も消し、旧単一所属項目を重複なくscope単位で移行する`migrateLegacyCollectionMemberships()`を追加しました。別scopeの同ID定義は移行先名として扱いません。
+- 空のバックアップを含むスコープ付き置換を修正し、復元結果に適用数・失敗段階・欠落した定義名・データ種別を含めました。
+- 所属同期、コレクション版・競合結果契約、履歴の文脈、鑑賞記録の作成／更新日時、見出しIDの読書位置を補完しました。
+- スコープ間で同じアイテムIDと未送信の同期操作を保持し、スコープ付きキュー削除・全消去を対象範囲へ限定しました。同期削除のscope伝播と所属の削除順を修正し、コレクション競合では選択したローカル状態がリモートの改名・削除に反転しないようにしました。音声IDを進行位置へ保持します。
+
+### English
+
+- Serialized history, viewing-record, and progress writes within one storage instance; writes now throw typed errors when persistent storage is unavailable.
+- Item removal now clears memberships, and `migrateLegacyCollectionMemberships()` migrates legacy single-collection fields by scope without reapplying cleared memberships or mistaking another scope's same-ID definition for a match.
+- Fixed scoped replacement for empty backups and added applied counts, failure stage, missing legacy names, and included data types to restore results.
+- Added membership sync, collection revision/conflict results, history context, viewing-record creation/update timestamps, and heading-ID reading positions.
+- Preserved matching item IDs and pending sync operations across scopes, limited scoped queue removal and clearing to the active scope, forwarded scope through sync deletions, ordered membership cleanup before parent deletes, honored the selected local collection state in conflicts, and retained audio IDs in progress records.
+
 ## [0.28.5] - 2026-10-07
 
 ### 日本語

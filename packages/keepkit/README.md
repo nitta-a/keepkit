@@ -52,9 +52,9 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.28.5では、閲覧履歴・鑑賞記録、複数コースへの所属、コレクションを含むバックアップ、コレクション定義同期、進行位置の保存を追加しました。空のコレクション、Inbox、Saved View、利用履歴、Rediscovery query、URL状態codec、認証付き同期も利用できます。
+v0.28.6では、並行保存・スコープ分離・バックアップ復元・所属同期を補強し、閲覧履歴の文脈、鑑賞記録の作成／更新日時、見出しIDによる読書位置を追加しました。空のコレクション、Inbox、Saved View、利用履歴、Rediscovery query、URL状態codec、認証付き同期も利用できます。
 
-`createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
+`createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。スコープを切り替えたり対象スコープのキューを削除・全消去しても、他スコープの未送信操作は保持されます。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
 ### 0.4.xからの変更
 
@@ -111,9 +111,9 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-v0.28.5 adds independent viewing history and records, multi-course memberships, collection-aware backups, scoped collection sync, and resumable reading or audio progress. Empty collections, Inbox, Saved Views, activity tracking, Rediscovery queries, URL state codecs, user/tenant isolation, and authenticated sync are also available.
+v0.28.6 strengthens concurrent persistence, scope isolation, backup restore, and membership sync, and adds history context, viewing-record timestamps, and heading-ID reading positions. Empty collections, Inbox, Saved Views, activity tracking, Rediscovery queries, URL state codecs, user/tenant isolation, and authenticated sync are also available.
 
-`createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
+`createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. Scope changes and scoped queue removal or clearing preserve pending operations for other scopes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 
 The v0.5 factory returns `Provider`, `Button`, `useContext`, `useItem`, `useList`, and `useShortcut`. Existing v0.4 applications should follow the migration guide in the repository root.
 
@@ -128,3 +128,65 @@ The standard browser adapters persist explicit collection definitions and course
 `KeepItem` と `KeepItemInput` は `archived`、`pinned`、`collectionId` を任意で受け取れます。`useKeepList` は未アーカイブを既定とし、`archived: true` でアーカイブを、`archiveScope: "all"` で両方を、`collectionId` で完全一致のコレクションを取得できます。`useKeepCollections({ targetType, orderBy })` は全保存アイテムからコレクションID・名前・件数を重複なく導出します。`pinnedFirst: true` は既存の順序を保ったままピン留め項目を先頭へ安定移動します。`useKeepItem` と Provider には `toggleArchive`、`archiveItem`、`unarchiveItem`、`togglePin`、`moveToCollection` を追加しました。各操作は `updatedAt` を更新し、空のコレクション ID はプロパティを削除して、既存の永続化・rollback・plugin・`onChange` 経路を利用します。
 
 標準ブラウザーストレージは、空のコレクション、変更した名前、コース別の所属と順序をアイテムとは別に永続化します。独自の`StorageAdapter`では`getCollections`、`setCollection`、`removeCollection`と`getCollectionMemberships`、`setCollectionMembership`、`removeCollectionMembership`を実装すると保存できます。`clear()`は保存アイテムのみを消去し、JSONバックアップv2はコレクションと所属も含みます。リモート同期は任意のコレクション用transportを追加すると利用できます。
+
+### v0.28.6の保存・復元補完
+
+同じストレージインスタンス内の履歴・鑑賞記録・進行位置の書き込みは直列化されます。複数タブや別インスタンス間の排他は行いません。ブラウザー保存先が利用できない場合、書き込みは`KeepActivityStorageError`または`KeepProgressStorageError`で失敗します。SSRでは初期化できますが、保存操作はブラウザー側で呼び出してください。
+
+既存ストレージを開いた後、コース別所属を読む機能を使う前に`migrateLegacyCollectionMemberships(storage)`を実行して旧単一所属データを移行します。既存所属を上書きせず、所属保存後に旧`collectionId`を消去するため、利用者が所属を外した後の再実行で復活しません。途中でadapterの書き込みが失敗した場合はエラーを返し、再実行しても所属は重複しません。対象scopeに定義名のないIDは戻り値の`missingCollectionIds`で確認できます。項目削除時はlocalStorage、IndexedDB、スコープadapterが所属も消します。
+
+バックアップには保存アイテム・コレクション定義・所属のみが含まれ、閲覧履歴・鑑賞記録・進行位置は含まれません。`importItems()`の置換モードは空のバックアップでも対象範囲を空にします。v2バックアップと戻り値の`scopes`は含まれる利用者・テナント範囲を示し、`includedData`はデータ種別を示します。`imported`、`failed`、`total`は保存アイテムの件数で、`applied`は項目・定義・所属の適用数を個別に示します。スコープ付きadapterは別scopeを含むbackupを変更前に拒否します。v1の`collectionId`は名前を復元できないため`missingCollectionIds`で通知します。途中失敗は`KeepBackupImportError.failedStage`と`applied`で確認します。置換にrollbackはありません。merge時の同ID名は既定でバックアップ側を採用し、`collectionNameConflict: "existing"`を指定すると既存名を維持します。
+
+履歴の文脈には`record(itemId, viewedAt, { language: "ja" })`で言語などを保存でき、`getAll()`で履歴と一緒に取得できます。鑑賞記録は`viewedAt`と`createdAt` / `updatedAt`を分けます。日時がない旧記録は最初に更新した時刻を作成時刻として補います。読書位置は数値offsetと安定した見出しID文字列を受け付けます。`getItem()`には必要な音声ID・言語・コンテンツ版を渡して互換位置だけを取得します。
+
+同期adapterに`RemoteSyncDriver.pushMembership()` / `pullMemberships()`を指定すると、所属の追加・解除・コース別順序を永続キューで同期できます。所属解除はアイテム・コレクション削除より先に送信し、pull時は存在しない親への所属を適用しません。membership transportを実装しないdriverでは所属はローカル保存のみです。コレクション定義には`revision`と`updatedAt`を保存でき、操作は`baseRevision`を送ります。driverは`KeepCollectionSyncResult`で競合と選択結果を返し、アプリは`resolveCollectionSyncConflict()`からローカルまたはリモートを選べます。削除tombstoneの保持と競合方針はdriverまたはサーバーで実装します。これらは低レベルAPIであり標準画面へ自動接続されません。
+
+```ts
+import {
+  LocalStorageKeepHistoryStorage,
+  LocalStorageKeepProgressStorage,
+  LocalStorageKeepViewingRecordStorage,
+  exportItems,
+  importItems,
+  migrateLegacyCollectionMemberships,
+} from "@keepkit/core/core";
+import { createBrowserStorageAdapter } from "@keepkit/core/storage";
+
+const storage = createBrowserStorageAdapter({ key: "my-app:items", scope: { userId: "user-1" } });
+const history = new LocalStorageKeepHistoryStorage({ key: "my-app:user-1:history" });
+await history.record("guide-1", Date.now(), { language: "ja" });
+await migrateLegacyCollectionMemberships(storage);
+const backup = await exportItems(storage);
+await importItems(storage, backup, { mode: "replace" });
+
+const progress = new LocalStorageKeepProgressStorage({ key: "my-app:user-1:progress" });
+await progress.saveItem("guide-1", {
+  audioId: "guide-1-ja",
+  audioPositionMs: 1250,
+  readingPosition: "heading-intro",
+  language: "ja",
+  contentVersion: "v2",
+});
+const resume = await progress.getItem("guide-1", {
+  audioId: "guide-1-ja",
+  language: "ja",
+  contentVersion: "v2",
+});
+const viewings = new LocalStorageKeepViewingRecordStorage({ key: "my-app:user-1:viewings" });
+const record = { id: "viewing-1", itemId: "guide-1", viewedAt: Date.now(), note: "Finished" };
+await viewings.set(record); // Reuse this stable ID when retrying the write.
+```
+
+### Persistence and restore improvements in v0.28.6
+
+Writes to history, viewing records, and progress are serialized within one storage instance, but separate tabs or instances are not locked. Writes fail with `KeepActivityStorageError` or `KeepProgressStorageError` when browser storage is unavailable. Construction is SSR-safe; call persistent writes in the browser.
+
+After opening existing storage and before reading course-specific memberships, run `migrateLegacyCollectionMemberships(storage)`. Existing memberships are never overwritten, and the legacy `collectionId` is cleared after migration so a later run will not recreate a membership the user removed. Adapter write errors are returned; rerunning after a partial failure is safe and does not duplicate memberships. IDs with no same-scope definition name are listed in `missingCollectionIds`. Removing a saved item also removes its memberships in localStorage, IndexedDB, and scoped adapters.
+
+Backups include saved items, collection definitions, and memberships. They exclude history, viewing records, and progress. Replace imports clear the target scope even for an empty backup. Version 2 backups and results expose represented `scopes`; scoped adapters reject data from a different scope before mutation. `imported`, `failed`, and `total` count saved items; `applied` reports items, definitions, and memberships separately. `includedData` identifies data types, and v1 collection IDs whose names cannot be restored are returned in `missingCollectionIds`. `KeepBackupImportError.failedStage` and `applied` describe partial application. Replace has no rollback. Merge keeps the backup name for a same-ID collision by default; choose `collectionNameConflict: "existing"` to retain the stored name.
+
+History context can be recorded with `record(itemId, viewedAt, { language: "ja" })` and retrieved with each entry from `getAll()`. Viewing records distinguish the self-reported `viewedAt` from `createdAt` / `updatedAt`. A legacy record without these timestamps receives its first-update time as its creation timestamp. Reading positions accept numeric offsets and stable heading ID strings; pass expected audio ID, language, and content version to `getItem()` to reject incompatible positions.
+
+Implement `RemoteSyncDriver.pushMembership()` / `pullMemberships()` to sync membership changes and course-specific order through the durable queue. Membership removals are sent before item or collection deletions, and pulls skip memberships whose parent is missing. Without membership transport hooks, membership changes remain local. Collection definitions can store `revision` and `updatedAt`, and operations send `baseRevision`. Drivers return `KeepCollectionSyncResult` for conflicts and outcomes; the app can choose local or remote with `resolveCollectionSyncConflict()`. The server or driver owns deletion tombstones and conflict policy. These are low-level APIs and are not automatically connected to the standard UI.
+
+The example above imports the persistence APIs from `@keepkit/core/core` and browser adapters from `@keepkit/core/storage`. Keep history and progress keys scoped by the host app's account or tenant when those records should not cross users. Reuse a viewing-record ID with `set()` when retrying so the event is not duplicated.

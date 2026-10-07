@@ -5,6 +5,7 @@ import type {
   KeepItem,
   KeepSchema,
   StorageAdapter,
+  SyncScope,
 } from "../items/types";
 import { isKeepCollectionDefinition, isKeepCollectionMembership, isKeepItem, isRecord } from "./helpers";
 import { mergeKeepItems } from "./migration";
@@ -27,6 +28,8 @@ export type KeepBackupV2<TMeta = Record<string, unknown>> = {
   items: KeepItem<TMeta>[];
   collections: KeepCollectionDefinition[];
   memberships: KeepCollectionMembership[];
+  /** Scopes represented by the records in this backup. Omitted by early v2 backups. */
+  scopes?: SyncScope[];
 };
 
 export type KeepBackup<TMeta = Record<string, unknown>> = KeepBackupV1<TMeta> | KeepBackupV2<TMeta>;
@@ -38,7 +41,12 @@ export type ImportItemsOptions<TMeta = unknown> = {
   schema?: KeepSchema<TMeta>;
   invalidItemPolicy?: KeepInvalidItemPolicy;
   onInvalidItem?: (error: unknown, item: KeepItem<unknown>) => void;
+  /** Resolves a same-ID collection name collision when merging. Defaults to the backup name. */
+  collectionNameConflict?: "backup" | "existing";
 };
+
+export type KeepBackupDataType = "items" | "collections" | "memberships";
+export type KeepBackupAppliedCounts = { items: number; collections: number; memberships: number };
 
 export type ImportItemsResult<TMeta = Record<string, unknown>> = {
   mode: "replace" | "merge";
@@ -46,6 +54,10 @@ export type ImportItemsResult<TMeta = Record<string, unknown>> = {
   failed: number;
   total: number;
   items: KeepItem<TMeta>[];
+  applied: KeepBackupAppliedCounts;
+  missingCollectionIds: string[];
+  includedData: KeepBackupDataType[];
+  scopes: SyncScope[];
 };
 
 export class KeepBackupParseError extends Error {
@@ -62,6 +74,8 @@ export class KeepBackupImportError extends Error {
   readonly mode: "replace" | "merge";
   readonly imported: number;
   readonly failed: number;
+  readonly applied: KeepBackupAppliedCounts;
+  readonly failedStage: "items" | "collections" | "memberships" | "clear" | "validation";
   readonly cause?: unknown;
 
   constructor(
@@ -70,6 +84,8 @@ export class KeepBackupImportError extends Error {
       mode: "replace" | "merge";
       imported: number;
       failed: number;
+      applied?: KeepBackupAppliedCounts;
+      failedStage?: "items" | "collections" | "memberships" | "clear" | "validation";
       cause?: unknown;
     },
   ) {
@@ -78,19 +94,25 @@ export class KeepBackupImportError extends Error {
     this.mode = options.mode;
     this.imported = options.imported;
     this.failed = options.failed;
+    this.applied = options.applied ?? { items: options.imported, collections: 0, memberships: 0 };
+    this.failedStage = options.failedStage ?? "items";
     if (options.cause !== undefined) this.cause = options.cause;
   }
 }
 
 /** Serialize all adapter data into a versioned JSON backup. */
 export async function exportItems<TMeta>(adapter: StorageAdapter<TMeta>): Promise<string> {
+  const items = await adapter.getAll();
+  const collections = (await adapter.getCollections?.()) ?? [];
+  const memberships = (await adapter.getCollectionMemberships?.()) ?? [];
   const backup: KeepBackupV2<TMeta> = {
     format: KEEP_BACKUP_FORMAT,
     version: KEEP_BACKUP_VERSION,
     exportedAt: Date.now(),
-    items: await adapter.getAll(),
-    collections: (await adapter.getCollections?.()) ?? [],
-    memberships: (await adapter.getCollectionMemberships?.()) ?? [],
+    items,
+    collections,
+    memberships,
+    scopes: collectScopes(items, collections, memberships, adapter.scope ? [adapter.scope] : []),
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -103,6 +125,16 @@ export async function importItems<TMeta>(
 ): Promise<ImportItemsResult<TMeta>> {
   const backup = parseBackup<TMeta>(data);
   const mode = options.mode ?? "merge";
+  const scopes = collectScopes(backup.items, backup.collections, backup.memberships, backup.scopes);
+  if (adapter.scope && scopes.some((scope) => !sameScope(scope, adapter.scope))) {
+    throw new KeepBackupImportError("The backup contains data outside the active storage scope.", {
+      mode,
+      imported: 0,
+      failed: backup.items.length + backup.collections.length + backup.memberships.length,
+      applied: { items: 0, collections: 0, memberships: 0 },
+      failedStage: "validation",
+    });
+  }
   if (
     (backup.collections.length > 0 &&
       (!adapter.getCollections || !adapter.setCollection || !adapter.removeCollection)) ||
@@ -113,6 +145,8 @@ export async function importItems<TMeta>(
       mode,
       imported: 0,
       failed: backup.items.length + backup.collections.length + backup.memberships.length,
+      applied: { items: 0, collections: 0, memberships: 0 },
+      failedStage: "validation",
     });
   }
   const validItems: KeepItem<TMeta>[] = [];
@@ -133,50 +167,94 @@ export async function importItems<TMeta>(
       throw cause;
     }
   }
-  let items: KeepItem<TMeta>[];
+  const applied: KeepBackupAppliedCounts = { items: 0, collections: 0, memberships: 0 };
+  const missingCollectionIds =
+    backup.version === 1
+      ? [...new Set(backup.items.flatMap((item) => (item.collectionId ? [item.collectionId] : [])))]
+      : [];
 
-  if (mode === "merge") {
-    try {
-      items = await mergeKeepItems(validItems, adapter);
-      await restoreCollections(adapter, backup.collections, "merge");
-      await restoreMemberships(adapter, backup.memberships, "merge");
-    } catch (cause) {
-      throw new KeepBackupImportError("KeepKit could not merge the backup.", {
-        mode,
-        imported: 0,
-        failed: validItems.length + failed,
-        cause,
-      });
-    }
-  } else {
-    let imported = 0;
-    try {
+  try {
+    if (mode === "replace") {
       await adapter.clear();
-      await restoreCollections(adapter, [], "replace");
-      await restoreMemberships(adapter, [], "replace");
-      for (const item of validItems) {
-        await adapter.set(item);
-        imported += 1;
-      }
-      await restoreCollections(adapter, backup.collections, "replace");
-      await restoreMemberships(adapter, backup.memberships, "replace");
-      items = await adapter.getAll();
+      await restoreCollections(adapter, [], "replace", "backup", applied);
+      await restoreMemberships(adapter, [], "replace", applied);
+    }
+  } catch (cause) {
+    throw new KeepBackupImportError("KeepKit could not clear the data being replaced.", {
+      mode,
+      imported: applied.items,
+      failed: validItems.length + failed,
+      applied,
+      failedStage: "clear",
+      cause,
+    });
+  }
+
+  for (const item of validItems) {
+    try {
+      if (mode === "merge") await mergeKeepItems([item], adapter);
+      else await adapter.set(item);
+      applied.items += 1;
     } catch (cause) {
-      throw new KeepBackupImportError("KeepKit could not replace the stored items.", {
+      throw new KeepBackupImportError(`KeepKit could not restore item ${item.id}.`, {
         mode,
-        imported,
-        failed: validItems.length + failed - imported,
+        imported: applied.items,
+        failed: validItems.length + failed - applied.items,
+        applied,
+        failedStage: "items",
         cause,
       });
     }
   }
 
+  try {
+    await restoreCollections(adapter, backup.collections, mode, options.collectionNameConflict ?? "backup", applied);
+  } catch (cause) {
+    throw new KeepBackupImportError("KeepKit could not restore collection definitions.", {
+      mode,
+      imported: applied.items,
+      failed: validItems.length + failed - applied.items,
+      applied,
+      failedStage: "collections",
+      cause,
+    });
+  }
+  try {
+    await restoreMemberships(adapter, backup.memberships, mode, applied);
+  } catch (cause) {
+    throw new KeepBackupImportError("KeepKit could not restore collection memberships.", {
+      mode,
+      imported: applied.items,
+      failed: validItems.length + failed - applied.items,
+      applied,
+      failedStage: "memberships",
+      cause,
+    });
+  }
+  let items: KeepItem<TMeta>[];
+  try {
+    items = await adapter.getAll();
+  } catch (cause) {
+    throw new KeepBackupImportError("KeepKit restored the backup but could not read the resulting items.", {
+      mode,
+      imported: applied.items,
+      failed: failed,
+      applied,
+      failedStage: "items",
+      cause,
+    });
+  }
+
   return {
     mode,
-    imported: validItems.length,
+    imported: applied.items,
     failed,
     total: items.length,
     items,
+    applied,
+    missingCollectionIds,
+    includedData: backup.version === 1 ? ["items"] : ["items", "collections", "memberships"],
+    scopes,
   };
 }
 
@@ -208,6 +286,7 @@ function parseBackup<TMeta>(data: string | KeepBackup<TMeta>): ParsedKeepBackup<
       items: value.items as KeepItem<TMeta>[],
       collections: [],
       memberships: [],
+      scopes: [],
     };
   }
   if (
@@ -218,26 +297,63 @@ function parseBackup<TMeta>(data: string | KeepBackup<TMeta>): ParsedKeepBackup<
   ) {
     throw new KeepBackupParseError("KeepKit backup contains invalid collection data.");
   }
+  if (value.scopes !== undefined && (!Array.isArray(value.scopes) || !value.scopes.every(isSyncScope))) {
+    throw new KeepBackupParseError("KeepKit backup contains invalid scope data.");
+  }
   return value as ParsedKeepBackup<TMeta>;
+}
+
+function collectScopes(
+  items: KeepItem<unknown>[],
+  collections: KeepCollectionDefinition[],
+  memberships: KeepCollectionMembership[],
+  declaredScopes: SyncScope[] = [],
+): SyncScope[] {
+  const scopes = [
+    ...declaredScopes,
+    ...[...items, ...collections, ...memberships].flatMap((record) => (record.scope ? [record.scope] : [])),
+  ].filter((scope, index, all) => all.findIndex((entry) => sameScope(entry, scope)) === index);
+  return scopes.map((scope) => ({ ...scope }));
+}
+
+function sameScope(left: SyncScope, right: SyncScope | undefined): boolean {
+  return left.userId === right?.userId && left.tenantId === right?.tenantId;
+}
+
+function isSyncScope(value: unknown): value is SyncScope {
+  return (
+    isRecord(value) &&
+    (value.userId === undefined || typeof value.userId === "string") &&
+    (value.tenantId === undefined || typeof value.tenantId === "string")
+  );
 }
 
 async function restoreCollections<TMeta>(
   adapter: StorageAdapter<TMeta>,
   collections: KeepCollectionDefinition[],
   mode: "merge" | "replace",
+  conflict: "backup" | "existing",
+  applied: KeepBackupAppliedCounts,
 ): Promise<void> {
   if (!adapter.getCollections || !adapter.setCollection || !adapter.removeCollection) return;
+  const existing = await adapter.getCollections();
   if (mode === "replace") {
-    const current = await adapter.getCollections();
-    for (const collection of current) await adapter.removeCollection(collection.id, collection.scope);
+    for (const collection of existing) await adapter.removeCollection(collection.id, collection.scope);
   }
-  for (const collection of collections) await adapter.setCollection(collection);
+  for (const collection of collections) {
+    const current = existing.find((entry) => entry.id === collection.id);
+    const value =
+      mode === "merge" && conflict === "existing" && current ? { ...collection, name: current.name } : collection;
+    await adapter.setCollection(value);
+    applied.collections += 1;
+  }
 }
 
 async function restoreMemberships<TMeta>(
   adapter: StorageAdapter<TMeta>,
   memberships: KeepCollectionMembership[],
   mode: "merge" | "replace",
+  applied: KeepBackupAppliedCounts,
 ): Promise<void> {
   if (!adapter.getCollectionMemberships || !adapter.setCollectionMembership || !adapter.removeCollectionMembership)
     return;
@@ -247,5 +363,8 @@ async function restoreMemberships<TMeta>(
       await adapter.removeCollectionMembership(membership.collectionId, membership.itemId, membership.scope);
     }
   }
-  for (const membership of memberships) await adapter.setCollectionMembership(membership);
+  for (const membership of memberships) {
+    await adapter.setCollectionMembership(membership);
+    applied.memberships += 1;
+  }
 }

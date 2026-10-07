@@ -9,7 +9,9 @@ export type KeepItemProgress = {
   kind: "item";
   itemId: string;
   audioPositionMs?: number;
-  readingPosition?: number;
+  /** App-defined heading ID or legacy numeric offset. */
+  readingPosition?: number | string;
+  audioId?: string;
   language?: string;
   contentVersion?: string;
   updatedAt: number;
@@ -20,6 +22,7 @@ export type KeepProgressRecord = KeepCourseProgress | KeepItemProgress;
 export type KeepProgressCompatibility = {
   language?: string;
   contentVersion?: string;
+  audioId?: string;
 };
 
 export interface KeepProgressStorage {
@@ -50,6 +53,7 @@ export class LocalStorageKeepProgressStorage implements KeepProgressStorage {
   private readonly key: string;
   private readonly storage: Storage | undefined;
   private readonly now: () => number;
+  private writes: Promise<unknown> = Promise.resolve();
 
   constructor(options: LocalStorageProgressOptions = {}) {
     this.key = options.key ?? DEFAULT_KEEP_PROGRESS_KEY;
@@ -105,6 +109,7 @@ export class LocalStorageKeepProgressStorage implements KeepProgressStorage {
       kind: "item",
       itemId: normalizeId(itemId, "item"),
       ...progress,
+      ...(progress.audioId?.trim() ? { audioId: progress.audioId.trim() } : {}),
       updatedAt: this.now(),
     };
     await this.set(record);
@@ -112,24 +117,30 @@ export class LocalStorageKeepProgressStorage implements KeepProgressStorage {
   }
 
   async set(record: KeepProgressRecord): Promise<void> {
-    const normalized = normalizeProgressRecord(record);
-    const records = await this.getAll();
-    const identity = getProgressIdentity(normalized);
-    this.writeRecords([...records.filter((entry) => getProgressIdentity(entry) !== identity), normalized]);
+    await this.withWriteLock(async () => {
+      const normalized = normalizeProgressRecord(record);
+      const records = await this.getAll();
+      const identity = getProgressIdentity(normalized);
+      this.writeRecords([...records.filter((entry) => getProgressIdentity(entry) !== identity), normalized]);
+    });
   }
 
   async resetCourse(courseId: string): Promise<void> {
     const id = normalizeId(courseId, "course");
-    this.writeRecords((await this.getAll()).filter((entry) => entry.kind !== "course" || entry.courseId !== id));
+    await this.withWriteLock(async () =>
+      this.writeRecords((await this.getAll()).filter((entry) => entry.kind !== "course" || entry.courseId !== id)),
+    );
   }
 
   async resetItem(itemId: string): Promise<void> {
     const id = normalizeId(itemId, "item");
-    this.writeRecords((await this.getAll()).filter((entry) => entry.kind !== "item" || entry.itemId !== id));
+    await this.withWriteLock(async () =>
+      this.writeRecords((await this.getAll()).filter((entry) => entry.kind !== "item" || entry.itemId !== id)),
+    );
   }
 
   async clear(): Promise<void> {
-    this.writeRecords([]);
+    await this.withWriteLock(async () => this.writeRecords([]));
   }
 
   private readRaw(): string | null {
@@ -141,11 +152,20 @@ export class LocalStorageKeepProgressStorage implements KeepProgressStorage {
   }
 
   private writeRecords(records: KeepProgressRecord[]): void {
+    if (!this.storage) {
+      throw new KeepProgressStorageError("KeepKit cannot persist progress without browser storage.", this.key);
+    }
     try {
-      this.storage?.setItem(this.key, JSON.stringify(records));
+      this.storage.setItem(this.key, JSON.stringify(records));
     } catch (cause) {
       throw new KeepProgressStorageError("KeepKit could not write progress data.", this.key, cause);
     }
+  }
+
+  private withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    const next = this.writes.then(operation);
+    this.writes = next.catch(() => undefined);
+    return next;
   }
 }
 
@@ -156,6 +176,8 @@ export function isProgressCompatible(record: KeepItemProgress, compatibility?: K
   if (compatibility?.language !== undefined && record.language !== compatibility.language) return false;
   if (compatibility?.contentVersion !== undefined && record.contentVersion !== compatibility.contentVersion)
     return false;
+  if (record.audioId !== undefined && record.audioId !== compatibility?.audioId) return false;
+  if (compatibility?.audioId !== undefined && record.audioId !== compatibility.audioId) return false;
   return true;
 }
 
@@ -197,7 +219,9 @@ function isProgressRecord(value: unknown): value is KeepProgressRecord {
     (value.readingPosition === undefined ||
       (typeof value.readingPosition === "number" &&
         Number.isFinite(value.readingPosition) &&
-        value.readingPosition >= 0)) &&
+        value.readingPosition >= 0) ||
+      (typeof value.readingPosition === "string" && value.readingPosition.trim().length > 0)) &&
+    (value.audioId === undefined || (typeof value.audioId === "string" && value.audioId.length > 0)) &&
     (value.language === undefined || typeof value.language === "string") &&
     (value.contentVersion === undefined || typeof value.contentVersion === "string")
   );
@@ -218,6 +242,7 @@ function normalizeProgressRecord(record: KeepProgressRecord): KeepProgressRecord
     itemId: normalizeId(record.itemId, "item"),
     ...(record.audioPositionMs !== undefined ? { audioPositionMs: record.audioPositionMs } : {}),
     ...(record.readingPosition !== undefined ? { readingPosition: record.readingPosition } : {}),
+    ...(record.audioId !== undefined ? { audioId: record.audioId } : {}),
     ...(record.language !== undefined ? { language: record.language } : {}),
     ...(record.contentVersion !== undefined ? { contentVersion: record.contentVersion } : {}),
     updatedAt: record.updatedAt,

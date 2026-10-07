@@ -411,6 +411,10 @@ test("validates all backup fields and accepts object backups", async () => {
     failed: 0,
     total: 2,
     items: [itemA, itemB],
+    applied: { items: 2, collections: 0, memberships: 0 },
+    missingCollectionIds: [],
+    includedData: ["items"],
+    scopes: [],
   });
 });
 

@@ -5,6 +5,7 @@ import type {
   KeepCollectionMembership,
   KeepCollectionSyncOperation,
   KeepItem,
+  KeepMembershipSyncOperation,
   KeepSyncAuthError,
   KeepSyncAuthStatus,
   KeepSyncState,
@@ -29,6 +30,7 @@ export type AuthenticatedSyncRequestContext<TMeta = Record<string, unknown>> = {
   scope?: SyncScope;
   operation?: SyncOperation<TMeta>;
   collectionOperation?: KeepCollectionSyncOperation;
+  membershipOperation?: KeepMembershipSyncOperation;
 };
 
 /** Transport boundary for auth-aware requests; cookies and bearer tokens remain host concerns. */
@@ -43,11 +45,17 @@ export type AuthenticatedSyncTransport<TMeta = Record<string, unknown>> = {
     context: AuthenticatedSyncRequestContext<TMeta>,
   ) => Promise<void>;
   pullCollections?: (context: AuthenticatedSyncRequestContext<TMeta>) => Promise<KeepCollectionDefinition[]>;
+  pushMembership?: (
+    operation: KeepMembershipSyncOperation,
+    context: AuthenticatedSyncRequestContext<TMeta>,
+  ) => Promise<void>;
+  pullMemberships?: (context: AuthenticatedSyncRequestContext<TMeta>) => Promise<KeepCollectionMembership[]>;
 };
 
 export type AuthenticatedSyncAuthContext<TMeta = Record<string, unknown>> = {
   operation?: SyncOperation<TMeta>;
   collectionOperation?: KeepCollectionSyncOperation;
+  membershipOperation?: KeepMembershipSyncOperation;
   scope?: SyncScope;
 };
 
@@ -325,6 +333,7 @@ function createAuthenticatedRemote<TMeta>(
 ): RemoteSyncDriver<TMeta> {
   const pull = options.transport.pull;
   const pullCollections = options.transport.pullCollections;
+  const pullMemberships = options.transport.pullMemberships;
   return {
     push: async (operation) => {
       try {
@@ -359,6 +368,26 @@ function createAuthenticatedRemote<TMeta>(
           try {
             const token = await options.getAuthToken();
             return await pullCollections({ token, scope });
+          } catch (cause) {
+            return handleAuthFailure(cause, options, { scope });
+          }
+        }
+      : undefined,
+    pushMembership: options.transport.pushMembership
+      ? async (membershipOperation) => {
+          try {
+            const token = await options.getAuthToken();
+            await options.transport.pushMembership?.(membershipOperation, { token, scope, membershipOperation });
+          } catch (cause) {
+            return handleAuthFailure(cause, options, { membershipOperation, scope });
+          }
+        }
+      : undefined,
+    pullMemberships: pullMemberships
+      ? async () => {
+          try {
+            const token = await options.getAuthToken();
+            return await pullMemberships({ token, scope });
           } catch (cause) {
             return handleAuthFailure(cause, options, { scope });
           }

@@ -5,7 +5,14 @@ export type SyncScope = {
   tenantId?: string;
 };
 
-export type KeepCollectionDefinition = { id: string; name: string; scope?: SyncScope };
+export type KeepCollectionDefinition = {
+  id: string;
+  name: string;
+  scope?: SyncScope;
+  /** Server revision used for optimistic collection conflict checks. */
+  revision?: string;
+  updatedAt?: number;
+};
 
 /** A course-specific membership; the same item may have memberships in several collections. */
 export type KeepCollectionMembership = {
@@ -61,6 +68,8 @@ export type KeepItemInput<TMeta = Record<string, unknown>> = {
 };
 
 export interface StorageAdapter<TMeta = Record<string, unknown>> {
+  /** Active user/tenant scope when this adapter is scoped. */
+  readonly scope?: SyncScope;
   getAll(): Promise<KeepItem<TMeta>[]>;
   /** Optional local collection metadata; independent of saved items and item backups. */
   getCollections?(): Promise<KeepCollectionDefinition[]>;
@@ -73,8 +82,8 @@ export interface StorageAdapter<TMeta = Record<string, unknown>> {
   removeCollectionMembership?(collectionId: string, itemId: string, scope?: SyncScope): Promise<void>;
   set(item: KeepItem<TMeta>): Promise<void>;
   setMany?(items: KeepItem<TMeta>[]): Promise<void>;
-  remove(id: string): Promise<void>;
-  removeMany?(ids: string[]): Promise<void>;
+  remove(id: string, scope?: SyncScope): Promise<void>;
+  removeMany?(ids: string[], scope?: SyncScope): Promise<void>;
   clear(): Promise<void>;
   merge?(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]>;
   subscribe?(listener: () => void): () => void;
@@ -156,6 +165,7 @@ export type KeepSyncState<TMeta = Record<string, unknown>> = {
   conflictIds: string[];
   /** Detailed conflict records when the adapter supports interactive resolution. */
   conflicts?: KeepSyncConflict<TMeta>[];
+  collectionConflicts?: KeepCollectionSyncConflict[];
   lastSyncedAt?: number;
   error?: unknown;
 };
@@ -181,11 +191,43 @@ export type KeepCollectionSyncOperation = {
   id: string;
   collection?: KeepCollectionDefinition;
   createdAt: number;
+  baseRevision?: string;
   attempts?: number;
   scope?: SyncScope;
 };
 
-export type KeepSyncQueueOperation<TMeta = Record<string, unknown>> = SyncOperation<TMeta>;
+/** A conflict carries a tombstone or the complete definition needed to inspect or apply its state. */
+type KeepCollectionConflictState =
+  | { deleted: true; collection?: never }
+  | { deleted: false; collection: KeepCollectionDefinition };
+
+export type KeepCollectionSyncResult =
+  | { type: "synced"; collection?: KeepCollectionDefinition; deleted?: boolean; revision?: string }
+  | ({ type: "conflict"; resolution: "local" | "remote" | "manual"; revision?: string } & KeepCollectionConflictState);
+
+export type KeepCollectionSyncConflict = {
+  operation: KeepCollectionSyncOperation;
+  resolution: "local" | "remote" | "manual";
+  revision?: string;
+} & KeepCollectionConflictState;
+
+export type KeepMembershipSyncOperation = {
+  operationId: string;
+  type: "upsert" | "remove";
+  entity: "membership";
+  id: string;
+  collectionId: string;
+  itemId: string;
+  membership?: KeepCollectionMembership;
+  createdAt: number;
+  attempts?: number;
+  scope?: SyncScope;
+};
+
+export type KeepSyncQueueOperation<TMeta = Record<string, unknown>> =
+  | SyncOperation<TMeta>
+  | KeepCollectionSyncOperation
+  | KeepMembershipSyncOperation;
 
 export type KeepSyncAuthStatus = 401 | 403;
 
@@ -232,9 +274,14 @@ export interface RemoteSyncDriver<TMeta = Record<string, unknown>> {
   push(operation: SyncOperation<TMeta>): Promise<RemoteSyncResult<TMeta>>;
   pull?: () => Promise<KeepItem<TMeta>[]>;
   /** Push collection operations through the same scoped, durable queue as item operations. */
-  pushCollection?(operation: KeepCollectionSyncOperation): Promise<void>;
+  // biome-ignore lint/suspicious/noConfusingVoidType: Existing drivers may return void; new drivers can return conflict results.
+  pushCollection?(operation: KeepCollectionSyncOperation): Promise<void | KeepCollectionSyncResult>;
   /** Return the complete collection snapshot for the active authenticated scope. */
   pullCollections?: () => Promise<KeepCollectionDefinition[]>;
+  /** Push collection/item membership operations through the same durable queue. */
+  pushMembership?(operation: KeepMembershipSyncOperation): Promise<void>;
+  /** Return the complete membership snapshot for the active authenticated scope. */
+  pullMemberships?: () => Promise<KeepCollectionMembership[]>;
 }
 
 export interface SyncQueueAdapter<TMeta = Record<string, unknown>> {
@@ -251,6 +298,11 @@ export interface SyncCapableStorageAdapter<TMeta = Record<string, unknown>> exte
   flushSync(): Promise<void>;
   retrySync?(): Promise<void>;
   resolveSyncConflict?(id: string, resolution: KeepSyncResolution, item?: KeepItem<TMeta>): Promise<void>;
+  resolveCollectionSyncConflict?(
+    id: string,
+    resolution: "local" | "remote",
+    collection?: KeepCollectionDefinition,
+  ): Promise<void>;
   dispose?(): void;
 }
 

@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { KeepStorageAccessError, KeepStorageParseError, KeepStorageQuotaError } from "../dist/core.js";
-import { DEFAULT_INDEXEDDB_DATABASE, DEFAULT_INDEXEDDB_STORE, IndexedDBAdapter } from "../dist/storage.js";
+import {
+  createBrowserStorageAdapter,
+  createScopedStorageAdapter,
+  KeepStorageAccessError,
+  KeepStorageParseError,
+  KeepStorageQuotaError,
+} from "../dist/core.js";
+import {
+  DEFAULT_INDEXEDDB_DATABASE,
+  DEFAULT_INDEXEDDB_STORE,
+  IndexedDBAdapter,
+  LocalStorageAdapter,
+} from "../dist/storage.js";
 
 const itemA = { id: "a", savedAt: 1, updatedAt: 1, meta: { title: "A" } };
 const itemB = { id: "b", savedAt: 2, updatedAt: 2, meta: { title: "B" } };
@@ -104,6 +115,23 @@ function createIndexedDB(options = {}) {
   };
 }
 
+test("scoped browser adapters isolate same-ID items in shared IndexedDB storage", async () => {
+  const indexedDB = createIndexedDB();
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => void values.set(key, value),
+    removeItem: (key) => void values.delete(key),
+  };
+  const alice = createBrowserStorageAdapter({ key: "scoped-items", scope: { userId: "alice" }, indexedDB, storage });
+  const bob = createBrowserStorageAdapter({ key: "scoped-items", scope: { userId: "bob" }, indexedDB, storage });
+  await alice.set({ ...itemA, meta: { title: "Alice" } });
+  await bob.set({ ...itemA, meta: { title: "Bob" } });
+
+  assert.deepEqual(await alice.getAll(), [{ ...itemA, meta: { title: "Alice" }, scope: { userId: "alice" } }]);
+  assert.deepEqual(await bob.getAll(), [{ ...itemA, meta: { title: "Bob" }, scope: { userId: "bob" } }]);
+});
+
 test("uses IndexedDB defaults and supports CRUD, merge, and subscriptions", async () => {
   const indexedDB = createIndexedDB();
   const adapter = new IndexedDBAdapter({ indexedDB });
@@ -151,6 +179,60 @@ test("uses IndexedDB defaults and supports CRUD, merge, and subscriptions", asyn
 
   await adapter.clear();
   assert.deepEqual(await adapter.getAll(), []);
+});
+
+test("removing IndexedDB items clears their collection memberships", async () => {
+  const adapter = new IndexedDBAdapter({ indexedDB: createIndexedDB() });
+  await adapter.set(itemA);
+  await adapter.setCollection({ id: "course-a", name: "Course A" });
+  await adapter.setCollectionMembership({ collectionId: "course-a", itemId: itemA.id, order: 0 });
+  await adapter.remove(itemA.id);
+  assert.deepEqual(await adapter.getCollectionMemberships(), []);
+  await adapter.set(itemA);
+  await adapter.setCollectionMembership({ collectionId: "course-a", itemId: itemA.id, order: 0 });
+  await adapter.clear();
+  assert.deepEqual(await adapter.getCollectionMemberships(), []);
+});
+
+test("clearing adapters removes orphaned memberships without removing collection definitions", async () => {
+  const indexedDB = new IndexedDBAdapter({ indexedDB: createIndexedDB() });
+  await indexedDB.setCollection({ id: "course-a", name: "Course A" });
+  await indexedDB.setCollectionMembership({ collectionId: "course-a", itemId: "missing", order: 0 });
+  await indexedDB.clear();
+  assert.deepEqual(await indexedDB.getCollectionMemberships(), []);
+  assert.deepEqual(await indexedDB.getCollections(), [{ id: "course-a", name: "Course A" }]);
+
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => void values.set(key, value),
+    removeItem: (key) => void values.delete(key),
+  };
+  const localStorage = new LocalStorageAdapter({ key: "clear-orphans", storage });
+  await localStorage.setCollection({ id: "course-a", name: "Course A" });
+  await localStorage.setCollectionMembership({ collectionId: "course-a", itemId: "missing", order: 0 });
+  await localStorage.clear();
+  assert.deepEqual(await localStorage.getCollectionMemberships(), []);
+  assert.deepEqual(await localStorage.getCollections(), [{ id: "course-a", name: "Course A" }]);
+
+  await localStorage.setCollection({ id: "course-b", name: "Course B", scope: { userId: "alice" } });
+  await localStorage.setCollection({ id: "course-b", name: "Course B", scope: { userId: "bob" } });
+  await localStorage.setCollectionMembership({
+    collectionId: "course-b",
+    itemId: "missing",
+    order: 0,
+    scope: { userId: "alice" },
+  });
+  await localStorage.setCollectionMembership({
+    collectionId: "course-b",
+    itemId: "missing",
+    order: 0,
+    scope: { userId: "bob" },
+  });
+  await createScopedStorageAdapter(localStorage, { userId: "alice" }).clear();
+  assert.deepEqual(await localStorage.getCollectionMemberships(), [
+    { collectionId: "course-b", itemId: "missing", order: 0, scope: { userId: "bob" } },
+  ]);
 });
 
 test("returns empty results when IndexedDB is unavailable", async () => {
@@ -259,6 +341,14 @@ test("wraps IndexedDB request, transaction, parse, and quota failures", async ()
   quotaDatabase.transaction = () => {
     const transaction = new FakeTransaction();
     transaction.objectStore = () => ({
+      getAll: () => {
+        const request = new FakeRequest();
+        queueMicrotask(() => {
+          request.result = [];
+          request.onsuccess?.();
+        });
+        return request;
+      },
       put: () => {
         throw quotaCause;
       },

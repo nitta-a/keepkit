@@ -26,6 +26,7 @@ export function isSameKeepScope(left: KeepScope | undefined, right: KeepScope | 
  * when applications share one physical localStorage key.
  */
 export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements StorageAdapter<TMeta> {
+  readonly scope?: KeepScope;
   readonly storageKey?: string;
   readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
   readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
@@ -34,7 +35,6 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
   readonly setCollectionMembership?: (membership: KeepCollectionMembership) => Promise<void>;
   readonly removeCollectionMembership?: (collectionId: string, itemId: string, scope?: SyncScope) => Promise<void>;
   private readonly base: StorageAdapter<TMeta>;
-  private readonly scope?: KeepScope;
 
   constructor(base: StorageAdapter<TMeta>, scope?: KeepScope) {
     this.base = base;
@@ -89,7 +89,7 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
     const scoped = items.map((item) => ({ ...item, ...(this.scope ? { scope: this.scope } : {}) }));
     const ids = new Set(scoped.map((item) => item.id));
     const next = current.filter((item) => !ids.has(item.id) || !isSameKeepScope(item.scope, this.scope));
-    await writeAll(this.base, [...next, ...scoped]);
+    await writeAll(this.base, [...next, ...scoped], this.scope);
   }
 
   async remove(id: string): Promise<void> {
@@ -97,7 +97,9 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
     await writeAll(
       this.base,
       current.filter((item) => item.id !== id || !isSameKeepScope(item.scope, this.scope)),
+      this.scope,
     );
+    await this.removeMembershipsForItems([id]);
   }
 
   async removeMany(ids: string[]): Promise<void> {
@@ -106,15 +108,21 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
     await writeAll(
       this.base,
       current.filter((item) => !idSet.has(item.id) || !isSameKeepScope(item.scope, this.scope)),
+      this.scope,
     );
+    await this.removeMembershipsForItems([...idSet]);
   }
 
   async clear(): Promise<void> {
     const current = await this.base.getAll();
+    const removedIds = current.filter((item) => isSameKeepScope(item.scope, this.scope)).map((item) => item.id);
     await writeAll(
       this.base,
       current.filter((item) => !isSameKeepScope(item.scope, this.scope)),
+      this.scope,
     );
+    if (removedIds.length > 0) await this.removeMembershipsForItems(removedIds);
+    await this.clearMembershipsForScope();
   }
 
   async merge(items: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
@@ -124,6 +132,27 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
 
   subscribe(listener: () => void): () => void {
     return this.base.subscribe?.(listener) ?? (() => undefined);
+  }
+
+  private async removeMembershipsForItems(ids: string[]): Promise<void> {
+    if (!this.base.getCollectionMemberships || !this.base.removeCollectionMembership || ids.length === 0) return;
+    const removedIds = new Set(ids);
+    const memberships = await this.base.getCollectionMemberships();
+    for (const membership of memberships) {
+      if (removedIds.has(membership.itemId) && isSameKeepScope(membership.scope, this.scope)) {
+        await this.base.removeCollectionMembership(membership.collectionId, membership.itemId, this.scope);
+      }
+    }
+  }
+
+  private async clearMembershipsForScope(): Promise<void> {
+    if (!this.base.getCollectionMemberships || !this.base.removeCollectionMembership) return;
+    const memberships = await this.base.getCollectionMemberships();
+    for (const membership of memberships) {
+      if (isSameKeepScope(membership.scope, this.scope)) {
+        await this.base.removeCollectionMembership(membership.collectionId, membership.itemId, this.scope);
+      }
+    }
   }
 }
 
@@ -155,34 +184,49 @@ export class ScopedSyncQueueAdapter<TMeta = Record<string, unknown>> implements 
     const ids = new Set(scoped.map((operation) => operation.operationId));
     await this.base.setMany([
       ...current.filter(
-        (operation) => !ids.has(operation.operationId) && !isSameKeepScope(operation.scope, this.scope),
+        (operation) => !ids.has(operation.operationId) || !isSameKeepScope(operation.scope, this.scope),
       ),
       ...scoped,
     ]);
   }
 
-  remove(operationIds: string[]): Promise<void> {
-    return this.base.remove(operationIds);
+  async remove(operationIds: string[]): Promise<void> {
+    const ids = new Set(operationIds);
+    const scopedIds = (await this.base.getAll())
+      .filter((operation) => ids.has(operation.operationId) && isSameKeepScope(operation.scope, this.scope))
+      .map((operation) => operation.operationId);
+    await this.base.remove(scopedIds);
   }
 
-  clear(): Promise<void> {
-    return this.base
-      .getAll()
-      .then((operations) =>
-        this.base.setMany(operations.filter((operation) => !isSameKeepScope(operation.scope, this.scope))),
-      );
+  async clear(): Promise<void> {
+    const operationIds = (await this.base.getAll())
+      .filter((operation) => isSameKeepScope(operation.scope, this.scope))
+      .map((operation) => operation.operationId);
+    await this.base.remove(operationIds);
   }
 }
 
-async function writeAll<TMeta>(base: StorageAdapter<TMeta>, items: KeepItem<TMeta>[]): Promise<void> {
+async function writeAll<TMeta>(
+  base: StorageAdapter<TMeta>,
+  items: KeepItem<TMeta>[],
+  scope?: KeepScope,
+): Promise<void> {
+  const existing = await base.getAll();
+  const desiredItems = new Set(items.filter((item) => isSameKeepScope(item.scope, scope)).map(itemStorageKey));
+  const removedIds = existing
+    .filter((item) => isSameKeepScope(item.scope, scope) && !desiredItems.has(itemStorageKey(item)))
+    .map((item) => item.id);
+  if (removedIds.length > 0) {
+    if (base.removeMany) await base.removeMany(removedIds, scope);
+    else await Promise.all(removedIds.map((id) => base.remove(id, scope)));
+  }
   if (base.setMany) {
     await base.setMany(items);
     return;
   }
-  const existing = await base.getAll();
-  const ids = new Set(items.map((item) => item.id));
-  for (const item of existing) {
-    if (!ids.has(item.id)) await base.remove(item.id);
-  }
   for (const item of items) await base.set(item);
+}
+
+function itemStorageKey(item: Pick<KeepItem, "id" | "scope">): string {
+  return JSON.stringify([item.scope?.tenantId ?? null, item.scope?.userId ?? null, item.id]);
 }

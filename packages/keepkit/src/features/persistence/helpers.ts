@@ -91,6 +91,8 @@ export function isKeepCollectionDefinition(value: unknown): value is KeepCollect
     value.id.trim().length > 0 &&
     typeof value.name === "string" &&
     value.name.trim().length > 0 &&
+    (value.revision === undefined || typeof value.revision === "string") &&
+    (value.updatedAt === undefined || (typeof value.updatedAt === "number" && Number.isFinite(value.updatedAt))) &&
     (value.scope === undefined || isSyncScope(value.scope))
   );
 }

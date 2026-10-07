@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.5では、独立した閲覧・鑑賞履歴、複数コースの所属、コレクションを含むバックアップ、コース同期、閲覧進行の保存を追加しました。空のコレクション、Inbox、Saved Views、Rediscovery、フィルターサマリーも利用できます。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.6では、並行保存・スコープ分離・バックアップ復元・所属同期を補強し、閲覧履歴の文脈、鑑賞記録の作成／更新日時、見出しIDによる読書位置を追加しました。空のコレクション、Inbox、Saved Views、Rediscovery、フィルターサマリーも利用できます。
 
 ### インストール
 
@@ -117,7 +117,7 @@ const keep = createKeepKit<ArticleMeta>({ storage, locale: "ja" });
 
 ### ストレージと同期
 
-`createBrowserStorageAdapter`はIndexedDBを優先し、利用できない場合はlocalStorageへ切り替えます。サーバー同期が必要な場合は`SyncStorageAdapter`と`RemoteSyncDriver`を組み合わせます。認証方式を固定しない`createAuthenticatedSyncKit`では、リクエストごとのトークン取得、401/403 callback、ユーザー／テナントscope切替、永続オフラインキューをまとめて利用できます。
+`createBrowserStorageAdapter`はIndexedDBを優先し、利用できない場合はlocalStorageへ切り替えます。サーバー同期が必要な場合は`SyncStorageAdapter`と`RemoteSyncDriver`を組み合わせます。認証方式を固定しない`createAuthenticatedSyncKit`では、リクエストごとのトークン取得、401/403 callback、ユーザー／テナントscope切替、永続オフラインキューをまとめて利用できます。スコープ変更やスコープ付きキューの削除・全消去では、他スコープの未送信操作を保持します。
 
 ```tsx
 import { SyncStorageAdapter } from "@keepkit/ui";
@@ -191,9 +191,21 @@ import { KeepThemeProvider } from "@keepkit/ui";
 
 shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keepkit/ui/tailwind"`を使えます。KeepKitはホストの`--color-background`などを上書きせず、`--color-keep-*`としてTailwindへ公開します。機能別に`@keepkit/ui/styles/base.css`、`button.css`、`collection.css`、`sync.css`だけを読み込むこともできます。`KeepButton`は`icons={{ save, saved, remove }}`、`iconOnly`、render propsで表示を差し替えられます。すべての標準コンポーネントは`data-state`、`data-loading`、`data-disabled`とARIA属性を維持します。
 
+### v0.28.6の保存・復元補完
+
+同じストレージインスタンスへの閲覧履歴・鑑賞記録・進行位置の並行書き込みは直列化されます。タブや別インスタンス間の排他は保証しません。ブラウザー保存先が利用できない状態でこれらを書き込むと、`KeepActivityStorageError` または `KeepProgressStorageError` が返ります。SSRでは生成できますが、永続化が必要な操作はブラウザー側で行ってください。
+
+旧単一コレクション項目は、既存ストレージを開いた後、コース別所属を読む機能を使う前に`migrateLegacyCollectionMemberships(storage)`で移行できます。移行後は旧`collectionId`を項目から除き、既存の所属は上書きしません。所属保存に失敗した場合はadapterのエラーが返り、再実行は重複せず続きから処理できます。定義名が存在しないコレクションIDは`missingCollectionIds`で返します。保存アイテムを削除すると、標準のlocalStorage・IndexedDB・スコープadapterでもその所属が消えます。
+
+バックアップは保存アイテム・コレクション定義・所属のみを含み、閲覧履歴・鑑賞記録・進行位置は含みません。置換は空のバックアップも含めて対象scopeを置き換えます。v2バックアップと`importItems()`結果は記録に含まれる`scopes`とデータ種別を示します。別のscopeを含むバックアップはスコープ付きadapterで変更前に拒否します。`imported`、`failed`、`total`は保存アイテムの件数で、`applied`は項目・定義・所属ごとの適用数です。結果は旧v1で失われたコレクションIDも返します。途中で失敗した場合は`KeepBackupImportError.failedStage`と`applied`で部分適用を確認できます。置換はロールバックしません。結合時の同ID名は既定でバックアップを採用し、`collectionNameConflict: "existing"`で既存名を維持できます。
+
+閲覧履歴は`record(itemId, viewedAt, { language: "ja" })`のように文脈を保持します。鑑賞記録は`viewedAt`と`createdAt` / `updatedAt`を分け、既存レコードの作成日時がない場合は最初の更新時刻で補います。読書位置は数値と安定した見出しID文字列に対応します。音声ID・言語・コンテンツ版を`getItem()`へ渡すと、不一致の位置を返しません。
+
+端末間同期では`RemoteSyncDriver.pushMembership()` / `pullMemberships()`を指定すると、所属とコース内順序も永続キューへ入ります。所属解除はアイテム・コレクション削除より先に送信し、pull時は存在しない親への所属を適用しません。membership transportを実装しないdriverでは所属はローカル保存のみです。コレクション操作は`baseRevision`を使う楽観的競合制御に対応し、`KeepCollectionSyncResult`と`resolveCollectionSyncConflict()`で競合・採用結果を扱えます。削除の版/tombstone保持と競合方針はサーバーまたはdriverが実装します。標準画面には自動接続されず、これらの保存・同期・エラー表示はアプリからAPIを呼び出します。
+
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.5 adds independent viewing history and records, multi-course memberships, collection-aware backups, scoped collection sync, and resumable reading or audio progress. Empty collections, Inbox triage, Saved Views, Rediscovery, and active-filter summaries are also available.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.6 strengthens concurrent persistence, scope isolation, backup restore, and membership sync, and adds history context, viewing-record timestamps, and heading-ID reading positions. Empty collections, Inbox triage, Saved Views, Rediscovery, and active-filter summaries are also available.
 
 ### Installation
 
@@ -295,7 +307,7 @@ To return to an item from a save confirmation, update `KeepCollection` with `rev
 
 Use `createKeepKitPreset({ mode: "local" | "sync" | "backup", scope, remote })` to compose isolated storage, sync queues, and backups for a user/tenant. UI labels support the 16 built-in locales; pass `labels` for text overrides and `labelOptions` for visibility or an additional text override to `KeepKitProvider` or `KeepUiProvider`, for example `{ collection: { text: "Category", visible: false } }`. Required ARIA names remain available when visible text is hidden.
 
-Use `createAuthenticatedSyncKit` when the host supplies authentication. It refreshes the token for each request, reports 401/403 failures through callbacks, isolates storage and queues by scope, and resumes durable offline work after reconnecting. See `examples/authenticated-sync` for a transport recipe.
+Use `createAuthenticatedSyncKit` when the host supplies authentication. It refreshes the token for each request, reports 401/403 failures through callbacks, isolates storage and queues by scope, and resumes durable offline work after reconnecting. Scope changes and scoped queue removal or clearing preserve pending operations for other scopes. See `examples/authenticated-sync` for a transport recipe.
 
 Use `KeepItemStatusBadge`, `KeepStaleNotice`, and `KeepPruneStaleButton` for unavailable-item recovery. `KeepSyncStatusBanner` and `KeepSyncRecoveryDialog` expose retry, local/server/manual conflict resolution, and backup restoration guidance. Optionally import `@keepkit/ui/theme.css` for CSS-variable theming, dark mode, and mobile typography.
 External detail URLs receive `target="_blank"` and `rel="noreferrer"` defaults. Unavailable cards expose `aria-disabled="true"` and normalized `data-item-status` values, while the recovery dialog compares local and remote updated dates and notes side by side.
@@ -321,6 +333,18 @@ import { KeepThemeProvider, KeepCollection } from "@keepkit/ui";
 Color themes are `default`, `ocean`, `forest`, `sunset`, and `lavender`. Existing `compact`, `minimal`, `rounded`, `high-contrast`, and `dark` presets remain available. `theme` composes with `mode`, `density`, and `radius`; for example, use `KeepKitProvider theme="forest" mode="dark"`. The exported `keepThemeNames` list can populate a theme selector. `accentColor`, `highContrast`, `reducedMotion`, and `variables` remain available for overrides. `.dark`, `prefers-color-scheme`, mobile one-column fallbacks, and reduced motion are built in. Import `keepKitTheme` from `@keepkit/ui/tailwind` when a JavaScript theme map is useful, or import only `@keepkit/ui/styles/base.css`, `button.css`, `collection.css`, and `sync.css`. KeepKit's Tailwind aliases are namespaced as `--color-keep-*`, so host aliases remain untouched. `KeepButton` accepts `icons={{ save, saved, remove }}` and `iconOnly`, while render props remain the full escape hatch.
 
 The UI includes complete built-in dictionaries for 16 locales: `en`, `ja`, `ko`, `zh-Hans`, `zh-Hant`, `th`, `fr`, `es`, `pt-BR`, `it`, `de`, `ru`, `fil`, `vi`, `id`, and `ms`. `zh-CN` and `zh-TW` remain supported aliases.
+
+### Persistence and restore improvements in v0.28.6
+
+Concurrent writes to history, viewing records, and progress are serialized within one storage instance. They are not locked across tabs or separate instances. Writes throw `KeepActivityStorageError` or `KeepProgressStorageError` when browser storage is unavailable. The classes can be constructed during SSR, but persistent writes must run in the browser.
+
+After opening existing storage and before reading course-specific memberships, run `migrateLegacyCollectionMemberships(storage)`. It moves the old `collectionId` into a membership, clears that legacy item field after migration, and leaves existing memberships untouched. Adapter write errors are returned; rerunning after a partial failure is safe and does not duplicate memberships. Collection IDs without a same-scope definition name are returned in `missingCollectionIds`. Removing a saved item also removes its memberships in the standard localStorage, IndexedDB, and scoped adapters.
+
+Backups include saved items, collection definitions, and memberships. They exclude history, viewing records, and progress. Replace imports replace the requested scope even when the backup is empty. Version 2 backups and `importItems()` results expose the `scopes` and data types represented by their records. A scoped adapter rejects a backup containing another scope before changing data. `imported`, `failed`, and `total` count saved items; `applied` reports item, definition, and membership counts separately. Results also return missing collection IDs from v1 backups. If an operation fails partway through, `KeepBackupImportError.failedStage` and `applied` report the partial result. Replace has no rollback. Merge uses the backup's name for same-ID collection conflicts by default; set `collectionNameConflict: "existing"` to keep the existing name.
+
+Store revisit context with `record(itemId, viewedAt, { language: "ja" })`. Viewing records separate self-reported `viewedAt` from `createdAt` and `updatedAt`; a legacy record without creation metadata gets its first-update time as a migration value. Reading positions accept numeric offsets or stable heading ID strings. Pass audio ID, language, and content version to `getItem()` to withhold incompatible positions.
+
+For cross-device sync, implement `RemoteSyncDriver.pushMembership()` and `pullMemberships()` to include memberships and per-course order in the durable queue. Membership removals are sent before item or collection deletions, and pulls skip memberships whose parent is missing. Without membership transport hooks, membership changes remain local. Collection operations support optimistic conflict checks through `baseRevision`; `KeepCollectionSyncResult` and `resolveCollectionSyncConflict()` expose conflicts and selected outcomes. The server or driver owns revision policy and deletion tombstone retention. These APIs are not automatically connected to standard UI; the application calls them and handles storage errors and sync presentation.
 
 See [MIGRATION.md](./MIGRATION.md) for the v0.4 migration and [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the complete changelog.
 

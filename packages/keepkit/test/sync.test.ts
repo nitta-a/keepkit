@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createAuthenticatedSyncKit,
+  type KeepCollectionMembership,
   type KeepItem,
   KeepStorageAccessError,
   KeepSyncAuthError,
   LocalStorageAdapter,
+  type StorageAdapter,
   type SyncOperation,
   type SyncQueueAdapter,
 } from "../dist/core.js";
@@ -13,6 +15,7 @@ import {
   FallbackSyncQueueAdapter,
   IndexedDBSyncQueueAdapter,
   LocalStorageSyncQueueAdapter,
+  ScopedSyncQueueAdapter,
   SyncStorageAdapter,
 } from "../dist/storage.js";
 
@@ -77,6 +80,56 @@ test("persists, filters, and clears local sync queue operations", async () => {
   await unavailable.setMany([operation("a")]);
   await unavailable.remove([operation("a").operationId]);
   await unavailable.clear();
+});
+
+test("scoped sync queues preserve pending work and restrict removals to their scope", async () => {
+  const aliceScope = { tenantId: "tenant-1", userId: "alice" };
+  const bobScope = { tenantId: "tenant-1", userId: "bob" };
+  const alicePending = { ...operation("alice-pending"), scope: aliceScope };
+  const bobPending = { ...operation("bob-pending"), scope: bobScope };
+  const { queue, operations } = createMemoryQueue([alicePending, bobPending]);
+  const scoped = new ScopedSyncQueueAdapter(queue, aliceScope);
+
+  await scoped.setMany([operation("alice-new")]);
+  assert.deepEqual(
+    operations.map((entry) => entry.operationId).sort(),
+    [alicePending.operationId, bobPending.operationId, operation("alice-new").operationId].sort(),
+  );
+  assert.deepEqual(await scoped.getAll(), [alicePending, { ...operation("alice-new"), scope: aliceScope }]);
+
+  await scoped.remove([bobPending.operationId, alicePending.operationId]);
+  assert.deepEqual(
+    operations.map((entry) => entry.operationId).sort(),
+    [bobPending.operationId, operation("alice-new").operationId].sort(),
+  );
+  await scoped.clear();
+  assert.deepEqual(operations, [bobPending]);
+});
+
+test("sync adapters with a custom queue only flush their active scope", async () => {
+  const aliceScope = { tenantId: "tenant-1", userId: "alice" };
+  const bobPending = { ...operation("bob-pending"), scope: { tenantId: "tenant-1", userId: "bob" } };
+  const alicePending = { ...operation("alice-pending"), scope: aliceScope };
+  const { queue, operations } = createMemoryQueue([alicePending, bobPending]);
+  const pushedScopes: string[] = [];
+  const adapter = new SyncStorageAdapter({
+    local: new LocalStorageAdapter({ key: "sync-scoped-queue", storage: createStorage() }),
+    queue,
+    scope: aliceScope,
+    remote: {
+      push: async (entry) => {
+        pushedScopes.push(entry.scope?.userId ?? "unscoped");
+        return { type: "synced" as const };
+      },
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await adapter.flushSync();
+
+  assert.deepEqual(pushedScopes, ["alice"]);
+  assert.deepEqual(operations, [bobPending]);
+  adapter.dispose();
 });
 
 test("switches sync queue adapters only for selected primary failures", async () => {
@@ -490,13 +543,23 @@ test("authenticated collection transport carries request tokens and the active s
         requests.push({ token: context.token, scope: context.scope });
         return [];
       },
+      pushMembership: async (_operation, context) => {
+        requests.push({ token: context.token, scope: context.scope });
+      },
+      pullMemberships: async (context) => {
+        requests.push({ token: context.token, scope: context.scope });
+        return [];
+      },
     },
     now: () => 10,
   });
 
   await kit.storage.setCollection?.({ id: "course-a", name: "Course A" });
+  await kit.storage.setCollectionMembership?.({ collectionId: "course-a", itemId: "guide-a", order: 0 });
   await kit.storage.flushSync();
   assert.deepEqual(requests, [
+    { token: "token-a", scope: { userId: "user-a", tenantId: "tenant-a" } },
+    { token: "token-a", scope: { userId: "user-a", tenantId: "tenant-a" } },
     { token: "token-a", scope: { userId: "user-a", tenantId: "tenant-a" } },
     { token: "token-a", scope: { userId: "user-a", tenantId: "tenant-a" } },
   ]);
@@ -686,5 +749,424 @@ test("syncs collection definitions through the scoped durable queue", async () =
   await adapter.flushSync();
   assert.deepEqual(await adapter.getCollections?.(), []);
   assert.deepEqual(await adapter.getCollectionMemberships?.(), []);
+  adapter.dispose();
+});
+
+test("syncs membership order changes and removals through the durable queue", async () => {
+  const remoteMemberships = new Map<string, { collectionId: string; itemId: string; order: number }>();
+  const makeAdapter = (key: string) => {
+    const local = new LocalStorageAdapter({ key, storage: createStorage() });
+    return new SyncStorageAdapter({
+      local,
+      queue: createMemoryQueue().queue,
+      remote: {
+        push: async () => ({ type: "synced" as const }),
+        pushMembership: async (operation) => {
+          if (operation.type === "remove") remoteMemberships.delete(operation.id);
+          else if (operation.membership) remoteMemberships.set(operation.id, operation.membership);
+        },
+        pullMemberships: async () => [...remoteMemberships.values()],
+      },
+    });
+  };
+  const first = makeAdapter("membership-sync-a");
+  const second = makeAdapter("membership-sync-b");
+  for (const adapter of [first, second]) {
+    for (const id of ["guide-a", "guide-b", "guide-c"]) {
+      await adapter.set({ id, savedAt: 1, updatedAt: 1, meta: {} });
+    }
+    await adapter.setCollection?.({ id: "course-a", name: "Course A" });
+    await adapter.setCollection?.({ id: "course-b", name: "Course B" });
+  }
+  await first.setCollectionMembership?.({ collectionId: "course-a", itemId: "guide-a", order: 0 });
+  await first.setCollectionMembership?.({ collectionId: "course-a", itemId: "guide-b", order: 1 });
+  await first.setCollectionMembership?.({ collectionId: "course-b", itemId: "guide-c", order: 0 });
+  await first.setCollectionMembership?.({ collectionId: "course-b", itemId: "guide-a", order: 1 });
+  await first.flushSync();
+  await second.flushSync();
+  assert.deepEqual(
+    (await second.getCollectionMemberships?.())?.sort(
+      (a, b) => a.collectionId.localeCompare(b.collectionId) || a.order - b.order,
+    ),
+    [
+      { collectionId: "course-a", itemId: "guide-a", order: 0 },
+      { collectionId: "course-a", itemId: "guide-b", order: 1 },
+      { collectionId: "course-b", itemId: "guide-c", order: 0 },
+      { collectionId: "course-b", itemId: "guide-a", order: 1 },
+    ],
+  );
+  await first.setCollectionMembership?.({ collectionId: "course-a", itemId: "guide-b", order: 0 });
+  await first.setCollectionMembership?.({ collectionId: "course-a", itemId: "guide-a", order: 1 });
+  await first.flushSync();
+  await second.flushSync();
+  assert.deepEqual(
+    (await second.getCollectionMemberships?.())?.filter((membership) => membership.collectionId === "course-b"),
+    [
+      { collectionId: "course-b", itemId: "guide-c", order: 0 },
+      { collectionId: "course-b", itemId: "guide-a", order: 1 },
+    ],
+  );
+  await first.removeCollectionMembership?.("course-a", "guide-a");
+  await first.flushSync();
+  await second.flushSync();
+  assert.deepEqual(
+    (await second.getCollectionMemberships?.())?.filter((membership) => membership.collectionId === "course-b"),
+    [
+      { collectionId: "course-b", itemId: "guide-c", order: 0 },
+      { collectionId: "course-b", itemId: "guide-a", order: 1 },
+    ],
+  );
+  assert.deepEqual(
+    (await second.getCollectionMemberships?.())?.filter((membership) => membership.collectionId === "course-a"),
+    [{ collectionId: "course-a", itemId: "guide-b", order: 0 }],
+  );
+  first.dispose();
+  second.dispose();
+});
+
+test("membership operations survive a lost acknowledgement and replay idempotently", async () => {
+  const storage = createStorage();
+  const local = new LocalStorageAdapter({ key: "membership-replay", storage });
+  const queueKey = "membership-replay-queue";
+  const remoteMemberships = new Map<string, { collectionId: string; itemId: string; order: number }>();
+  const attempts: string[] = [];
+  await local.set(itemA);
+  await local.setCollection?.({ id: "course-a", name: "Course A" });
+  const createAdapter = () =>
+    new SyncStorageAdapter({
+      local,
+      queue: new LocalStorageSyncQueueAdapter({ key: queueKey, storage }),
+      maxRetries: 0,
+      remote: {
+        push: async () => ({ type: "synced" as const }),
+        pushMembership: async (operation) => {
+          attempts.push(operation.operationId);
+          if (operation.type === "upsert" && operation.membership) {
+            remoteMemberships.set(operation.id, operation.membership);
+          }
+          if (attempts.length === 1) throw new Error("acknowledgement lost");
+        },
+      },
+    });
+  const first = createAdapter();
+  await first.setCollectionMembership?.({ collectionId: "course-a", itemId: itemA.id, order: 0 });
+  await first.flushSync();
+  assert.equal(first.getSyncState().status, "error");
+  assert.equal((await new LocalStorageSyncQueueAdapter({ key: queueKey, storage }).getAll()).length, 1);
+  first.dispose();
+
+  const second = createAdapter();
+  await second.flushSync();
+
+  assert.equal(remoteMemberships.size, 1);
+  assert.equal(attempts.length, 2);
+  assert.equal(attempts[0], attempts[1]);
+  assert.equal((await new LocalStorageSyncQueueAdapter({ key: queueKey, storage }).getAll()).length, 0);
+  second.dispose();
+});
+
+test("collection revision conflicts report outcomes and support host resolution", async () => {
+  const local = new LocalStorageAdapter({ key: "collection-conflict", storage: createStorage() });
+  let pushCount = 0;
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote: {
+      push: async () => ({ type: "synced" as const }),
+      pushCollection: async (operation) => {
+        pushCount += 1;
+        if (pushCount === 1) {
+          assert.equal(operation.baseRevision, "revision-1");
+          return {
+            type: "conflict" as const,
+            resolution: "manual" as const,
+            deleted: true,
+            revision: "revision-2",
+          };
+        }
+        return { type: "synced" as const, deleted: true, revision: "revision-3" };
+      },
+    },
+  });
+  await local.setCollection({ id: "course-a", name: "Local", revision: "revision-1" });
+  await adapter.setCollection?.({ id: "course-a", name: "Renamed", revision: "revision-1" });
+  await adapter.flushSync();
+  assert.equal(adapter.getSyncState().collectionConflicts?.[0]?.resolution, "manual");
+  await adapter.resolveCollectionSyncConflict?.("course-a", "remote");
+  assert.deepEqual(await adapter.getCollections?.(), []);
+  assert.equal(adapter.getSyncState().pendingCount, 0);
+  adapter.dispose();
+});
+
+test("a local collection conflict outcome preserves a local rename against a remote tombstone", async () => {
+  const local = new LocalStorageAdapter({ key: "collection-local-wins", storage: createStorage() });
+  await local.setCollection({ id: "course-a", name: "Original", revision: "revision-1" });
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote: {
+      push: async () => ({ type: "synced" as const }),
+      pushCollection: async () => ({
+        type: "conflict" as const,
+        resolution: "local" as const,
+        deleted: true,
+        revision: "revision-2",
+      }),
+    },
+  });
+
+  await adapter.setCollection?.({ id: "course-a", name: "Renamed Locally", revision: "revision-1" });
+  await adapter.flushSync();
+
+  assert.deepEqual(await adapter.getCollections?.(), [
+    { id: "course-a", name: "Renamed Locally", revision: "revision-2" },
+  ]);
+  assert.equal(adapter.getSyncState().collectionConflicts?.[0]?.resolution, "local");
+  assert.equal(adapter.getSyncState().pendingCount, 0);
+  adapter.dispose();
+});
+
+test("a local collection deletion outcome is not reversed by a remote rename", async () => {
+  const local = new LocalStorageAdapter({ key: "collection-local-delete-wins", storage: createStorage() });
+  await local.setCollection({ id: "course-a", name: "Original", revision: "revision-1" });
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote: {
+      push: async () => ({ type: "synced" as const }),
+      pushCollection: async () => ({
+        type: "conflict" as const,
+        resolution: "local" as const,
+        deleted: false,
+        collection: { id: "course-a", name: "Renamed Remotely" },
+        revision: "revision-2",
+      }),
+    },
+  });
+
+  await adapter.removeCollection?.("course-a");
+  await adapter.flushSync();
+
+  assert.deepEqual(await adapter.getCollections?.(), []);
+  assert.equal(adapter.getSyncState().collectionConflicts?.[0]?.resolution, "local");
+  adapter.dispose();
+});
+
+test("item removal does not queue membership operations unsupported by the remote driver", async () => {
+  const local = new LocalStorageAdapter({ key: "membership-unsupported", storage: createStorage() });
+  await local.set(itemA);
+  await local.setCollection?.({ id: "course-a", name: "Course A" });
+  await local.setCollectionMembership?.({ collectionId: "course-a", itemId: itemA.id, order: 0 });
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote: { push: async () => ({ type: "synced" as const }) },
+  });
+
+  await adapter.remove(itemA.id);
+  await adapter.flushSync();
+
+  assert.deepEqual(await adapter.getCollectionMemberships?.(), []);
+  assert.equal(adapter.getSyncState().status, "synced");
+  assert.equal(adapter.getSyncState().pendingCount, 0);
+  adapter.dispose();
+});
+
+test("collection removal queues remote membership cleanup", async () => {
+  const local = new LocalStorageAdapter({ key: "membership-collection-removal", storage: createStorage() });
+  const removedMemberships: string[] = [];
+  const pushes: string[] = [];
+  await local.set(itemA);
+  await local.setCollection?.({ id: "course-a", name: "Course A" });
+  await local.setCollectionMembership?.({ collectionId: "course-a", itemId: itemA.id, order: 0 });
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote: {
+      push: async () => ({ type: "synced" as const }),
+      pushCollection: async () => {
+        pushes.push("collection");
+        return { type: "synced" as const, deleted: true };
+      },
+      pushMembership: async (operation) => {
+        if (operation.type === "remove") {
+          removedMemberships.push(operation.id);
+          pushes.push("membership");
+        }
+      },
+    },
+  });
+
+  await adapter.removeCollection?.("course-a");
+  await adapter.flushSync();
+
+  assert.deepEqual(removedMemberships, ["course-a\u0000a"]);
+  assert.deepEqual(pushes, ["membership", "collection"]);
+  assert.deepEqual(await adapter.getCollectionMemberships?.(), []);
+  assert.equal(adapter.getSyncState().pendingCount, 0);
+  adapter.dispose();
+});
+
+test("membership snapshots skip references to missing items or collections", async () => {
+  const local = new LocalStorageAdapter({ key: "membership-orphans", storage: createStorage() });
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote: {
+      push: async () => ({ type: "synced" as const }),
+      pull: async () => [],
+      pullCollections: async () => [],
+      pullMemberships: async () => [{ collectionId: "missing-course", itemId: "missing-item", order: 0 }],
+    },
+  });
+
+  await adapter.flushSync();
+
+  assert.deepEqual(await adapter.getCollectionMemberships?.(), []);
+  adapter.dispose();
+});
+
+test("membership pulls require local collection definitions before applying memberships", async () => {
+  const memberships: KeepCollectionMembership[] = [];
+  const local: StorageAdapter = {
+    getAll: async () => [itemA],
+    set: async () => undefined,
+    remove: async () => undefined,
+    clear: async () => undefined,
+    getCollectionMemberships: async () => memberships,
+    setCollectionMembership: async (membership) => void memberships.push(membership),
+    removeCollectionMembership: async (collectionId, itemId) => {
+      const index = memberships.findIndex(
+        (membership) => membership.collectionId === collectionId && membership.itemId === itemId,
+      );
+      if (index !== -1) memberships.splice(index, 1);
+    },
+  };
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote: {
+      push: async () => ({ type: "synced" as const }),
+      pull: async () => [],
+      pullMemberships: async () => [{ collectionId: "missing-course", itemId: itemA.id, order: 0 }],
+    },
+  });
+
+  await adapter.flushSync();
+
+  assert.deepEqual(memberships, []);
+  adapter.dispose();
+});
+
+test("scoped pulls assign the active scope to unscoped remote snapshots", async () => {
+  const local = new LocalStorageAdapter({ key: "membership-scoped-pull", storage: createStorage() });
+  await local.set({ ...itemA, scope: { userId: "user-a" } });
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    scope: { userId: "user-a" },
+    remote: {
+      push: async () => ({ type: "synced" as const }),
+      pull: async () => [itemA],
+      pullCollections: async () => [{ id: "course-a", name: "Course A" }],
+      pullMemberships: async () => [{ collectionId: "course-a", itemId: itemA.id, order: 0 }],
+    },
+  });
+
+  await adapter.flushSync();
+
+  assert.deepEqual(await adapter.getCollections?.(), [
+    { id: "course-a", name: "Course A", scope: { userId: "user-a" } },
+  ]);
+  assert.deepEqual(await adapter.getCollectionMemberships?.(), [
+    { collectionId: "course-a", itemId: itemA.id, order: 0, scope: { userId: "user-a" } },
+  ]);
+  adapter.dispose();
+});
+
+test("scoped sync deletion and clear preserve another scope with the same item IDs", async () => {
+  const local = new LocalStorageAdapter({ key: "scoped-sync-delete", storage: createStorage() });
+  await local.setMany([
+    { ...itemA, scope: { userId: "user-a" } },
+    { ...itemA, scope: { userId: "user-b" } },
+    { ...itemB, scope: { userId: "user-a" } },
+    { ...itemB, scope: { userId: "user-b" } },
+  ]);
+  await local.setCollection?.({ id: "course", name: "Course A", scope: { userId: "user-a" } });
+  await local.setCollection?.({ id: "course", name: "Course B", scope: { userId: "user-b" } });
+  await local.setCollectionMembership?.({
+    collectionId: "course",
+    itemId: itemA.id,
+    order: 0,
+    scope: { userId: "user-a" },
+  });
+  await local.setCollectionMembership?.({
+    collectionId: "course",
+    itemId: itemA.id,
+    order: 0,
+    scope: { userId: "user-b" },
+  });
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    scope: { userId: "user-a" },
+    remote: {
+      push: async () => ({ type: "synced" as const }),
+      pushMembership: async () => undefined,
+    },
+  });
+
+  await adapter.remove(itemA.id);
+  await adapter.flushSync();
+  assert.deepEqual(
+    (await adapter.getAll()).map((item) => item.id),
+    [itemB.id],
+  );
+  assert.deepEqual(
+    (await local.getAll()).map((item) => item.scope?.userId),
+    ["user-b", "user-a", "user-b"],
+  );
+  assert.deepEqual(await adapter.getCollectionMemberships?.(), []);
+  assert.deepEqual(
+    (await local.getCollectionMemberships()).map((entry) => entry.scope?.userId),
+    ["user-b"],
+  );
+
+  await adapter.clear();
+  assert.deepEqual(await adapter.getAll(), []);
+  assert.deepEqual(
+    (await local.getAll()).map((item) => item.scope?.userId),
+    ["user-b", "user-b"],
+  );
+  assert.deepEqual(
+    (await local.getCollectionMemberships()).map((entry) => entry.scope?.userId),
+    ["user-b"],
+  );
+  adapter.dispose();
+});
+
+test("remote collection conflict resolution saves the server revision", async () => {
+  const local = new LocalStorageAdapter({ key: "collection-conflict-revision", storage: createStorage() });
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote: {
+      push: async () => ({ type: "synced" as const }),
+      pushCollection: async () => ({
+        type: "conflict" as const,
+        resolution: "manual" as const,
+        deleted: false,
+        collection: { id: "course-a", name: "Remote" },
+        revision: "revision-2",
+      }),
+    },
+  });
+  await adapter.setCollection?.({ id: "course-a", name: "Local" });
+  await adapter.flushSync();
+
+  await adapter.resolveCollectionSyncConflict?.("course-a", "remote");
+
+  assert.deepEqual(await adapter.getCollections?.(), [{ id: "course-a", name: "Remote", revision: "revision-2" }]);
+  assert.equal(adapter.getSyncState().pendingCount, 0);
   adapter.dispose();
 });
