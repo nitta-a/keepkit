@@ -112,7 +112,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.7では、スコープをまたぐ結合と並行所属変更を補強し、履歴・鑑賞記録・進行位置の同一キー更新を保護します。閲覧履歴の文脈、鑑賞記録の作成／更新日時、見出しIDによる読書位置も利用できます。
+v0.28.8では個人用リンクライブラリのデモを刷新し、Inbox、Pinned、Unread、Archive、コレクションの操作を試せます。v0.28.8ではスコープをまたぐ結合、並行所属変更、履歴・鑑賞記録・進行位置の同一キー更新を補強しました。
 Phase 4の状態UIとして`KeepItemStatusBadge`、`KeepStaleNotice`、`KeepPruneStaleButton`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog`を利用できます。`import "@keepkit/ui/theme.css"`でテーマCSSを有効にできます。
 
 ### Tailwind／shadcnテーマ
@@ -256,7 +256,7 @@ const onFeedback = useKeepToastFeedback(toast);
 <KeepKitProvider storage={storage} onFeedback={onFeedback}>{children}</KeepKitProvider>;
 ```
 
-v0.28.7 strengthens scope-aware merging, concurrent membership changes, and same-key updates to history, viewing records, and progress. It also includes history context, viewing-record timestamps, and heading-ID reading positions. Inbox triage, Saved Views, activity tracking, Rediscovery, and removable active-filter summaries remain available.
+v0.28.8 refreshes the personal link library demo with Inbox, Pinned, Unread, Archive, and collection workflows. v0.28.8 strengthened scope-aware merging, concurrent membership changes, and same-key updates to history, viewing records, and progress. Inbox triage, Saved Views, activity tracking, Rediscovery, and removable active-filter summaries remain available.
 Phase 4 adds `KeepItemStatusBadge`, `KeepStaleNotice`, `KeepPruneStaleButton`, `KeepSyncStatusBanner`, and `KeepSyncRecoveryDialog` for unavailable items, sync failures, conflict resolution, and backup recovery. Import `@keepkit/ui/theme.css` or `@keepkit/ui/tailwind.css` for the opt-in theme layer.
 
 ### Tailwind and shadcn theme

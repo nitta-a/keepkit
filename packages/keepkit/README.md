@@ -52,7 +52,7 @@ const list = useKeepList({
 
 保存対象の公開状態は`KeepItem.status`（`expired`、`removed`、`private`など）と`statusReason`で保持できます。`KeepProvider`の`validateItem` / `resolveItem`を指定すると、引数なしの`revalidateItems()`で検証できます。`revalidateItems`に`removeStatuses`を渡すと検出したアイテムを保存一覧から削除します。`SyncStorageAdapter`は`userId`、`tenantId`、`maxRetries`、`retryDelayMs`、`retryBackoff`に対応し、`retrySync()`で失敗後の同期を再開できます。
 
-v0.28.7では、スコープをまたぐ結合と並行所属変更を補強し、履歴・鑑賞記録・進行位置の同一キー更新を保護します。閲覧履歴の文脈、鑑賞記録の作成／更新日時、見出しIDによる読書位置も利用できます。
+v0.28.8では個人用リンクライブラリのデモを刷新し、ブラウザー内でのリンク保存、整理、検索、バックアップを試せます。v0.28.8ではスコープをまたぐ結合と並行所属変更を補強し、履歴・鑑賞記録・進行位置の同一キー更新を保護しました。
 
 `createAuthenticatedSyncKit`は、リクエストごとの`getAuthToken`、注入可能なpush/pull transport、401/403時の再認証callback、永続オフラインキュー、`setScope`による安全なユーザー／テナント切替を提供します。スコープを切り替えたり対象スコープのキューを削除・全消去しても、他スコープの未送信操作は保持されます。詳細は[`examples/authenticated-sync`](../../examples/authenticated-sync/README.md)を参照してください。
 
@@ -111,7 +111,7 @@ Use `@keepkit/core/core` for framework-neutral code, `@keepkit/core/react` for R
 
 `KeepItem.status` and `statusReason` preserve source availability such as `expired`, `removed`, and `private`. Configure `KeepProvider` with `validateItem` / `resolveItem` to make `revalidateItems()` use those hooks by default. Pass `removeStatuses` to remove detected items from storage. `SyncStorageAdapter` supports scoped queues with `userId` and `tenantId`, configurable retries/backoff, and explicit `retrySync()` recovery.
 
-v0.28.7 strengthens scope-aware merging, concurrent membership changes, and same-key updates to history, viewing records, and progress. It also includes history context, viewing-record timestamps, and heading-ID reading positions.
+v0.28.8 refreshes the personal link library demo for browser-local saving, organization, search, and backups. v0.28.8 strengthened scope-aware merging, concurrent membership changes, and same-key updates to history, viewing records, and progress.
 
 `createAuthenticatedSyncKit` provides a per-request `getAuthToken`, injectable push/pull transport, 401/403 reauthentication callbacks, persistent offline queues, and `setScope` for safe user or tenant changes. Scope changes and scoped queue removal or clearing preserve pending operations for other scopes. See [`examples/authenticated-sync`](../../examples/authenticated-sync/README.md) for a recipe.
 
@@ -129,7 +129,7 @@ The standard browser adapters persist explicit collection definitions and course
 
 標準ブラウザーストレージは、空のコレクション、変更した名前、コース別の所属と順序をアイテムとは別に永続化します。独自の`StorageAdapter`では`getCollections`、`setCollection`、`removeCollection`と`getCollectionMemberships`、`setCollectionMembership`、`removeCollectionMembership`を実装すると保存できます。`clear()`は保存アイテムのみを消去し、JSONバックアップv2はコレクションと所属も含みます。リモート同期は任意のコレクション用transportを追加すると利用できます。
 
-### v0.28.7の保存・復元補完
+### v0.28.8の保存・復元補完
 
 同じlocalStorageキーへの履歴・鑑賞記録・進行位置の書き込みは、Web Locks APIが使えるブラウザーではタブ・インスタンス間で直列化されます。同一realm内の複数インスタンスもキーごとに直列化します。`saveItem()`は同じガイドの既存進行情報を読み、指定フィールドだけ更新して他の位置情報を保ちます。鑑賞記録・進行レコードの`set()`で古い`updatedAt`の値が届いた場合は、新しい保存値を残します。Web Locks APIがないブラウザーでは、競合上書きを避けるため書き込み前に`KeepActivityStorageError`または`KeepProgressStorageError`で失敗します。ブラウザー保存先がない場合も同じエラー型で失敗します。SSRでは初期化できますが、保存操作はブラウザー側で呼び出してください。
 
@@ -177,7 +177,7 @@ const record = { id: "viewing-1", itemId: "guide-1", viewedAt: Date.now(), note:
 await viewings.set(record); // Reuse this stable ID when retrying the write.
 ```
 
-### Persistence and restore improvements in v0.28.7
+### Persistence and restore improvements in v0.28.8
 
 Writes to history, viewing records, and progress using the same localStorage key are serialized across tabs and instances when the browser provides the Web Locks API. Separate instances in one realm are also serialized by key. `saveItem()` reads existing progress for the same guide and updates only the supplied fields, preserving other positions. For viewing records and progress, `set()` does not replace a newer record with a value whose `updatedAt` is older. In a browser without Web Locks, writes fail before mutation with `KeepActivityStorageError` or `KeepProgressStorageError` to avoid silently overwriting concurrent data. The same error types report unavailable browser storage. Construction is SSR-safe; call persistent writes in the browser.
 

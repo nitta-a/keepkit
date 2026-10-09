@@ -4,7 +4,7 @@
 
 ## 日本語
 
-KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.7では、スコープをまたぐ結合と並行所属変更を補強し、履歴・鑑賞記録・進行位置の同一キー更新を保護します。閲覧履歴の文脈、鑑賞記録の作成／更新日時、見出しIDによる読書位置も利用できます。
+KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.8では個人用リンクライブラリのデモを刷新し、リンク保存、整理、検索、バックアップをブラウザー内で試せます。スコープをまたぐ結合、並行所属変更、履歴・鑑賞記録・進行位置の同一キー更新も保護します。
 
 ### インストール
 
@@ -191,7 +191,7 @@ import { KeepThemeProvider } from "@keepkit/ui";
 
 shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keepkit/ui/tailwind"`を使えます。KeepKitはホストの`--color-background`などを上書きせず、`--color-keep-*`としてTailwindへ公開します。機能別に`@keepkit/ui/styles/base.css`、`button.css`、`collection.css`、`sync.css`だけを読み込むこともできます。`KeepButton`は`icons={{ save, saved, remove }}`、`iconOnly`、render propsで表示を差し替えられます。すべての標準コンポーネントは`data-state`、`data-loading`、`data-disabled`とARIA属性を維持します。
 
-### v0.28.7の保存・復元補完
+### v0.28.8の保存・復元補完
 
 同じlocalStorageキーへの履歴・鑑賞記録・進行位置の書き込みは、Web Locks APIが使えるブラウザーではタブ・インスタンス間で直列化されます。同一realm内の複数インスタンスもキーごとに直列化します。`saveItem()`は同じガイドの既存進行情報を読み、指定フィールドだけ更新して他の位置情報を保ちます。鑑賞記録・進行レコードの`set()`で古い`updatedAt`の値が届いた場合は、新しい保存値を残します。ブラウザーにWeb Locks APIがなく、`window`がある場合は、競合上書きを避けるため書き込み前に`KeepActivityStorageError`または`KeepProgressStorageError`で失敗します。ブラウザー保存先がない場合も同じエラー型で失敗します。SSRでは初期化できますが、永続化が必要な操作はブラウザー側で行ってください。
 
@@ -205,7 +205,7 @@ shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keep
 
 ## English
 
-KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.7 strengthens scope-aware merging, concurrent membership changes, and same-key updates to history, viewing records, and progress. It also includes history context, viewing-record timestamps, and heading-ID reading positions.
+KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.8 refreshes the personal link library demo for browser-local saving, organization, search, and backups. It also strengthens scope-aware merging, concurrent membership changes, and same-key updates to history, viewing records, and progress.
 
 ### Installation
 
@@ -334,7 +334,7 @@ Color themes are `default`, `ocean`, `forest`, `sunset`, and `lavender`. Existin
 
 The UI includes complete built-in dictionaries for 16 locales: `en`, `ja`, `ko`, `zh-Hans`, `zh-Hant`, `th`, `fr`, `es`, `pt-BR`, `it`, `de`, `ru`, `fil`, `vi`, `id`, and `ms`. `zh-CN` and `zh-TW` remain supported aliases.
 
-### Persistence and restore improvements in v0.28.7
+### Persistence and restore improvements in v0.28.8
 
 Writes to history, viewing records, and progress using the same localStorage key are serialized across tabs and instances when the browser provides the Web Locks API. Separate instances in one realm are also serialized by key. `saveItem()` reads existing progress for the same guide and updates only the supplied fields, preserving other positions. For viewing records and progress, `set()` does not replace a newer record with a value whose `updatedAt` is older. In a browser without Web Locks, writes fail before mutation with `KeepActivityStorageError` or `KeepProgressStorageError` to avoid silently overwriting concurrent data. The same error types report unavailable browser storage. The classes can be constructed during SSR, but persistent writes must run in the browser.
 

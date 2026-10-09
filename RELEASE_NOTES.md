@@ -1,5 +1,17 @@
 # Release notes
 
+## [0.28.8] - 2026-10-10
+
+### 日本語
+
+- 個人用リンクライブラリのデモを刷新し、URL保存、Inbox・Pinned・Unread・Archive・コレクションによる整理、検索、タグ、メモ、一括操作を追加しました。
+- ブラウザー内保存、JSONバックアップ、リンク追加ショートカットに対応し、デモの主要操作をテストしました。
+
+### English
+
+- Refreshed the personal link library demo with URL capture, Inbox/Pinned/Unread/Archive/collection organization, search, tags, notes, and bulk actions.
+- Added browser-local persistence, JSON backups, and a link-capture shortcut, with coverage for the main demo workflows.
+
 ## [0.28.7] - 2026-10-07
 
 ### 日本語

@@ -1,9 +1,7 @@
-import type { RemoteSyncDriver } from "@keepkit/core/core";
-import { createBrowserStorageAdapter, SyncStorageAdapter } from "@keepkit/core/storage";
+import { createBrowserStorageAdapter } from "@keepkit/core/storage";
 import {
   type KeepCollectionRevealResult,
   KeepKitProvider,
-  type KeepThemeName,
   type KeepToastFeedbackOptions,
   type KeepUiFeedbackEvent,
   useKeepToastFeedback,
@@ -25,30 +23,12 @@ export type DemoMeta = {
   salary?: string;
 };
 
-const localStorage = createBrowserStorageAdapter<DemoMeta>({
+const storage = createBrowserStorageAdapter<DemoMeta>({
   key: "keepkit-demo:items",
   databaseName: "keepkit-demo",
 });
-const remote: RemoteSyncDriver<DemoMeta> = {
-  async push(operation) {
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      throw new Error("The demo is offline; the operation remains queued.");
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    return { type: "synced", ...(operation.item ? { item: operation.item } : {}) };
-  },
-  pull: async () => [],
-};
-const storage = new SyncStorageAdapter({ local: localStorage, remote });
 const rootElement = document.getElementById("root");
-const demoThemes = ["default", "ocean", "forest", "sunset", "lavender"] as const satisfies readonly KeepThemeName[];
-
-function isDemoTheme(value: string): value is (typeof demoThemes)[number] {
-  return demoThemes.some((theme) => theme === value);
-}
-
 function Demo() {
-  const [theme, setTheme] = useState<(typeof demoThemes)[number]>("default");
   const [toast, setToast] = useState<{ message: string; options?: KeepToastFeedbackOptions }>();
   const [revealRequest, setRevealRequest] = useState<{ requestId: number; itemId: string }>();
   const revealId = useRef(0);
@@ -65,7 +45,7 @@ function Demo() {
       }
       showToast(event.message, {
         action: {
-          label: "View in collection",
+          label: "View in library",
           onClick: () => {
             revealId.current += 1;
             setRevealRequest({ requestId: revealId.current, itemId: event.item.id });
@@ -98,24 +78,7 @@ function Demo() {
   );
 
   return (
-    <KeepKitProvider<DemoMeta> storage={storage} theme={theme} mode="light" radius="large" onFeedback={onFeedback}>
-      <label className="theme-switcher">
-        Theme
-        <select
-          value={theme}
-          onChange={(event) => {
-            const nextTheme = event.currentTarget.value;
-            if (isDemoTheme(nextTheme)) setTheme(nextTheme);
-          }}
-        >
-          {demoThemes.map((name) => (
-            <option key={name} value={name}>
-              {name[0]?.toUpperCase()}
-              {name.slice(1)}
-            </option>
-          ))}
-        </select>
-      </label>
+    <KeepKitProvider<DemoMeta> storage={storage} theme="forest" mode="light" radius="large" onFeedback={onFeedback}>
       <App {...(revealRequest ? { revealRequest } : {})} onRevealResult={onRevealResult} />
       {toast ? (
         <aside className="demo-toast" role="status" aria-live="polite">
