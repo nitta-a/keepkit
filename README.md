@@ -6,6 +6,26 @@
 
 KeepKitは、Reactアプリケーションに保存・コレクション機能を追加するための、非同期・ローカルファーストなツールキットです。v0.28.8では個人用リンクライブラリのデモを刷新し、リンク保存、整理、検索、バックアップをブラウザー内で試せます。スコープをまたぐ結合、並行所属変更、履歴・鑑賞記録・進行位置の同一キー更新も保護します。
 
+### デモアプリ
+
+`apps/demo`の実画面です。サンプルを保存し、タグ・コレクション・ピン留めを設定しています。
+Inbox・未読・アーカイブへの切り替え、検索・ソート・タグフィルター、グリッド／リスト表示で保存したリンクを整理できます。
+
+![保存済みリンクの一覧。検索、ソート、タグフィルター、コレクション、ピン留め、Inbox・未読・アーカイブのナビゲーション](docs/images/demo-library.jpg)
+
+<details>
+<summary>リンク保存・バックアップの画面を見る</summary>
+
+タイトル・URL・メモ・保存先コレクションを入力してリンクを保存できます。
+
+![タイトル、URL、メモ、コレクションを指定するリンク保存フォーム](docs/images/demo-save-link.jpg)
+
+データはブラウザー内に保存されます。JSONでバックアップを出力し、Merge（結合）／Replace（置換）で読み込めます。
+
+![ブラウザー内の保存とJSONバックアップの出力・読み込み画面](docs/images/demo-backup.jpg)
+
+</details>
+
 ### インストール
 
 ```bash
@@ -206,6 +226,26 @@ shadcn用のJSマップが必要な場合は`import { keepKitTheme } from "@keep
 ## English
 
 KeepKit is an async, local-first toolkit for adding saved collections to React applications. v0.28.8 refreshes the personal link library demo for browser-local saving, organization, search, and backups. It also strengthens scope-aware merging, concurrent membership changes, and same-key updates to history, viewing records, and progress.
+
+### Demo app
+
+These are actual screens from `apps/demo`, with sample items saved, tagged, assigned to collections, and pinned.
+Organize saved links with Inbox, Unread, and Archive views, search, sorting, tag filters, and grid/list layouts.
+
+![Saved links with search, sorting, tag filters, collections, pinning, and navigation for Inbox, Unread, and Archive](docs/images/demo-library.jpg)
+
+<details>
+<summary>View the link-saving and backup screens</summary>
+
+Save a link with a title, URL, note, and destination collection.
+
+![Link-saving form with title, URL, note, and collection fields](docs/images/demo-save-link.jpg)
+
+Data stays in the browser. Export a JSON backup and import it using Merge or Replace mode.
+
+![Browser-local storage and JSON backup export and import controls](docs/images/demo-backup.jpg)
+
+</details>
 
 ### Installation
 
