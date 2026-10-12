@@ -10,6 +10,7 @@ import {
   renderRoot,
   resolveContent,
 } from "../../foundation/shared";
+import { KeepItemCheckbox } from "../actions/KeepItemCheckbox";
 import { KeepItemCard, type KeepItemCardProps, KeepItemCardSkeleton } from "../item/KeepItemCard";
 import { KeepEmptyState } from "../status/KeepEmptyState";
 import { useKeepListView } from "./hooks/useKeepListView";
@@ -17,13 +18,24 @@ import { useRovingTabIndex } from "./hooks/useRovingTabIndex";
 import type { KeepLayoutPreset } from "./KeepCollection";
 import { KeepReorderableList } from "./KeepReorderableList";
 
+export type KeepListSelection = {
+  selectedIds: readonly string[];
+  onSelectedIdsChange: (ids: string[]) => void;
+  disabled?: boolean;
+};
+export type KeepItemSelection = {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
+};
+
 export type KeepListState<TMeta = Record<string, unknown>> = UseKeepListResult<TMeta>;
 
 export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   ref?: Ref<HTMLElement> | { readonly current: unknown };
   query?: KeepListQuery<TMeta>;
   children?: ReactNode | RenderProp<KeepListState<TMeta>>;
-  renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
+  renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>, selection?: KeepItemSelection) => ReactNode;
   loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
   /** Alias for `loading`. When neither is provided, layout-matched skeletons are rendered. */
   renderLoading?: ReactNode | RenderProp<KeepListState<TMeta>>;
@@ -33,6 +45,7 @@ export type KeepListProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes
   onClearFilters?: () => void;
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
   layout?: KeepLayoutPreset;
+  selection?: KeepListSelection;
   reorderable?: boolean;
   onReorder?: (orderedIds: string[]) => void | Promise<void>;
   asChild?: boolean;
@@ -57,6 +70,7 @@ function KeepListContent<TMeta = Record<string, unknown>>({
   query,
   children,
   renderItem,
+  selection,
   loading,
   renderLoading,
   loadingCount = 6,
@@ -79,6 +93,7 @@ function KeepListContent<TMeta = Record<string, unknown>>({
   const body = getListBody(state, {
     children,
     renderItem,
+    selection,
     loading: renderLoading !== undefined ? renderLoading : loading,
     loadingCount,
     loadingLabel: view.labels.loading,
@@ -132,7 +147,7 @@ function getListBody<TMeta>(
   state: KeepListState<TMeta>,
   options: {
     children?: ReactNode | RenderProp<KeepListState<TMeta>>;
-    renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
+    renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>, selection?: KeepItemSelection) => ReactNode;
     loading: ReactNode | RenderProp<KeepListState<TMeta>> | undefined;
     loadingCount: number;
     loadingLabel: string;
@@ -143,6 +158,7 @@ function getListBody<TMeta>(
     query: KeepListQuery<TMeta> | undefined;
     itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
     layout: KeepLayoutPreset;
+    selection?: KeepListSelection;
     reorderable: boolean;
     onReorder?: (orderedIds: string[]) => void | Promise<void>;
     reorder: (orderedIds: string[]) => Promise<void>;
@@ -193,9 +209,14 @@ function getListBody<TMeta>(
               ↕
             </button>
             {options.renderItem ? (
-              options.renderItem(item, state)
+              options.renderItem(item, state, getItemSelection(item.id, options.selection))
             ) : (
-              <KeepItemCard item={item} {...options.itemCardProps} />
+              <>
+                {options.selection ? (
+                  <KeepItemCheckbox item={item} {...getItemSelection(item.id, options.selection)} />
+                ) : null}
+                <KeepItemCard item={item} {...options.itemCardProps} />
+              </>
             )}
           </>
         )}
@@ -207,9 +228,12 @@ function getListBody<TMeta>(
     <ul data-layout={options.layout}>
       {state.items.map((item) =>
         options.renderItem ? (
-          options.renderItem(item, state)
+          options.renderItem(item, state, getItemSelection(item.id, options.selection))
         ) : (
-          <li key={item.id}>
+          <li key={item.id} data-selectable={options.selection ? "true" : undefined}>
+            {options.selection ? (
+              <KeepItemCheckbox item={item} {...getItemSelection(item.id, options.selection)} />
+            ) : null}
             <KeepItemCard item={item} {...options.itemCardProps} />
           </li>
         ),
@@ -230,4 +254,17 @@ function hasActiveQueryFilters<TMeta>(query: KeepListQuery<TMeta> | undefined): 
       query.activity ||
       query.filter,
   );
+}
+
+function getItemSelection(id: string, selection: KeepListSelection | undefined): KeepItemSelection | undefined {
+  if (!selection) return undefined;
+  return {
+    checked: selection.selectedIds.includes(id),
+    disabled: selection.disabled,
+    onCheckedChange: (checked) => {
+      if (selection.disabled) return;
+      const ids = selection.selectedIds.filter((selectedId) => selectedId !== id);
+      selection.onSelectedIdsChange(checked ? [...ids, id] : ids);
+    },
+  };
 }

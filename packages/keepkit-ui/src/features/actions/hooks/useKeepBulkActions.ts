@@ -1,6 +1,6 @@
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import { useKeepCollections, useKeepList } from "@keepkit/core/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { normalizeUiTags } from "../../../foundation/shared";
 import { useUiLabel } from "../../../foundation/ui-context";
 import type { KeepBulkActionsState, KeepSelectionScope } from "../KeepBulkActions";
@@ -60,6 +60,9 @@ export function useKeepBulkActions<TMeta>(options: KeepBulkActionsOptions<TMeta>
   const [uncontrolledSelectedIds, setUncontrolledSelectedIds] = useState(defaultSelectedIds);
   const selectedIds = controlledSelectedIds ?? uncontrolledSelectedIds;
   const selected = new Set(selectedIds);
+  const pendingRef = useRef(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<unknown | null>(null);
   const [tagsInput, setTagsInput] = useState("");
   const [collectionId, setCollectionId] = useState("");
 
@@ -75,39 +78,37 @@ export function useKeepBulkActions<TMeta>(options: KeepBulkActionsOptions<TMeta>
     setSelectedIds(selected.has(id) ? selectedIds.filter((current) => current !== id) : [...selectedIds, id]);
   const allSelected = isAllSelected(targetItems, selectedIds);
   const toggleAll = () => setSelectedIds(toggleSelectAll(targetItems, selectedIds));
-  const remove = async () => {
-    const ids = [...selectedIds];
-    await list.removeBatchWithUndo(ids);
-    onCompleted?.("remove", ids);
-    setSelectedIds([]);
+  const run = async (operation: (ids: string[]) => Promise<void>) => {
+    if (pendingRef.current || list.isMutating || selectedIds.length === 0) return;
+    pendingRef.current = true;
+    setPending(true);
+    setError(null);
+    try {
+      await operation([...selectedIds]);
+      setSelectedIds([]);
+    } catch (cause) {
+      setError(cause);
+      throw cause;
+    } finally {
+      pendingRef.current = false;
+      setPending(false);
+    }
   };
-  const updateTags = async () => {
-    const ids = [...selectedIds];
-    await list.updateTagsBatch(ids, normalizeUiTags(tagsInput.split(",")));
-    onCompleted?.("tags", ids);
-    setSelectedIds([]);
-  };
-  const moveToCollection = async () => {
-    const ids = [...selectedIds];
-    await list.moveToCollectionBatch(ids, collectionId || undefined);
-    setSelectedIds([]);
-  };
-  const archive = async () => {
-    await list.archiveBatch([...selectedIds]);
-    setSelectedIds([]);
-  };
-  const unarchive = async () => {
-    await list.unarchiveBatch([...selectedIds]);
-    setSelectedIds([]);
-  };
-  const pin = async () => {
-    await list.pinBatch([...selectedIds]);
-    setSelectedIds([]);
-  };
-  const unpin = async () => {
-    await list.unpinBatch([...selectedIds]);
-    setSelectedIds([]);
-  };
+  const remove = () =>
+    run(async (ids) => {
+      await list.removeBatchWithUndo(ids);
+      onCompleted?.("remove", ids);
+    });
+  const updateTags = () =>
+    run(async (ids) => {
+      await list.updateTagsBatch(ids, normalizeUiTags(tagsInput.split(",")));
+      onCompleted?.("tags", ids);
+    });
+  const moveToCollection = () => run((ids) => list.moveToCollectionBatch(ids, collectionId || undefined));
+  const archive = () => run((ids) => list.archiveBatch(ids));
+  const unarchive = () => run((ids) => list.unarchiveBatch(ids));
+  const pin = () => run((ids) => list.pinBatch(ids));
+  const unpin = () => run((ids) => list.unpinBatch(ids));
   const state: KeepBulkActionsState<TMeta> = {
     items: targetItems,
     selectedIds,
@@ -129,7 +130,8 @@ export function useKeepBulkActions<TMeta>(options: KeepBulkActionsOptions<TMeta>
     unarchive,
     pin,
     unpin,
-    isMutating: list.isMutating,
+    isMutating: pending || list.isMutating,
+    error,
     selectionScope,
     setSelectionScope,
   };

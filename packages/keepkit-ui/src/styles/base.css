@@ -314,6 +314,11 @@
   --keep-foreground: #000000;
   --keep-background: #ffffff;
   --keep-card: #ffffff;
+  --keep-card-foreground: #000000;
+  --keep-muted: #ffffff;
+  --keep-input: #000000;
+  --keep-surface-background: #ffffff;
+  --keep-surface-border: #000000;
   --keep-muted-foreground: #1f2937;
   --keep-border: #000000;
   --keep-primary: #0037b3;
@@ -327,18 +332,24 @@
 :where(.keep-theme, [data-keep-theme])[data-reduced-motion="true"] *,
 :where(.keep-theme, [data-keep-theme])[data-reduced-motion="true"] *::before,
 :where(.keep-theme, [data-keep-theme])[data-reduced-motion="true"] *::after {
-  animation: none;
-  scroll-behavior: auto;
-  transition: none;
+  /* biome-ignore lint/complexity/noImportantStyles: Accessibility overrides must beat component animations. */
+  animation: none !important;
+  /* biome-ignore lint/complexity/noImportantStyles: Reduced motion overrides smooth scrolling. */
+  scroll-behavior: auto !important;
+  /* biome-ignore lint/complexity/noImportantStyles: Accessibility overrides must beat component transitions. */
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :where(.keep-theme, [data-keep-theme]) *,
   :where(.keep-theme, [data-keep-theme]) *::before,
   :where(.keep-theme, [data-keep-theme]) *::after {
-    animation: none;
-    scroll-behavior: auto;
-    transition: none;
+    /* biome-ignore lint/complexity/noImportantStyles: Accessibility overrides must beat component animations. */
+    animation: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced motion overrides smooth scrolling. */
+    scroll-behavior: auto !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Accessibility overrides must beat component transitions. */
+    transition: none !important;
   }
 }
 

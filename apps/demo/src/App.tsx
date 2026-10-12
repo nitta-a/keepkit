@@ -1,7 +1,6 @@
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import {
   KeepBackup,
-  KeepBulkActions,
   KeepButton,
   KeepCollection,
   KeepCollectionManager,
@@ -9,8 +8,8 @@ import {
   type KeepCollectionRevealResult,
   KeepEmptyState,
   KeepItemCard,
-  KeepNoteEditor,
-  KeepQuickEditor,
+  KeepItemCheckbox,
+  type KeepItemSelection,
   KeepUndo,
   useKeepCollections,
   useKeepList,
@@ -89,7 +88,7 @@ const viewLabels: Record<LibraryView, string> = {
   all: "All saves",
   inbox: "Inbox",
   pinned: "Pinned",
-  unread: "Unread",
+  unread: "Unvisited",
   archive: "Archive",
   collections: "Manage collections",
   settings: "Storage and settings",
@@ -114,12 +113,10 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
     setSelectedCollection,
     isCaptureOpen,
     setIsCaptureOpen,
-    isManaging,
-    setIsManaging,
     areFiltersOpen,
     setAreFiltersOpen,
   } = useAppView();
-  const [layout, setLayout] = useState<"grid" | "compact">("grid");
+  const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [pendingReveal, setPendingReveal] = useState<{ request: KeepCollectionRevealRequest; local: boolean }>();
   const externalRevealId = useRef<number | undefined>(undefined);
   const revealSequence = useRef(0);
@@ -139,6 +136,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
     () => ({
       archived: view === "archive",
       pinnedFirst: true,
+      sort: { by: "savedAt", direction: "desc" },
       filter: (item) => {
         if (selectedCollection) return item.collectionId === selectedCollection;
         if (view === "inbox") return !item.collectionId;
@@ -153,7 +151,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
   function navigate(next: LibraryView, collectionId?: string) {
     setView(next);
     setSelectedCollection(collectionId);
-    setIsManaging(false);
+    setIsNavigationOpen(false);
     setAreFiltersOpen(false);
   }
 
@@ -163,9 +161,9 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
     const target = items.find((item) => item.id === revealRequest.itemId);
     setView(target?.archived ? "archive" : "all");
     setSelectedCollection(undefined);
-    setIsManaging(false);
+    setIsNavigationOpen(false);
     setPendingReveal({ request: revealRequest, local: false });
-  }, [revealRequest, isHydrated, items, setView, setSelectedCollection, setIsManaging]);
+  }, [revealRequest, isHydrated, items, setView, setSelectedCollection]);
 
   function closeCapture() {
     setIsCaptureOpen(false);
@@ -212,76 +210,88 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
           </span>
         </button>
         <p className="sidebar-caption">YOUR LIBRARY</p>
-        <nav className="nav-group" aria-label="Library">
-          {(["all", "inbox", "pinned", "unread", "archive"] as const).map((name) => (
-            <button
-              className="nav-button"
-              type="button"
-              key={name}
-              aria-label={viewLabels[name]}
-              data-active={view === name && !selectedCollection}
-              aria-current={view === name && !selectedCollection ? "page" : undefined}
-              onClick={() => navigate(name)}
-            >
-              <Icon name={name} />
-              <span>{viewLabels[name]}</span>
-              <span className="nav-count" aria-hidden="true">
-                {counts[name]}
-              </span>
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-collections">
-          <p className="sidebar-caption">COLLECTIONS</p>
-          <nav className="nav-group" aria-label="Collections">
-            {collections.map((collection) => (
+        <button
+          className="mobile-navigation-toggle"
+          type="button"
+          aria-expanded={isNavigationOpen}
+          aria-controls="library-navigation"
+          onClick={() => setIsNavigationOpen(!isNavigationOpen)}
+        >
+          Browse library
+        </button>
+        <div id="library-navigation" data-open={isNavigationOpen ? "true" : "false"}>
+          <nav className="nav-group" aria-label="Library">
+            {(["all", "inbox", "pinned", "unread", "archive"] as const).map((name) => (
               <button
                 className="nav-button"
                 type="button"
-                key={collection.id}
-                aria-label={collection.name}
-                data-active={selectedCollection === collection.id}
-                aria-current={selectedCollection === collection.id ? "page" : undefined}
-                onClick={() => navigate("all", collection.id)}
+                key={name}
+                aria-label={viewLabels[name]}
+                data-active={view === name && !selectedCollection}
+                aria-current={view === name && !selectedCollection ? "page" : undefined}
+                onClick={() => navigate(name)}
               >
-                <span className="collection-dot" aria-hidden="true" />
-                <span>{collection.name}</span>
-                <span className="nav-count">
-                  {activeItems.filter((item) => item.collectionId === collection.id).length}
+                <Icon name={name} />
+                <span>{viewLabels[name]}</span>
+                <span className="nav-count" aria-hidden="true">
+                  {counts[name]}
                 </span>
               </button>
             ))}
-            {!collections.length ? <p className="sidebar-empty">Give your saves a little structure.</p> : null}
+          </nav>
+          <div className="sidebar-collections">
+            <p className="sidebar-caption">COLLECTIONS</p>
+            <nav className="nav-group" aria-label="Collections">
+              {collections.map((collection) => (
+                <button
+                  className="nav-button"
+                  type="button"
+                  key={collection.id}
+                  aria-label={collection.name}
+                  data-active={selectedCollection === collection.id}
+                  aria-current={selectedCollection === collection.id ? "page" : undefined}
+                  onClick={() => navigate("all", collection.id)}
+                >
+                  <span className="collection-dot" aria-hidden="true" />
+                  <span>{collection.name}</span>
+                  <span className="nav-count">
+                    {activeItems.filter((item) => item.collectionId === collection.id).length}
+                  </span>
+                </button>
+              ))}
+              {!collections.length ? <p className="sidebar-empty">Give your saves a little structure.</p> : null}
+              <button
+                className="nav-button"
+                type="button"
+                data-active={view === "collections"}
+                aria-current={view === "collections" ? "page" : undefined}
+                onClick={() => navigate("collections")}
+              >
+                <Icon name="plus" />
+                <span>Manage collections</span>
+              </button>
+            </nav>
+          </div>
+          <footer className="sidebar-footer">
             <button
               className="nav-button"
               type="button"
-              data-active={view === "collections"}
-              aria-current={view === "collections" ? "page" : undefined}
-              onClick={() => navigate("collections")}
+              data-active={view === "settings"}
+              aria-current={view === "settings" ? "page" : undefined}
+              onClick={() => navigate("settings")}
             >
-              <Icon name="plus" />
-              <span>Manage collections</span>
+              <Icon name="settings" />
+              <span>Storage and settings</span>
             </button>
-          </nav>
+            <div className="local-status" role="status">
+              <span className="status-dot" aria-hidden="true" />
+              <span>
+                Saved in this browser
+                <small>{isOnline ? "Available offline, too" : "Offline · you can still save"}</small>
+              </span>
+            </div>
+          </footer>
         </div>
-        <footer className="sidebar-footer">
-          <button
-            className="nav-button"
-            type="button"
-            data-active={view === "settings"}
-            aria-current={view === "settings" ? "page" : undefined}
-            onClick={() => navigate("settings")}
-          >
-            <Icon name="settings" />
-            <span>Storage and settings</span>
-          </button>
-          <div className="local-status" role="status">
-            <span className="status-dot" aria-hidden="true" />
-            <span>
-              Saved in this browser<small>{isOnline ? "Available offline, too" : "Offline · you can still save"}</small>
-            </span>
-          </div>
-        </footer>
       </aside>
 
       <main className="workspace" id="library-main" tabIndex={-1}>
@@ -327,46 +337,6 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
 
         {isLibrary ? (
           <>
-            {view === "all" && !selectedCollection ? (
-              <section className="library-summary" aria-label="Library overview">
-                <button
-                  className="summary-card"
-                  type="button"
-                  aria-label={`${counts.all} things worth keeping`}
-                  onClick={() => navigate("all")}
-                >
-                  <Icon name="all" />
-                  <span>
-                    <strong>{counts.all}</strong>
-                    <small>things worth keeping</small>
-                  </span>
-                </button>
-                <button
-                  className="summary-card"
-                  type="button"
-                  aria-label={`${counts.unread} waiting to be explored`}
-                  onClick={() => navigate("unread")}
-                >
-                  <Icon name="unread" />
-                  <span>
-                    <strong>{counts.unread}</strong>
-                    <small>waiting to be explored</small>
-                  </span>
-                </button>
-                <button
-                  className="summary-card"
-                  type="button"
-                  aria-label={`${counts.pinned} always within reach`}
-                  onClick={() => navigate("pinned")}
-                >
-                  <Icon name="pinned" />
-                  <span>
-                    <strong>{counts.pinned}</strong>
-                    <small>always within reach</small>
-                  </span>
-                </button>
-              </section>
-            ) : null}
             <section className="library-section" aria-labelledby="collection-heading">
               <div className="section-heading">
                 <h2 id="collection-heading">
@@ -381,18 +351,18 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
                 className="demo-collection"
                 id="collection-filters"
                 data-filters-open={areFiltersOpen ? "true" : "false"}
-                data-managing={isManaging ? "true" : "false"}
-                layout={layout}
+                layout="list"
+                bulkActionsVariant="inline"
                 toolbarLayout="grouped"
                 loadingCount={3}
                 pageSize={12}
                 query={query}
                 collectionLabels={collectionLabels}
-                features={{ tagFilter: true }}
+                features={{ tagFilter: true, bulkActions: true }}
                 {...(view === "archive" ? { activeFilters: null } : {})}
                 {...(currentReveal ? { revealRequest: currentReveal, onRevealResult: finishReveal } : {})}
                 slots={{
-                  toolbarEnd: (state) => (
+                  toolbarEnd: () => (
                     <>
                       <button
                         className="secondary-button"
@@ -404,50 +374,6 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
                         <Icon name="filter" />
                         {areFiltersOpen ? "Hide filters" : "Filter"}
                       </button>
-                      <fieldset className="view-switch">
-                        <legend className="visually-hidden">View layout</legend>
-                        <button
-                          className="icon-button"
-                          type="button"
-                          aria-label="Grid view"
-                          aria-pressed={layout === "grid"}
-                          onClick={() => setLayout("grid")}
-                        >
-                          <Icon name="all" />
-                        </button>
-                        <button
-                          className="icon-button"
-                          type="button"
-                          aria-label="List view"
-                          aria-pressed={layout === "compact"}
-                          onClick={() => setLayout("compact")}
-                        >
-                          <Icon name="list" />
-                        </button>
-                      </fieldset>
-                      <button
-                        className="text-button"
-                        type="button"
-                        disabled={!isManaging && !state.items.length}
-                        aria-expanded={isManaging}
-                        aria-controls="collection-manager"
-                        onClick={() => setIsManaging(!isManaging)}
-                      >
-                        {isManaging ? "Done managing" : "Manage items"}
-                      </button>
-                      {isManaging ? (
-                        <div className="collection-manager" id="collection-manager">
-                          <p>Select from the current results. Removed items can be restored with Undo.</p>
-                          <KeepBulkActions<DemoMeta>
-                            query={{
-                              archiveScope: "all",
-                              filter: (item) => state.items.some((visible) => visible.id === item.id),
-                            }}
-                            selectionScope="query"
-                            onCompleted={() => setIsManaging(false)}
-                          />
-                        </div>
-                      ) : null}
                     </>
                   ),
                 }}
@@ -466,13 +392,8 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
                     </button>
                   </div>
                 }
-                renderItem={(item) => (
-                  <SavedItem
-                    key={item.id}
-                    item={item}
-                    collectionLabels={collectionLabels}
-                    collectionIds={collections.map((collection) => collection.id)}
-                  />
+                renderItem={(item, _state, selection) => (
+                  <SavedItem key={item.id} item={item} collectionLabels={collectionLabels} selection={selection} />
                 )}
               />
               <KeepUndo />
@@ -529,7 +450,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
           <section className="settings-panel">
             <KeepCollectionManager<DemoMeta>
               title="Your collections"
-              description="Create a collection, then use Edit details on a saved item to move it here."
+              description="Create a collection, then edit a saved item to move it here."
               allowCreate
               allowRename
               allowDelete
@@ -556,125 +477,29 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
 function SavedItem({
   item,
   collectionLabels,
-  collectionIds,
+  selection,
 }: {
   item: KeepItem<DemoMeta>;
   collectionLabels: Record<string, string>;
-  collectionIds: string[];
+  selection?: KeepItemSelection | undefined;
 }) {
-  const [noteOpen, setNoteOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const editor = useRef<HTMLDivElement>(null);
-  const editButton = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (noteOpen || detailsOpen) editor.current?.querySelector<HTMLElement>("textarea, input, select")?.focus();
-  }, [noteOpen, detailsOpen]);
-  const itemKey = encodeURIComponent(item.id);
-  const domain = getDomain(item.meta.url);
   return (
-    <li className="saved-item">
+    <li data-selectable={selection ? "true" : undefined}>
+      {selection ? <KeepItemCheckbox item={item} {...selection} /> : null}
       <KeepItemCard
-        className="saved-card"
-        id={`saved-item-${itemKey}`}
+        id={`saved-item-${encodeURIComponent(item.id)}`}
+        tabIndex={-1}
         item={item}
+        presentation="reading"
         href={item.meta.url}
         collectionLabels={collectionLabels}
-        showSaveButton={false}
+        showPinButton
+        showArchiveButton
         trackOpen
         getImageProps={(entry) => (entry.meta.image ? { src: entry.meta.image, alt: "", loading: "lazy" } : undefined)}
-      >
-        <KeepItemCard.Media
-          fallback={
-            <div className="link-placeholder">
-              <Icon name="bookmark" />
-              <span>{domain}</span>
-            </div>
-          }
-        />
-        <KeepItemCard.Content>
-          <div className="item-meta">
-            <span className="type-badge">{item.targetType ?? "Link"}</span>
-            <span className="item-domain">{domain}</span>
-          </div>
-          <KeepItemCard.Title />
-          {item.meta.description ? <p className="item-description">{item.meta.description}</p> : null}
-          <KeepItemCard.Tags />
-          <KeepItemCard.CollectionBadge />
-          {item.note ? <blockquote className="saved-note">{item.note}</blockquote> : null}
-          <div className="note-disclosure">
-            <button
-              className="note-toggle"
-              type="button"
-              aria-expanded={noteOpen}
-              aria-controls={`note-${itemKey}`}
-              onClick={() => {
-                setNoteOpen(!noteOpen);
-                setDetailsOpen(false);
-              }}
-            >
-              {item.note ? "Edit note" : "Add note"}
-            </button>
-            <button
-              ref={editButton}
-              className="note-toggle"
-              type="button"
-              aria-expanded={detailsOpen}
-              aria-controls={`details-${itemKey}`}
-              onClick={() => {
-                setDetailsOpen(!detailsOpen);
-                setNoteOpen(false);
-              }}
-            >
-              Edit details
-            </button>
-          </div>
-          {noteOpen || detailsOpen ? (
-            <div className="item-editor" ref={editor}>
-              {noteOpen ? (
-                <KeepNoteEditor
-                  id={`note-${itemKey}`}
-                  item={item}
-                  placeholder="Why is this worth returning to?"
-                  showShortcutHint
-                />
-              ) : (
-                <KeepQuickEditor
-                  id={`details-${itemKey}`}
-                  item={item}
-                  debounceMs={0}
-                  features={{ note: false }}
-                  collectionIds={collectionIds}
-                  collectionLabels={collectionLabels}
-                  onClose={() => {
-                    setDetailsOpen(false);
-                    editButton.current?.focus();
-                  }}
-                />
-              )}
-            </div>
-          ) : null}
-        </KeepItemCard.Content>
-        <KeepItemCard.Actions>
-          <KeepItemCard.Pin />
-          <details className="card-more-actions">
-            <summary>More</summary>
-            <div>
-              <KeepItemCard.Archive />
-              <KeepItemCard.Remove />
-            </div>
-          </details>
-        </KeepItemCard.Actions>
-      </KeepItemCard>
+      />
     </li>
   );
-}
-
-function getDomain(value: string) {
-  try {
-    return new URL(value).hostname.replace(/^www\./, "");
-  } catch {
-    return "Saved resource";
-  }
 }
 
 type IconName = LibraryView | "bookmark" | "plus" | "filter" | "list";

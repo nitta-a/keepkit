@@ -43,11 +43,11 @@ export function SaveLink({ onSaved, onCancel }: { onSaved?: (itemId: string) => 
   }, [isHydrated, isLoading, providerError]);
 
   useEffect(() => {
-    if (libraryLoaded) titleInput.current?.focus();
+    if (libraryLoaded) urlInput.current?.focus();
   }, [libraryLoaded]);
 
   useEffect(() => {
-    if (success) titleInput.current?.focus();
+    if (success) urlInput.current?.focus();
   }, [success]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -55,11 +55,6 @@ export function SaveLink({ onSaved, onCancel }: { onSaved?: (itemId: string) => 
     if (busy) return;
     setSuccess(false);
     setError("");
-    if (!title.trim()) {
-      setError("Enter a title for this link.");
-      titleInput.current?.focus();
-      return;
-    }
     if (!normalizedUrl) {
       setError("Enter an http or https URL without a username or password.");
       urlInput.current?.focus();
@@ -74,7 +69,13 @@ export function SaveLink({ onSaved, onCancel }: { onSaved?: (itemId: string) => 
       savedAt: existing?.savedAt ?? now,
       updatedAt: now,
       targetType: existing?.targetType ?? "link",
-      meta: { image: "", description: "", ...existing?.meta, title: title.trim(), url: normalizedUrl },
+      meta: {
+        image: "",
+        description: "",
+        ...existing?.meta,
+        title: title.trim() || existing?.meta.title || new URL(normalizedUrl).hostname,
+        url: normalizedUrl,
+      },
       ...(note === undefined ? {} : { note: note.trim() }),
       ...(collectionId === undefined ? {} : { collectionId }),
     };
@@ -113,15 +114,6 @@ export function SaveLink({ onSaved, onCancel }: { onSaved?: (itemId: string) => 
         </div>
       ) : null}
       <fieldset disabled={busy}>
-        <label htmlFor={`${id}-title`}>Title</label>
-        <input
-          ref={titleInput}
-          id={`${id}-title`}
-          value={title}
-          required
-          placeholder="A name you will recognize later"
-          onChange={(event) => setTitle(event.currentTarget.value)}
-        />
         <label htmlFor={`${id}-url`}>URL</label>
         <input
           ref={urlInput}
@@ -131,6 +123,14 @@ export function SaveLink({ onSaved, onCancel }: { onSaved?: (itemId: string) => 
           required
           placeholder="https://example.com/article"
           onChange={(event) => setUrl(event.currentTarget.value)}
+        />
+        <label htmlFor={`${id}-title`}>Title (optional)</label>
+        <input
+          ref={titleInput}
+          id={`${id}-title`}
+          value={title}
+          placeholder="A name you will recognize later"
+          onChange={(event) => setTitle(event.currentTarget.value)}
         />
         <label htmlFor={`${id}-note`}>Note (optional)</label>
         <textarea

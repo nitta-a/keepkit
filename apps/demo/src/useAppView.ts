@@ -7,7 +7,6 @@ export function useAppView() {
   const [view, setView] = useState<LibraryView>("all");
   const [selectedCollection, setSelectedCollection] = useState<string>();
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
-  const [isManaging, setIsManaging] = useState(false);
   const [areFiltersOpen, setAreFiltersOpen] = useState(false);
   const isApplePlatform =
     typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
@@ -41,8 +40,6 @@ export function useAppView() {
     setSelectedCollection,
     isCaptureOpen,
     setIsCaptureOpen,
-    isManaging,
-    setIsManaging,
     areFiltersOpen,
     setAreFiltersOpen,
   };

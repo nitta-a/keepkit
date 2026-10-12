@@ -16,7 +16,10 @@ import { KeepPagination, KeepSearchInput, KeepSortSelect } from "../query/query-
 import { KeepSavedViews, KeepSaveViewButton } from "../saved-views/KeepSavedViews";
 import { useKeepCollection } from "./hooks/useKeepCollection";
 import { KeepCollectionCreate } from "./KeepCollectionCreate";
-import { KeepList, type KeepListState } from "./KeepList";
+import { KeepInlineSelection } from "./KeepInlineSelection";
+import { KeepList, type KeepListProps, type KeepListSelection, type KeepListState } from "./KeepList";
+
+const EMPTY_QUERY = {};
 
 export type KeepCollectionFeature =
   | "search"
@@ -66,10 +69,11 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   reorderable?: boolean;
   onReorder?: (items: KeepItem<TMeta>[]) => void | Promise<void>;
   features?: Partial<Record<KeepCollectionFeature, boolean>>;
+  bulkActionsVariant?: "separate" | "inline";
   collectionLabels?: Record<string, string>;
   /** Shows a collection creation form in the toolbar. */
   creatable?: boolean;
-  renderItem?: (item: KeepItem<TMeta>, state: KeepListState<TMeta>) => ReactNode;
+  renderItem?: KeepListProps<TMeta>["renderItem"];
   itemCardProps?: Omit<KeepItemCardProps<TMeta>, "item" | "children" | "render">;
   loading?: ReactNode | RenderProp<KeepListState<TMeta>>;
   /** Alias for `loading`. When neither is provided, KeepList renders skeleton cards. */
@@ -99,7 +103,7 @@ export function KeepCollection<TMeta = Record<string, unknown>>(props: KeepColle
 }
 
 function KeepCollectionContent<TMeta = Record<string, unknown>>({
-  query = {},
+  query = EMPTY_QUERY,
   pageSize = 20,
   layout = "list",
   toolbarVariant = "plain",
@@ -111,6 +115,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   reorderable = false,
   onReorder,
   features,
+  bulkActionsVariant = "separate",
   slots,
   collectionLabels,
   creatable = false,
@@ -161,11 +166,16 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   };
   const resolvedItemCardProps = {
     ...itemCardProps,
+    collectionLabels: itemCardProps?.collectionLabels ?? collectionLabels,
     showTags: itemCardProps?.showTags ?? view.enabled.tags,
     showPinButton: itemCardProps?.showPinButton ?? view.enabled.pin,
     showArchiveButton: itemCardProps?.showArchiveButton ?? view.enabled.archive,
-    showEditButton: itemCardProps?.showEditButton ?? view.enabled.note,
-    showNote: itemCardProps?.showNote ?? view.enabled.note,
+    showEditButton:
+      itemCardProps?.showEditButton ??
+      features?.note ??
+      (itemCardProps?.presentation === "reading" || view.enabled.note),
+    showNote:
+      itemCardProps?.showNote ?? features?.note ?? (itemCardProps?.presentation === "reading" || view.enabled.note),
   };
   const toolbarId = useId();
   const structuredToolbar =
@@ -257,6 +267,34 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
     </div>
   );
 
+  const renderList = (selection?: KeepListSelection) => (
+    <>
+      <KeepList<TMeta>
+        query={view.resolvedQuery}
+        selection={selection}
+        renderItem={renderItem}
+        itemCardProps={resolvedItemCardProps}
+        layout={layout}
+        loading={loading}
+        renderLoading={renderLoading}
+        loadingCount={loadingCount}
+        onClearFilters={view.clearFilters}
+        reorderable={reorderable}
+        onReorder={reorderable ? handleReorder : undefined}
+        empty={view.list.totalCount === 0 && view.allState.totalCount > 0 ? undefined : empty}
+        error={error}
+      />
+      {view.enabled.pagination ? (
+        <KeepPagination
+          totalCount={view.list.totalCount}
+          pageSize={view.resolvedPageSize}
+          page={view.list.page}
+          onPageChange={view.setPage}
+        />
+      ) : null}
+    </>
+  );
+
   return (
     <section
       {...rootProps}
@@ -304,29 +342,14 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
       ) : (
         resolveContent(activeFilters, view.list)
       )}
-      <KeepList<TMeta>
-        query={view.resolvedQuery}
-        renderItem={renderItem}
-        itemCardProps={resolvedItemCardProps}
-        layout={layout}
-        loading={loading}
-        renderLoading={renderLoading}
-        loadingCount={loadingCount}
-        onClearFilters={view.clearFilters}
-        reorderable={reorderable}
-        onReorder={reorderable ? handleReorder : undefined}
-        empty={view.list.totalCount === 0 && view.allState.totalCount > 0 ? undefined : empty}
-        error={error}
-      />
-      {view.enabled.pagination ? (
-        <KeepPagination
-          totalCount={view.list.totalCount}
-          pageSize={view.resolvedPageSize}
-          page={view.list.page}
-          onPageChange={view.setPage}
-        />
-      ) : null}
-      {view.enabled.bulkActions ? <KeepBulkActions<TMeta> query={view.resolvedQuery} /> : null}
+      {view.enabled.bulkActions && bulkActionsVariant === "inline" ? (
+        <KeepInlineSelection query={view.resolvedQuery}>{renderList}</KeepInlineSelection>
+      ) : (
+        <>
+          {renderList()}
+          {view.enabled.bulkActions ? <KeepBulkActions<TMeta> query={view.resolvedQuery} /> : null}
+        </>
+      )}
       {reorderable && reorderUndoIds ? (
         <div data-keepkit="reorder-feedback" role="status" aria-live="polite">
           <button type="button" data-keep-action="undo-reorder" onClick={() => void undoReorder()}>

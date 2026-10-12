@@ -207,14 +207,14 @@ test("adds and saves a note for an existing resource", async () => {
 
   const savedItem = await findSavedItem(firstArticle.meta.title);
   expect(within(savedItem).queryByRole("textbox", { name: "Note" })).not.toBeInTheDocument();
-  fireEvent.click(within(savedItem).getByRole("button", { name: "Add note" }));
+  fireEvent.click(within(savedItem).getByRole("button", { name: "Edit saved item" }));
   const input = within(savedItem).getByRole("textbox", { name: "Note" });
   fireEvent.change(input, { target: { value: "Read this later" } });
-  fireEvent.click(within(savedItem).getByRole("button", { name: "Save note" }));
+  fireEvent.click(within(savedItem).getByRole("button", { name: "Done" }));
 
   await waitFor(() => {
-    expect(input).toHaveValue("Read this later");
-    expect(input.closest("form")).toHaveAttribute("data-state", "clean");
+    expect(getItems()[0]?.note).toBe("Read this later");
+    expect(within(savedItem).queryByRole("dialog")).not.toBeInTheDocument();
   });
   expect(getItems()[0]?.note).toBe("Read this later");
 });
@@ -223,12 +223,12 @@ test("manages selected items with removal and Undo instead of clearing the colle
   const { getItems } = renderDemo([toSavedItem(firstArticle), toSavedItem(product, 2)]);
   await findCollectionList();
 
-  fireEvent.click(screen.getByRole("button", { name: "Manage items" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select saved items" }));
   expect(screen.queryByRole("button", { name: "Clear all" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("checkbox", { name: firstArticle.meta.title }));
   fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
   await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Manage items" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     expect(getItems().map((item) => item.id)).toEqual([product.id]);
   });
 
@@ -283,7 +283,9 @@ test("navigates the Inbox, pinned, unread, archive, and collection scopes", asyn
   expect(within(collection).queryByText(firstArticle.meta.title)).not.toBeInTheDocument();
   expect(within(collection).queryByText(archivedArticle.meta.title)).not.toBeInTheDocument();
 
-  fireEvent.click(within(screen.getByRole("navigation", { name: "Library" })).getByRole("button", { name: /^Unread/ }));
+  fireEvent.click(
+    within(screen.getByRole("navigation", { name: "Library" })).getByRole("button", { name: /^Unvisited/ }),
+  );
   collection = await findCollectionList();
   expect(within(collection).getByText(firstArticle.meta.title)).toBeInTheDocument();
   expect(within(collection).getByText(product.meta.title)).toBeInTheDocument();
@@ -305,22 +307,21 @@ test("navigates the Inbox, pinned, unread, archive, and collection scopes", asyn
   expect(within(collection).queryByText(archivedArticle.meta.title)).not.toBeInTheDocument();
 });
 
-test("switches between grid and list views with accessible pressed states", async () => {
+test("keeps the article list visible while selecting on its own rows", async () => {
   renderDemo([toSavedItem(firstArticle)]);
-  await findCollectionList();
-
-  expect(screen.getByRole("button", { name: "Grid view" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("button", { name: "List view" })).toHaveAttribute("aria-pressed", "false");
-  fireEvent.click(screen.getByRole("button", { name: "List view" }));
-  expect(screen.getByRole("button", { name: "Grid view" })).toHaveAttribute("aria-pressed", "false");
-  expect(screen.getByRole("button", { name: "List view" })).toHaveAttribute("aria-pressed", "true");
+  const list = await findCollectionList();
+  expect(list).toHaveAttribute("data-layout", "list");
+  fireEvent.click(screen.getByRole("button", { name: "Select saved items" }));
+  const checkbox = screen.getByRole("checkbox", { name: firstArticle.meta.title });
+  expect(checkbox.closest("li")).toBe(await findSavedItem(firstArticle.meta.title));
+  fireEvent.click(checkbox);
+  expect(checkbox).toBeChecked();
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  expect(screen.queryByRole("checkbox", { name: firstArticle.meta.title })).not.toBeInTheDocument();
   expect(await findSavedItem(firstArticle.meta.title)).toBeInTheDocument();
-
-  fireEvent.click(screen.getByRole("button", { name: "Grid view" }));
-  expect(screen.getByRole("button", { name: "Grid view" })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("creates a collection and edits item tags and collection without exposing the note editor", async () => {
+test("creates a collection and flushes article metadata with Done", async () => {
   const { getItems } = renderDemo([toSavedItem(firstArticle)]);
   await findCollectionList();
   fireEvent.click(screen.getByRole("button", { name: "Manage collections" }));
@@ -330,8 +331,8 @@ test("creates a collection and edits item tags and collection without exposing t
   fireEvent.click(screen.getByRole("button", { name: /^All saves/ }));
   const savedItem = await findSavedItem(firstArticle.meta.title);
 
-  fireEvent.click(within(savedItem).getByRole("button", { name: "Edit details" }));
-  expect(within(savedItem).queryByRole("textbox", { name: "Note" })).not.toBeInTheDocument();
+  fireEvent.click(within(savedItem).getByRole("button", { name: "Edit saved item" }));
+  expect(within(savedItem).getByRole("textbox", { name: "Note" })).toBeInTheDocument();
   const tags = within(savedItem).getByRole("textbox", { name: "Tags" });
   fireEvent.change(tags, { target: { value: "Article, Research" } });
   fireEvent.change(within(savedItem).getByRole("combobox", { name: "Collection" }), {
@@ -342,7 +343,7 @@ test("creates a collection and edits item tags and collection without exposing t
 
   const editor = tags.closest("form");
   if (!editor) throw new Error("The details editor was not rendered.");
-  fireEvent.click(within(editor).getByRole("button", { name: /Save/ }));
+  fireEvent.click(within(editor).getByRole("button", { name: "Done" }));
   await waitFor(() => {
     expect(getItems()[0]?.tags).toEqual(["Article", "Research"]);
     expect(getItems()[0]?.collectionId).toBe("reading");
@@ -356,10 +357,10 @@ test("bulk selection acts only on the current filtered scope and can be undone",
   fireEvent.click(screen.getByRole("button", { name: /Product/ }));
   await waitFor(() => expect(within(collection).queryByText(firstArticle.meta.title)).not.toBeInTheDocument());
 
-  fireEvent.click(screen.getByRole("button", { name: "Manage items" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select saved items" }));
   expect(screen.getByRole("checkbox", { name: product.meta.title })).toBeInTheDocument();
   expect(screen.queryByRole("checkbox", { name: firstArticle.meta.title })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("checkbox", { name: "Select saved items" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Current page" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
   await waitFor(() => expect(getItems().map((item) => item.id)).toEqual([firstArticle.id]));
 
@@ -371,19 +372,21 @@ test("bulk selection acts only on the current filtered scope and can be undone",
 test("can finish managing after the last visible item is archived in bulk", async () => {
   const { getItems } = renderDemo([toSavedItem(firstArticle)]);
   await findCollectionList();
-  fireEvent.click(screen.getByRole("button", { name: "Manage items" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select saved items" }));
   fireEvent.click(screen.getByRole("checkbox", { name: firstArticle.meta.title }));
-  fireEvent.click(screen.getByRole("button", { name: "Archive selected items" }));
+  fireEvent.click(
+    within(screen.getByRole("group", { name: "Select saved items" })).getByRole("button", { name: "Archive" }),
+  );
 
   await waitFor(() => {
     expect(getItems()[0]?.archived).toBe(true);
-    expect(screen.getByRole("button", { name: "Done managing" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
     expect(screen.queryByRole("checkbox", { name: firstArticle.meta.title })).not.toBeInTheDocument();
   });
-  fireEvent.click(screen.getByRole("button", { name: "Done managing" }));
-  expect(document.getElementById("collection-filters")).toHaveAttribute("data-managing", "false");
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  expect(screen.queryByRole("checkbox", { name: "Current page" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Delete selected" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Manage items" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Select saved items" })).toBeDisabled();
 
   fireEvent.click(within(screen.getByRole("navigation", { name: "Library" })).getByRole("button", { name: "Archive" }));
   expect(await findSavedItem(firstArticle.meta.title)).toBeInTheDocument();
@@ -393,7 +396,7 @@ test("can finish managing after the last visible item is archived in bulk", asyn
 test("opening an unread link updates its activity and count without changing its edit timestamp", async () => {
   const { getItems } = renderDemo([toSavedItem(firstArticle), toSavedItem(product, 2)]);
   await findCollectionList();
-  const unread = within(screen.getByRole("navigation", { name: "Library" })).getByRole("button", { name: "Unread" });
+  const unread = within(screen.getByRole("navigation", { name: "Library" })).getByRole("button", { name: "Unvisited" });
   expect(within(unread).getByText("2")).toBeInTheDocument();
   fireEvent.click(unread);
   const collection = await findCollectionList();
@@ -420,8 +423,10 @@ test("opens the link form, saves a personal link, and returns to the library", a
   fireEvent.click(screen.getByRole("button", { name: /^Add a link/ }));
 
   const form = screen.getByRole("form", { name: "Save a link" });
-  expect(within(form).getByRole("textbox", { name: "Title" })).toHaveFocus();
-  fireEvent.change(within(form).getByRole("textbox", { name: "Title" }), { target: { value: "Project reference" } });
+  expect(within(form).getByRole("textbox", { name: "URL" })).toHaveFocus();
+  fireEvent.change(within(form).getByRole("textbox", { name: "Title (optional)" }), {
+    target: { value: "Project reference" },
+  });
   fireEvent.change(within(form).getByRole("textbox", { name: "URL" }), {
     target: { value: "https://example.com/reference" },
   });
@@ -436,7 +441,7 @@ test("resaving an archived URL preserves its identity and reveals it in Archive"
   await findCollectionList();
   fireEvent.click(screen.getByRole("button", { name: /^Add a link/ }));
   const form = screen.getByRole("form", { name: "Save a link" });
-  fireEvent.change(within(form).getByRole("textbox", { name: "Title" }), {
+  fireEvent.change(within(form).getByRole("textbox", { name: "Title (optional)" }), {
     target: { value: "Updated archived guide" },
   });
   fireEvent.change(within(form).getByRole("textbox", { name: "URL" }), { target: { value: firstArticle.meta.url } });

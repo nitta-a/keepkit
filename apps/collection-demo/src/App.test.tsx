@@ -130,3 +130,14 @@ test("can manage an item-derived collection", async () => {
   await waitFor(() => expect(screen.queryByText("Reading list")).toBeNull());
   expect(getItems()[0]?.collectionId).toBeUndefined();
 });
+
+test("reading mode uses the package card and selects the same resource row", async () => {
+  renderDemo();
+  fireEvent.click(screen.getByRole("button", { name: "Reading" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "Save resource" })[0]);
+  await screen.findByRole("button", { name: "Edit saved item" });
+  expect(document.querySelector('[data-presentation="reading"]')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Select saved items" }));
+  const checkbox = screen.getByRole("checkbox", { name: "View transitions for the web" });
+  expect(checkbox.closest("li")?.querySelector('[data-presentation="reading"]')).not.toBeNull();
+});

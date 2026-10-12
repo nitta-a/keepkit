@@ -1,6 +1,7 @@
 "use client";
 
 import type { KeepItem } from "@keepkit/core/core";
+import { useKeepCollections } from "@keepkit/core/react";
 import {
   type ButtonHTMLAttributes,
   type ComponentType,
@@ -59,6 +60,7 @@ export type KeepItemCardLinkProps = {
 };
 
 export type KeepImageProps = ImgHTMLAttributes<HTMLImageElement> & { src: string; alt: string };
+export type KeepItemCardPresentation = "default" | "reading";
 export type KeepItemCardVariant = "outlined" | "elevated" | "filled";
 export type KeepActivityKind = "opened" | "inactive";
 
@@ -108,6 +110,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   highlightQuery?: string;
   /** Controls the opt-in card surface treatment while preserving the card contract. */
   cardVariant?: KeepItemCardVariant;
+  presentation?: KeepItemCardPresentation;
 };
 
 export type KeepItemCardMediaProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
@@ -138,6 +141,8 @@ type KeepItemCardCompoundContext = {
   tagsLabel: string;
   renderedTags: ReactNode | null;
   meta: ReactNode | null;
+  source: string | undefined;
+  reading: boolean;
   error: ReactNode | null;
   actions: ReactNode;
   saveButtonLabels?: KeepButtonLabels;
@@ -165,11 +170,12 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   imageComponent: ImageComponent,
   renderImage,
   renderTags,
+  presentation = "default",
   showTags = true,
-  showNote = false,
+  showNote = presentation === "reading",
   showSavedAt = true,
-  showActivity = false,
-  activityKind = "inactive",
+  showActivity = presentation === "reading",
+  activityKind = presentation === "reading" ? "opened" : "inactive",
   collectionLabels,
   imageAlt,
   render,
@@ -178,10 +184,10 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   onRemoveError,
   onRemoved,
   onRetry,
-  showSaveButton = true,
+  showSaveButton = presentation !== "reading",
   showPinButton = false,
   showArchiveButton = false,
-  showEditButton = false,
+  showEditButton = presentation === "reading",
   onEdit,
   editSlot,
   editFeatures,
@@ -210,18 +216,25 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     onRemoveError,
     onRemoved,
   });
+  const collections = useKeepCollections<TMeta>();
+  const doneLabel = useUiLabel("done");
+  const moreLabel = useUiLabel("moreActions");
   const contextQuery = useKeepSearchQuery();
   const searchQuery = highlightQuery ?? contextQuery;
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
   const [isEditOpen, setEditOpen] = useState(false);
   const editTriggerRef = useRef<HTMLButtonElement>(null);
+  const editPanelRef = useRef<HTMLDivElement>(null);
+  const wasEditOpen = useRef(false);
   const editPanelId = useId();
   const editLabel = useUiLabel("editSavedItem");
   const showEditLabel = useUiLabelVisibility("editSavedItem");
   const showSavedAtLabel = useUiLabelVisibility("saved");
   const closeEdit = () => setEditOpen(false);
   useEffect(() => {
-    if (!isEditOpen) editTriggerRef.current?.focus();
+    if (isEditOpen) editPanelRef.current?.querySelector<HTMLElement>("textarea, input, select")?.focus();
+    if (wasEditOpen.current && !isEditOpen) editTriggerRef.current?.focus();
+    wasEditOpen.current = isEditOpen;
   }, [isEditOpen]);
 
   function renderLink(content: ReactNode): ReactNode {
@@ -289,20 +302,27 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
       <time dateTime={new Date(item.savedAt).toISOString()}>{formatSavedAt(item.savedAt)}</time>
     </div>
   ) : null;
-  const error = view.itemState.error ? (
-    <p role="alert">{getErrorMessage(view.itemState.error, view.labels.error)}</p>
-  ) : null;
+  const error =
+    view.itemState.error && !isEditOpen ? (
+      <p role="alert">{getErrorMessage(view.itemState.error, view.labels.error)}</p>
+    ) : null;
   const actions = view.statusLabel ? (
     <KeepStaleNotice item={item} onRetry={onRetry} onRemoved={onRemoved} />
   ) : (
     <>
       {showEditButton ? (
         isEditOpen ? (
-          <div id={editPanelId} role="dialog" aria-label={editLabel} data-keepkit="item-edit-dialog">
+          <div ref={editPanelRef} id={editPanelId} role="dialog" aria-label={editLabel} data-keepkit="item-edit-dialog">
             {editSlot ? (
               editSlot(item, closeEdit)
             ) : (
-              <KeepQuickEditor item={view.itemState.item ?? item} onClose={closeEdit} features={editFeatures} />
+              <KeepQuickEditor
+                item={view.itemState.item ?? item}
+                onClose={closeEdit}
+                features={editFeatures}
+                collectionLabels={collectionLabels}
+                {...(presentation === "reading" ? { showSaveButton: false, closeLabel: doneLabel } : {})}
+              />
             )}
           </div>
         ) : (
@@ -327,11 +347,23 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
         <>
           {showSaveButton ? <KeepItemCardSave /> : null}
           {showPinButton ? <KeepItemCardPin /> : null}
-          {showArchiveButton ? <KeepItemCardArchive /> : null}
-          <KeepItemCardRemove />
+          {presentation === "reading" ? (
+            <details data-keep-card-part="more-actions">
+              <summary>{moreLabel}</summary>
+              <div>
+                {showArchiveButton ? <KeepItemCardArchive /> : null}
+                <KeepItemCardRemove />
+              </div>
+            </details>
+          ) : (
+            <>
+              {showArchiveButton ? <KeepItemCardArchive /> : null}
+              <KeepItemCardRemove />
+            </>
+          )}
         </>
       )}
-      {isEditOpen && (showPinButton || showArchiveButton) ? (
+      {isEditOpen && presentation !== "reading" && (showPinButton || showArchiveButton) ? (
         <div data-keep-card-part="actions-secondary">
           {showPinButton ? <KeepItemCardPin /> : null}
           {showArchiveButton ? <KeepItemCardArchive /> : null}
@@ -341,7 +373,11 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   );
   const compoundValue: KeepItemCardCompoundContext = {
     item,
-    collectionLabel: item.collectionId ? (collectionLabels?.[item.collectionId] ?? item.collectionId) : undefined,
+    collectionLabel: item.collectionId
+      ? (collectionLabels?.[item.collectionId] ??
+        collections.find((collection) => collection.id === item.collectionId)?.name ??
+        item.collectionId)
+      : undefined,
     resolvedTitle: view.resolvedTitle,
     renderTitle,
     image: imageStatus === "error" ? null : image,
@@ -353,6 +389,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     tagsLabel: view.labels.tags,
     renderedTags,
     meta,
+    source: getSource(view.href),
+    reading: presentation === "reading",
     error,
     actions,
     saveButtonLabels,
@@ -364,7 +402,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   };
   const defaultBody = (
     <>
-      <KeepItemCardMedia />
+      {presentation !== "reading" || resolvedImageProps?.src ? <KeepItemCardMedia /> : null}
       <KeepItemCardContent />
       <KeepItemCardActions />
     </>
@@ -387,6 +425,9 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
       "data-state": view.itemState.error ? "error" : view.itemState.isSaved ? "saved" : "unsaved",
       "data-status": item.status ?? "available",
       "data-item-status": view.displayStatus,
+      "data-presentation": presentation !== "default" ? presentation : undefined,
+      "data-has-image": presentation === "reading" && resolvedImageProps?.src ? "true" : undefined,
+      "data-editing": isEditOpen ? "true" : undefined,
       "data-card-variant": cardVariant !== "outlined" ? cardVariant : undefined,
       "data-loading": view.itemState.isMutating ? "true" : undefined,
     },
@@ -415,15 +456,23 @@ function KeepItemCardContent({ children, ...props }: KeepItemCardContentProps) {
     <div {...props} data-keep-card-part="content">
       {children === undefined ? (
         <>
+          {context.reading && context.source ? <span data-keep-card-part="source">{context.source}</span> : null}
           <KeepItemCardTitle />
-          {context.meta}
-          {context.activity}
+          {context.reading ? <KeepItemCardCollectionBadge /> : null}
+          {context.reading ? null : context.meta}
+          {context.reading ? null : context.activity}
           {context.note ? (
             <p data-keep-card-part="memo-preview" data-line-clamp="2">
               {context.note}
             </p>
           ) : null}
           <KeepItemCardTags />
+          {context.reading ? (
+            <div data-keep-card-part="reading-metadata">
+              {context.meta}
+              {context.activity}
+            </div>
+          ) : null}
           {context.error}
         </>
       ) : (
@@ -639,4 +688,14 @@ function formatInactiveAge(milliseconds: number, locale?: string): string {
 
 function isCjkLocale(locale?: string): boolean {
   return /^(?:ja|ko|zh)/i.test(locale ?? "");
+}
+
+function getSource(href: string | undefined): string | undefined {
+  if (!href) return undefined;
+  try {
+    const url = new URL(href);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.hostname.replace(/^www\./, "") : undefined;
+  } catch {
+    return undefined;
+  }
 }

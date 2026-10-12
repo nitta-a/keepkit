@@ -72,7 +72,13 @@ import { KeepCollectionCreate, type KeepCollectionCreateProps } from "./features
 import { KeepCollectionManager, type KeepCollectionManagerProps } from "./features/collection/KeepCollectionManager";
 import { KeepInbox, type KeepInboxProps } from "./features/collection/KeepInbox";
 import { KeepLayout, type KeepLayoutProps } from "./features/collection/KeepLayout";
-import { KeepList, type KeepListProps, type KeepListState } from "./features/collection/KeepList";
+import {
+  type KeepItemSelection,
+  KeepList,
+  type KeepListProps,
+  type KeepListSelection,
+  type KeepListState,
+} from "./features/collection/KeepList";
 import {
   type KeepReorderableItemState,
   KeepReorderableList,
@@ -102,6 +108,7 @@ import {
   type KeepItemCardContentProps,
   type KeepItemCardLinkProps,
   type KeepItemCardMediaProps,
+  type KeepItemCardPresentation,
   type KeepItemCardProps,
   type KeepItemCardRemoveProps,
   type KeepItemCardSaveProps,
@@ -385,6 +392,7 @@ export type {
   KeepItemCardContentProps,
   KeepItemCardLinkProps,
   KeepItemCardMediaProps,
+  KeepItemCardPresentation,
   KeepItemCardProps,
   KeepItemCardRemoveProps,
   KeepItemCardSaveProps,
@@ -394,11 +402,13 @@ export type {
   KeepItemCardTitleProps,
   KeepItemCardVariant,
   KeepItemCheckboxProps,
+  KeepItemSelection,
   KeepItemStatusBadgeProps,
   KeepLastActivityProps,
   KeepLayoutPreset,
   KeepLayoutProps,
   KeepListProps,
+  KeepListSelection,
   KeepListState,
   KeepNoteEditorProps,
   KeepNoteEditorState,

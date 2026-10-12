@@ -51,14 +51,14 @@ async function renderForm(storage: StorageAdapter<DemoMeta>, onSaved = vi.fn(), 
 }
 
 function enterLink(url = "https://example.com/guide", title = "A useful guide") {
-  fireEvent.change(screen.getByRole("textbox", { name: "Title" }), { target: { value: title } });
+  fireEvent.change(screen.getByRole("textbox", { name: "Title (optional)" }), { target: { value: title } });
   fireEvent.change(screen.getByRole("textbox", { name: "URL" }), { target: { value: url } });
 }
 
 test("saves a canonical link with a note and an existing collection", async () => {
   const { storage, getItems } = createStorage();
   const { onSaved } = await renderForm(storage);
-  expect(screen.getByRole("textbox", { name: "Title" })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "URL" })).toHaveFocus());
   enterLink("  https://EXAMPLE.com:443/guide  ", "  A useful guide  ");
   fireEvent.change(screen.getByRole("textbox", { name: "Note (optional)" }), {
     target: { value: "  Read for Monday  " },
@@ -76,8 +76,8 @@ test("saves a canonical link with a note and an existing collection", async () =
     meta: { title: "A useful guide", url: "https://example.com/guide", image: "", description: "" },
   });
   expect(onSaved).toHaveBeenCalledWith("link:https://example.com/guide");
-  expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("");
-  expect(screen.getByRole("textbox", { name: "Title" })).toHaveFocus();
+  expect(screen.getByRole("textbox", { name: "Title (optional)" })).toHaveValue("");
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "URL" })).toHaveFocus());
 });
 
 test.each([
@@ -94,20 +94,28 @@ test.each([
   fireEvent.click(screen.getByRole("button", { name: "Save link" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Enter an http or https URL");
-  expect(screen.getByRole("textbox", { name: "URL" })).toHaveFocus();
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "URL" })).toHaveFocus());
   expect(getItems()).toHaveLength(0);
   expect(onSaved).not.toHaveBeenCalled();
 });
 
-test("requires a title and focuses its input", async () => {
+test("saves a URL without a title using its domain", async () => {
   const { storage, getItems } = createStorage();
   await renderForm(storage);
   enterLink("https://example.com/guide", "  ");
   fireEvent.click(screen.getByRole("button", { name: "Save link" }));
+  await screen.findByRole("status");
+  expect(getItems()[0]?.meta.title).toBe("example.com");
+});
 
-  expect(await screen.findByRole("alert")).toHaveTextContent("Enter a title");
-  expect(screen.getByRole("textbox", { name: "Title" })).toHaveFocus();
-  expect(getItems()).toHaveLength(0);
+test("resaving a URL without a title preserves all untouched fields", async () => {
+  const { storage, getItems } = createStorage([existing]);
+  await renderForm(storage);
+  enterLink(existing.meta.url, "");
+  fireEvent.click(screen.getByRole("button", { name: "Save link" }));
+  await screen.findByRole("status");
+  const { updatedAt: _updatedAt, ...original } = existing;
+  expect(getItems()[0]).toMatchObject(original);
 });
 
 test("resaving an existing URL preserves its identity, saved time, metadata, and organization", async () => {
@@ -212,7 +220,7 @@ test("shows persistence failure and keeps the form values for retry", async () =
   fireEvent.click(screen.getByRole("button", { name: "Save link" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not save this link: Storage is full");
-  expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue("A useful guide");
+  expect(screen.getByRole("textbox", { name: "Title (optional)" })).toHaveValue("A useful guide");
   expect(screen.getByRole("button", { name: "Save link" })).toBeEnabled();
   expect(getItems()).toHaveLength(0);
   expect(onSaved).not.toHaveBeenCalled();

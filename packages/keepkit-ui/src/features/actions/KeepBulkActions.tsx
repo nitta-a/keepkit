@@ -3,8 +3,8 @@
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import type { KeepCollectionSummary } from "@keepkit/core/react";
 import type { HTMLAttributes, ReactNode } from "react";
-import { getMetaTitle, type RenderProp } from "../../foundation/shared";
-import { useUiLabelVisibility } from "../../foundation/ui-context";
+import { getErrorMessage, getMetaTitle, type RenderProp } from "../../foundation/shared";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepBulkActions } from "./hooks/useKeepBulkActions";
 import { KeepItemCheckbox } from "./KeepItemCheckbox";
 
@@ -32,6 +32,7 @@ export type KeepBulkActionsState<TMeta = Record<string, unknown>> = {
   pin: () => Promise<void>;
   unpin: () => Promise<void>;
   isMutating: boolean;
+  error: unknown | null;
   selectionScope: KeepSelectionScope;
   setSelectionScope: (scope: KeepSelectionScope) => void;
 };
@@ -80,6 +81,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   const showTagsLabel = useUiLabelVisibility("tagsToApply");
   const showDeleteLabel = useUiLabelVisibility("deleteSelected");
   const showApplyTagsLabel = useUiLabelVisibility("applyTags");
+  const errorLabel = useUiLabel("error");
   const body = render
     ? render(state)
     : typeof children === "function"
@@ -126,7 +128,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
               type="button"
               data-keep-action="delete-selected"
               aria-label={showDeleteLabel ? undefined : labels.deleteSelected}
-              onClick={() => void state.remove()}
+              onClick={() => void state.remove().catch(() => undefined)}
               disabled={state.selectedIds.length === 0 || state.isMutating}
             >
               {showDeleteLabel ? labels.deleteSelected : null}
@@ -144,7 +146,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
               type="button"
               data-keep-action="apply-tags"
               aria-label={showApplyTagsLabel ? undefined : labels.applyTags}
-              onClick={() => void state.updateTags()}
+              onClick={() => void state.updateTags().catch(() => undefined)}
               disabled={state.selectedIds.length === 0 || state.isMutating}
             >
               {showApplyTagsLabel ? labels.applyTags : null}
@@ -162,31 +164,35 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
             </label>
             <button
               type="button"
-              onClick={() => void state.moveToCollection()}
+              onClick={() => void state.moveToCollection().catch(() => undefined)}
               disabled={!state.selectedCount || state.isMutating}
             >
               Move selected items
             </button>
             <button
               type="button"
-              onClick={() => void state.archive()}
+              onClick={() => void state.archive().catch(() => undefined)}
               disabled={!state.selectedCount || state.isMutating}
             >
               Archive selected items
             </button>
             <button
               type="button"
-              onClick={() => void state.unarchive()}
+              onClick={() => void state.unarchive().catch(() => undefined)}
               disabled={!state.selectedCount || state.isMutating}
             >
               Unarchive selected items
             </button>
-            <button type="button" onClick={() => void state.pin()} disabled={!state.selectedCount || state.isMutating}>
+            <button
+              type="button"
+              onClick={() => void state.pin().catch(() => undefined)}
+              disabled={!state.selectedCount || state.isMutating}
+            >
               Pin selected items
             </button>
             <button
               type="button"
-              onClick={() => void state.unpin()}
+              onClick={() => void state.unpin().catch(() => undefined)}
               disabled={!state.selectedCount || state.isMutating}
             >
               Unpin selected items
@@ -202,6 +208,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
       data-loading={isLoading || state.isMutating ? "true" : undefined}
     >
       {body}
+      {state.error ? <p role="alert">{getErrorMessage(state.error, errorLabel)}</p> : null}
     </section>
   );
 }

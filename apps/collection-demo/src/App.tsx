@@ -16,7 +16,7 @@ import { useState } from "react";
 import type { DemoMeta } from "./main";
 
 type DemoItem = KeepItem<DemoMeta>;
-type ViewMode = "minimal" | "advanced";
+type ViewMode = "minimal" | "advanced" | "reading";
 
 const resources: Array<DemoItem & { label: string }> = [
   {
@@ -152,6 +152,24 @@ function AdvancedCollection() {
   );
 }
 
+function ReadingCollection() {
+  return (
+    <KeepCollection<DemoMeta>
+      className="collection"
+      layout="list"
+      bulkActionsVariant="inline"
+      features={{ bulkActions: true, pin: true, archive: true }}
+      query={{ sort: { by: "savedAt", direction: "desc" }, pinnedFirst: true }}
+      itemCardProps={{
+        presentation: "reading",
+        href: (item) => item.meta.url,
+        trackOpen: true,
+        getImageProps: (item) => (item.meta.image ? { src: item.meta.image, alt: "" } : undefined),
+      }}
+    />
+  );
+}
+
 export function App() {
   const [mode, setMode] = useState<ViewMode>("minimal");
 
@@ -160,7 +178,7 @@ export function App() {
       <main className="page-shell">
         <header className="intro">
           <p className="kicker">KeepCollection lab</p>
-          <h1>One collection, two levels of control.</h1>
+          <h1>One collection, three ways to use it.</h1>
           <p className="intro-copy">
             Start with the smallest useful collection, then turn on the controls your product actually needs.
           </p>
@@ -181,6 +199,14 @@ export function App() {
               onClick={() => setMode("advanced")}
             >
               Advanced
+            </button>
+            <button
+              className={mode === "reading" ? "mode-button active" : "mode-button"}
+              type="button"
+              aria-pressed={mode === "reading"}
+              onClick={() => setMode("reading")}
+            >
+              Reading
             </button>
           </fieldset>
         </header>
@@ -254,9 +280,17 @@ export function App() {
               <p className="kicker">The component</p>
               <h2 id="collection-heading">Saved resources</h2>
             </div>
-            <span className="mode-label">{mode === "minimal" ? "Minimal setup" : "Advanced setup"}</span>
+            <span className="mode-label">
+              {mode === "minimal" ? "Minimal setup" : mode === "reading" ? "Reading setup" : "Advanced setup"}
+            </span>
           </div>
-          {mode === "minimal" ? <MinimalCollection /> : <AdvancedCollection />}
+          {mode === "minimal" ? (
+            <MinimalCollection />
+          ) : mode === "reading" ? (
+            <ReadingCollection />
+          ) : (
+            <AdvancedCollection />
+          )}
         </section>
       </main>
     </KeepTourProvider>

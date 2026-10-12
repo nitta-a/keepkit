@@ -1,4 +1,7 @@
 export type KeepUiLabelKey =
+  | "done"
+  | "moreActions"
+  | "moveSelected"
   | "save"
   | "saved"
   | "remove"

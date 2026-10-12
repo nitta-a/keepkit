@@ -2,6 +2,8 @@
 
 [日本語](#日本語) | [English](#english)
 
+Release: v0.28.9
+
 ## 日本語
 
 KeepKitのReact向けUIパッケージです。`@keepkit/core`を含み、保存ボタンと一覧を共通のProviderで利用できます。
@@ -67,6 +69,28 @@ export function Library() {
 `layout`は`list`、`grid`、`compact`、コンテナ幅に追従する`auto`から選べます。
 `urlSync`は検索・タグ・ソート・ページをURLと戻る／進むに同期します。
 Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`に渡します。
+
+### 記事・リンクを再訪する一覧
+
+記事向け表示は選択式です。既存の既定表示は変わりません。
+
+```tsx
+<keep.Collection
+  layout="list"
+  query={{ sort: { by: "savedAt", direction: "desc" }, pinnedFirst: true }}
+  features={{ bulkActions: true, pin: true, archive: true }}
+  bulkActionsVariant="inline"
+  itemCardProps={{ presentation: "reading", href: (item) => item.meta.url, trackOpen: true }}
+/>
+```
+
+`presentation="reading"`はタイトル、URLの保存元、コレクション名、メモ、タグ、保存・訪問情報を表示します。画像は`getImageProps`で指定した場合だけ表示します。保存トグルは既定で非表示、編集・メモ・訪問情報は表示され、既存の表示フラグで上書きできます。`href`と`trackOpen`は明示指定です。編集は300msの自動保存と「完了」を使い、失敗時は下書きを残します。
+
+`bulkActionsVariant="inline"`は記事行で選択します。全選択は現在ページだけで、検索・フィルター・ページ・表示先を変えると選択を解除します。失敗した一括操作は選択を保持します。既定の`separate`は従来の選択用一覧を維持します。
+
+独自の行には`KeepListSelection`（`selectedIds: readonly string[]`、`onSelectedIdsChange`、任意の`disabled`）を`KeepList.selection`に渡せます。`KeepList`と`KeepCollection`の`renderItem(item, state, selection?)`の第三引数は`KeepItemSelection`（`checked`、`onCheckedChange`、任意の`disabled`）で、`KeepItemCheckbox`にそのまま渡せます。従来の二引数コールバックも使用できます。
+
+`KeepQuickEditor.closeLabel`で終了ボタンの文言を指定できます。`debounceMs={0}`による手動保存は維持され、完了・Escapeでの終了は保存成功後に行います。単独のエディターはTabを閉じ込めません。
 
 ### 用途別のコンポーネント
 
@@ -170,6 +194,28 @@ export function Library() {
 Choose `list`, `grid`, `compact`, or container-responsive `auto` for `layout`.
 `urlSync` synchronizes search, tags, sorting, and pagination with the URL and browser history.
 For Next.js Pages Router, pass `createNextPagesRouterAdapter(router)` as `urlAdapter`.
+
+### Revisit articles and links
+
+The reading presentation is opt-in; existing defaults are preserved.
+
+```tsx
+<keep.Collection
+  layout="list"
+  query={{ sort: { by: "savedAt", direction: "desc" }, pinnedFirst: true }}
+  features={{ bulkActions: true, pin: true, archive: true }}
+  bulkActionsVariant="inline"
+  itemCardProps={{ presentation: "reading", href: (item) => item.meta.url, trackOpen: true }}
+/>
+```
+
+`presentation="reading"` shows the title, URL source, collection name, note, tags, and save/open information. Images appear only when supplied through `getImageProps`. It hides the save toggle and shows editing, notes, and activity by default; existing visibility flags override these defaults. Supply `href` and `trackOpen` explicitly. Editing uses 300ms autosave and Done, retaining the draft on failure.
+
+`bulkActionsVariant="inline"` selects items on their article rows. Select-all targets only the current page; changes to search, filters, page, or view clear selection. Failed bulk operations retain selection. The default `separate` preserves the existing selection list.
+
+For custom rows, pass `KeepListSelection` (`selectedIds: readonly string[]`, `onSelectedIdsChange`, optional `disabled`) to `KeepList.selection`. The third argument of `KeepList` and `KeepCollection`'s `renderItem(item, state, selection?)` is `KeepItemSelection` (`checked`, `onCheckedChange`, optional `disabled`), ready to spread onto `KeepItemCheckbox`. Existing two-argument callbacks still work.
+
+Use `KeepQuickEditor.closeLabel` to customize the completion button. Manual saving with `debounceMs={0}` is preserved; completion and Escape close only after successful saving. Standalone editors do not trap Tab.
 
 ### Components by task
 

@@ -51,9 +51,9 @@ export function KeepCollectionCreate({
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
-    if (!normalizedId) return;
+    const collectionId = normalizedId || `collection-${crypto.randomUUID()}`;
 
-    const exists = collections.some((c) => c.id === normalizedId || c.name.toLowerCase() === trimmed.toLowerCase());
+    const exists = collections.some((c) => c.id === collectionId || c.name.toLowerCase() === trimmed.toLowerCase());
     if (exists) {
       const message = `Collection "${trimmed}" already exists.`;
       setError(message);
@@ -64,9 +64,9 @@ export function KeepCollectionCreate({
     setError(null);
     setIsSubmitting(true);
     try {
-      await createCollection(normalizedId, trimmed);
+      await createCollection(collectionId, trimmed);
       setName("");
-      onCreated?.(normalizedId);
+      onCreated?.(collectionId);
     } catch (cause) {
       const message = getErrorMessage(cause, "Failed to create collection.");
       setError(message);

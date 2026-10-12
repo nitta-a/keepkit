@@ -1,5 +1,19 @@
 # Release notes
 
+## [0.28.9] - 2026-10-12
+
+### 日本語
+
+- 記事・リンクの保存と再訪に合わせた読書表示と行内一括選択を追加しました。既存の表示とCoreの保存形式は維持します。
+- URLだけでリンクを保存できるようにし、タイトルがない新規保存ではドメイン名を使います。編集の自動保存、エラー時の再試行、コレクション作成と画面幅・テーマの操作性を改善しました。
+- メインデモとコレクションデモを更新し、利用例・README画像・テストを追加しました。
+
+### English
+
+- Added an opt-in reading presentation and inline bulk selection for saving and revisiting links, while preserving existing presentation defaults and Core storage formats.
+- Link capture now accepts a URL alone and uses its domain when a new link has no title. Improved autosave retry, collection creation, responsive layouts, and theme accessibility.
+- Updated both demos and added usage examples, README screenshots, and tests.
+
 ## [0.28.8] - 2026-10-10
 
 ### 日本語

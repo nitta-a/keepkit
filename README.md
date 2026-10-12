@@ -2,6 +2,8 @@
 
 [日本語](#日本語) | [English](#english)
 
+Release: v0.28.9
+
 ## 日本語
 
 KeepKitは、Reactアプリに保存・コレクション機能を追加する、非同期・ローカルファーストのツールキットです。
@@ -16,16 +18,20 @@ KeepKitは、Reactアプリに保存・コレクション機能を追加する�
 ### デモアプリ
 
 `apps/demo`の実画面です。サンプルを保存し、タグ・コレクション・ピン留めを設定しています。
-Inbox・未読・アーカイブへの切り替え、検索・ソート・タグフィルター、グリッド／リスト表示で保存したリンクを整理できます。
+初期画面は「すべての保存」です。記事のタイトルから再訪し、検索・タグ・コレクションや、同じ行での選択操作で整理できます。
+未訪問は「まだ開いていないリンク」を表し、読了状態ではありません。
 
-![保存済みリンクの一覧。検索、ソート、タグフィルター、コレクション、ピン留め、Inbox・未読・アーカイブのナビゲーション](docs/images/demo-library.jpg)
+![保存済みリンクの一覧。検索、ソート、タグフィルター、コレクション、ピン留め、Inbox・未訪問・アーカイブのナビゲーション](docs/images/demo-library.jpg)
+
+![記事行のチェックボックスと現在ページの選択・一括操作](docs/images/demo-selection.jpg)
 
 <details>
 <summary>リンク保存・バックアップの画面を見る</summary>
 
-タイトル・URL・メモ・保存先コレクションを入力してリンクを保存できます。
+URLだけでリンクを保存できます。タイトル・メモ・保存先コレクションは任意です。タイトル未入力の新規リンクはドメイン名で表示し、同じURLの再保存では既存タイトルと未変更の整理情報を保持します。
+編集は自動保存され、「完了」でも保存成功を待って閉じます。保存後は「すべての保存」で対象を表示します。アーカイブ済みリンクの再保存は状態を維持し、アーカイブで対象を表示します。
 
-![タイトル、URL、メモ、コレクションを指定するリンク保存フォーム](docs/images/demo-save-link.jpg)
+![URLを先頭に置き、タイトル、メモ、コレクションを任意で指定できるリンク保存フォーム](docs/images/demo-save-link.jpg)
 
 データはブラウザー内に保存されます。JSONでバックアップを出力し、Merge（結合）／Replace（置換）で読み込めます。
 
@@ -61,7 +67,13 @@ export function App() {
           meta: { title: "Example article", url: "/articles/123" },
         }}
       />
-      <keep.Collection query={{ targetType: "article" }} />
+      <keep.Collection
+        query={{ targetType: "article", sort: { by: "savedAt", direction: "desc" } }}
+        layout="list"
+        bulkActionsVariant="inline"
+        features={{ bulkActions: true, pin: true, archive: true }}
+        itemCardProps={{ presentation: "reading", href: (item) => item.meta.url, trackOpen: true }}
+      />
     </keep.Provider>
   );
 }
@@ -128,16 +140,18 @@ KeepKit is an async, local-first toolkit for adding save and collection features
 ### Demo app
 
 These are actual screens from `apps/demo`, with sample items saved, tagged, assigned to collections, and pinned.
-Organize saved links with Inbox, Unread, and Archive views, search, sorting, tag filters, and grid/list layouts.
+The initial view is All saves. Revisit links through their titles, then organize them with search, tags, collections, and selection on the same rows. Unvisited means never opened, not unread.
 
-![Saved links with search, sorting, tag filters, collections, pinning, and navigation for Inbox, Unread, and Archive](docs/images/demo-library.jpg)
+![Saved links with search, sorting, tag filters, collections, pinning, and navigation for Inbox, Unvisited, and Archive](docs/images/demo-library.jpg)
+
+![Selection on article rows with current-page selection and bulk actions](docs/images/demo-selection.jpg)
 
 <details>
 <summary>View the link-saving and backup screens</summary>
 
-Save a link with a title, URL, note, and destination collection.
+Save with just a URL. Title, note, and collection are optional. A new untitled link uses its domain; resaving the same URL keeps its existing title and untouched organization. Edits autosave, and Done waits for saving to succeed before closing. Saving reveals the item in All saves; resaving an archived link preserves its state and reveals it in Archive.
 
-![Link-saving form with title, URL, note, and collection fields](docs/images/demo-save-link.jpg)
+![URL-first saving form with optional title, note, and collection fields](docs/images/demo-save-link.jpg)
 
 Data stays in the browser. Export a JSON backup and import it using Merge or Replace mode.
 
@@ -173,7 +187,13 @@ export function App() {
           meta: { title: "Example article", url: "/articles/123" },
         }}
       />
-      <keep.Collection query={{ targetType: "article" }} />
+      <keep.Collection
+        query={{ targetType: "article", sort: { by: "savedAt", direction: "desc" } }}
+        layout="list"
+        bulkActionsVariant="inline"
+        features={{ bulkActions: true, pin: true, archive: true }}
+        itemCardProps={{ presentation: "reading", href: (item) => item.meta.url, trackOpen: true }}
+      />
     </keep.Provider>
   );
 }

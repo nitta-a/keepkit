@@ -126,10 +126,10 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
     return promise;
   }, [baseline, moveToCollection, onSaveError, onSaved, updateNote, updateTags]);
   useEffect(() => {
-    if (!isDirty || debounceMs <= 0) return;
+    if (!isDirty || debounceMs <= 0 || saveStatus === "error") return;
     const timer = window.setTimeout(() => void flush().catch(() => undefined), debounceMs);
     return () => window.clearTimeout(timer);
-  }, [debounceMs, flush, isDirty]);
+  }, [debounceMs, flush, isDirty, saveStatus]);
   return {
     state: {
       item,
@@ -171,6 +171,7 @@ export type KeepQuickEditorProps<TMeta = Record<string, unknown>> = Omit<
   collectionIds?: string[];
   collectionLabels?: Record<string, string>;
   showSaveButton?: boolean;
+  closeLabel?: string;
   /** Controls which fields are visible. Defaults to all fields shown. */
   features?: Partial<Record<KeepQuickEditorFeature, boolean>>;
   children?: ReactNode | ((state: KeepQuickEditorState<TMeta>) => ReactNode);
@@ -215,6 +216,7 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   features,
   children,
   onClose,
+  closeLabel: customCloseLabel,
   focusScopeRef,
   ...props
 }: KeepQuickEditorViewProps<TMeta>) {
@@ -230,7 +232,8 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   const uncategorizedLabel = useUiLabel("uncategorized");
   const saveLabel = useUiLabel("saveWithNote");
   const showSaveLabel = useUiLabelVisibility("saveWithNote");
-  const closeLabel = useUiLabel("close");
+  const defaultCloseLabel = useUiLabel("close");
+  const closeLabel = customCloseLabel ?? defaultCloseLabel;
   const showCloseLabel = useUiLabelVisibility("close");
   const unsavedChangesLabel = useUiLabel("unsavedChanges");
   const savingLabel = useUiLabel("saving");
@@ -244,17 +247,27 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   useEffect(() => {
     if (!sameTags(parseTags(tagsInput), state.tags)) setTagsInput(formatTags(state.tags));
   }, [state.tags, tagsInput]);
+  const [closeFailed, setCloseFailed] = useState(false);
+  useEffect(() => {
+    if (!closeFailed || state.saveStatus !== "error") return;
+    rootRef.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();
+    setCloseFailed(false);
+  }, [closeFailed, state.saveStatus]);
+  const close = () => {
+    void state
+      .flush()
+      .then(() => onClose?.())
+      .catch(() => setCloseFailed(true));
+  };
   const onKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     props.onKeyDown?.(event);
     if (event.defaultPrevented) return;
     if (event.key === "Escape") {
       event.preventDefault();
-      void state
-        .flush()
-        .then(() => onClose?.())
-        .catch(() => undefined);
+      if (onClose) close();
+      else void state.flush().catch(() => undefined);
     }
-    if (event.key === "Tab") trapFocus(event, focusScopeRef?.current ?? rootRef.current);
+    if (event.key === "Tab" && focusScopeRef?.current) trapFocus(event, focusScopeRef.current);
   };
   const statusMessage =
     state.saveStatus === "dirty"
@@ -306,7 +319,7 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
                   <option value="">{uncategorizedLabel}</option>
                   {(collectionIds ?? collections.map((collection) => collection.id)).map((id) => (
                     <option key={id} value={id}>
-                      {collectionLabels?.[id] ?? id}
+                      {collectionLabels?.[id] ?? collections.find((collection) => collection.id === id)?.name ?? id}
                     </option>
                   ))}
                 </select>
@@ -323,7 +336,7 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
                 {statusMessage}
               </p>
             ) : null}
-            {showSaveButton ? (
+            {showSaveButton || state.saveStatus === "error" ? (
               <button
                 type="submit"
                 disabled={state.isSaving}
@@ -336,12 +349,7 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
             {onClose ? (
               <button
                 type="button"
-                onClick={() =>
-                  void state
-                    .flush()
-                    .then(onClose)
-                    .catch(() => undefined)
-                }
+                onClick={close}
                 disabled={state.isSaving}
                 data-keep-action="close-quick-edit"
                 aria-label={showCloseLabel ? undefined : closeLabel}

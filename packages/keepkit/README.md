@@ -2,10 +2,12 @@
 
 [日本語](#日本語) | [English](#english)
 
+Release: v0.28.9
+
 ## 日本語
 
 フレームワーク中立の保存処理と、React向けのProvider・hooksを提供します。
-標準の一覧UIが必要な場合は[@keepkit/ui](../keepkit-ui/README.md)を使ってください。
+標準の一覧UIが必要な場合は[@keepkit/ui](../keepkit-ui/README.md)を使ってください。記事向けの`presentation="reading"`と行内選択はUIパッケージの追加機能で、Coreの型・保存形式は変更しません。未訪問の判定には既存の`lastOpenedAt`と`recordOpen()`を使います。
 
 ### インストールと入口
 
@@ -92,7 +94,7 @@ hooksはProvider内のコンポーネントで呼び出します。
 ## English
 
 Framework-neutral persistence primitives and React providers and hooks.
-Use [@keepkit/ui](../keepkit-ui/README.md) when you want a ready-made collection UI.
+Use [@keepkit/ui](../keepkit-ui/README.md) when you want a ready-made collection UI. Its opt-in `presentation="reading"` and inline selection add UI behavior without changing Core types or storage formats. Unvisited uses the existing `lastOpenedAt` and `recordOpen()` contracts.
 
 ### Installation and entry points
 
