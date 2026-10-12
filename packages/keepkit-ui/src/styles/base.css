@@ -373,9 +373,6 @@
 :where(.keep-theme, [data-keep-theme]) [data-item-status="restricted"] {
   filter: grayscale(1);
 }
-:where(.keep-theme, [data-keep-theme]) [data-state="empty"] {
-  border-style: dashed;
-}
 :where(.keep-theme, [data-keep-theme]) [data-state="selected"],
 :where(.keep-theme, [data-keep-theme]) [data-state="checked"] {
   outline: 2px solid var(--keep-ring);

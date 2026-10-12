@@ -1012,7 +1012,6 @@
   place-items: center;
   gap: var(--keep-control-gap);
   min-height: 8rem;
-  border: 1px dashed var(--keep-border);
   border-radius: var(--keep-radius);
   padding: calc(var(--keep-card-padding) * 1.5);
   background: color-mix(in srgb, var(--keep-muted) 42%, var(--keep-card));
