@@ -1,6 +1,7 @@
 import type { KeepListQuery, KeepSavedView, KeepSavedViewStorage } from "@keepkit/core/core";
 import { LocalStorageKeepSavedViewStorage } from "@keepkit/core/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useUiLabel } from "../../foundation/ui-context";
 
 const changeEvent = "keepkit:saved-views:change";
 
@@ -20,6 +21,9 @@ export function useKeepSavedViews<TMeta = Record<string, unknown>>(
   const resolvedStorage = useMemo(() => storage ?? new LocalStorageKeepSavedViewStorage<TMeta>(), [storage]);
   const [views, setViews] = useState<KeepSavedView<TMeta>[]>([]);
   const [error, setError] = useState<unknown>();
+  const nameRequiredLabel = useUiLabel("savedViewNameRequired");
+  const notSerializableLabel = useUiLabel("savedViewNotSerializable");
+  const invalidDatesLabel = useUiLabel("savedViewInvalidDates");
   const refresh = useCallback(async () => {
     try {
       setViews(sortViews(await resolvedStorage.getAll()));
@@ -37,10 +41,16 @@ export function useKeepSavedViews<TMeta = Record<string, unknown>>(
   const createView = useCallback(
     async (name: string, query: KeepListQuery<TMeta>) => {
       const trimmed = name.trim();
-      if (!trimmed) throw new Error("Saved View name is required.");
-      if (query.filter) throw new Error("Saved Views require a serializable query; query.filter cannot be saved.");
+      if (!trimmed) throw new Error(nameRequiredLabel);
+      if (query.filter) throw new Error(notSerializableLabel);
       const now = Date.now();
-      const view = { id: createId(), name: trimmed, query: normalizeQuery(query), createdAt: now, updatedAt: now };
+      const view = {
+        id: createId(),
+        name: trimmed,
+        query: normalizeQuery(query, invalidDatesLabel),
+        createdAt: now,
+        updatedAt: now,
+      };
       try {
         await resolvedStorage.set(view);
         notifyChange();
@@ -50,7 +60,7 @@ export function useKeepSavedViews<TMeta = Record<string, unknown>>(
         throw cause;
       }
     },
-    [resolvedStorage],
+    [resolvedStorage, nameRequiredLabel, notSerializableLabel, invalidDatesLabel],
   );
   const updateView = useCallback(
     async (id: string, update: Partial<Pick<KeepSavedView<TMeta>, "name" | "query" | "pinned">>) => {
@@ -58,13 +68,12 @@ export function useKeepSavedViews<TMeta = Record<string, unknown>>(
         const current = await resolvedStorage.get(id);
         if (!current) return;
         const name = update.name?.trim() ?? current.name;
-        if (!name) throw new Error("Saved View name is required.");
-        if (update.query?.filter)
-          throw new Error("Saved Views require a serializable query; query.filter cannot be saved.");
+        if (!name) throw new Error(nameRequiredLabel);
+        if (update.query?.filter) throw new Error(notSerializableLabel);
         const view = {
           ...current,
           ...update,
-          ...(update.query ? { query: normalizeQuery(update.query) } : {}),
+          ...(update.query ? { query: normalizeQuery(update.query, invalidDatesLabel) } : {}),
           name,
           updatedAt: Date.now(),
         };
@@ -75,7 +84,7 @@ export function useKeepSavedViews<TMeta = Record<string, unknown>>(
         throw cause;
       }
     },
-    [resolvedStorage],
+    [resolvedStorage, nameRequiredLabel, notSerializableLabel, invalidDatesLabel],
   );
   const removeView = useCallback(
     async (id: string) => {
@@ -115,10 +124,10 @@ function createId(): string {
     : `${Date.now()}-${Math.random()}`;
 }
 
-function normalizeQuery<TMeta>(query: KeepListQuery<TMeta>): KeepListQuery<TMeta> {
+function normalizeQuery<TMeta>(query: KeepListQuery<TMeta>, invalidDatesLabel: string): KeepListQuery<TMeta> {
   const range = query.savedBetween;
   const savedBetween: readonly [number, number] | undefined = range
-    ? [toTimestamp(range[0]), toTimestamp(range[1])]
+    ? [toTimestamp(range[0], invalidDatesLabel), toTimestamp(range[1], invalidDatesLabel)]
     : undefined;
   return {
     ...query,
@@ -126,9 +135,9 @@ function normalizeQuery<TMeta>(query: KeepListQuery<TMeta>): KeepListQuery<TMeta
   };
 }
 
-function toTimestamp(value: Date | number): number {
+function toTimestamp(value: Date | number, invalidDatesLabel: string): number {
   const timestamp = value instanceof Date ? value.getTime() : value;
-  if (!Number.isFinite(timestamp)) throw new Error("Saved View date filters must use valid timestamps.");
+  if (!Number.isFinite(timestamp)) throw new Error(invalidDatesLabel);
   return timestamp;
 }
 

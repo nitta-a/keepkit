@@ -1,4 +1,4 @@
-import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
+import type { KeepCollectionDefinition, KeepItem, StorageAdapter } from "@keepkit/core/core";
 import { KeepProvider } from "@keepkit/core/react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
@@ -31,6 +31,7 @@ const product = {
 
 function createStorage(initialItems: KeepItem<DemoMeta>[] = []) {
   let items = [...initialItems];
+  const collections = new Map<string, KeepCollectionDefinition>();
   const storage: StorageAdapter<DemoMeta> = {
     getAll: async () => [...items],
     set: async (item) => {
@@ -42,6 +43,9 @@ function createStorage(initialItems: KeepItem<DemoMeta>[] = []) {
     clear: async () => {
       items = [];
     },
+    getCollections: async () => [...collections.values()],
+    setCollection: async (collection) => void collections.set(collection.id, collection),
+    removeCollection: async (id) => void collections.delete(id),
   };
 
   return { storage, getItems: () => items };

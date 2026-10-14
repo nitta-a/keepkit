@@ -53,6 +53,9 @@ function storage(initial = [first, second]) {
     setCollection: async (collection) => {
       collections = [...collections.filter((entry) => entry.id !== collection.id), collection];
     },
+    removeCollection: async (id) => {
+      collections = collections.filter((entry) => entry.id !== id);
+    },
   };
   return { adapter, items: () => items, collections: () => collections };
 }

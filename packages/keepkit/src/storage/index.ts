@@ -23,6 +23,27 @@ import {
   isSameKeepScope,
   type KeepScope,
 } from "../features/persistence/scope";
+import { serializeKeepStorage } from "../features/persistence/serialization";
+import {
+  type FallbackRecoveryJournal,
+  type KeepStorageRecovery,
+  LocalStorageRecoveryJournal,
+  RecoveryJournalController,
+} from "./recovery-journal";
+
+export type {
+  FallbackRecoveryJournal,
+  FallbackRecoveryJournalState,
+  FallbackRecoveryJournalV2,
+  FallbackRecoveryOperation,
+  FallbackRecoverySnapshot,
+  KeepRecoveryInspection,
+  KeepRecoveryResult,
+  KeepRecoveryRow,
+  KeepRecoveryState,
+  KeepStorageRecovery,
+} from "./recovery-journal";
+export { LocalStorageRecoveryJournal } from "./recovery-journal";
 
 export const DEFAULT_STORAGE_KEY = "keepkit:items";
 
@@ -63,8 +84,11 @@ export type StorageAdapterFactoryOptions<TMeta = Record<string, unknown>> = {
 };
 
 export type FallbackStorageAdapterOptions<TMeta = Record<string, unknown>> = {
-  primary: StorageAdapter<TMeta>;
+  primary?: StorageAdapter<TMeta>;
+  scope?: KeepScope;
   fallback: StorageAdapter<TMeta>;
+  /** Persist fallback-only operations and replay them before returning to the primary. */
+  recoveryJournal?: FallbackRecoveryJournal<TMeta>;
   /** Decide which primary adapter failures should activate the fallback. */
   shouldFallback?: (error: unknown) => boolean;
   onFallback?: (error: unknown) => void;
@@ -93,18 +117,41 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
   private readonly onFallback?: (error: unknown) => void;
   private readonly migrateFallbackOnEmpty: boolean;
   private readonly mirrorWrites: boolean;
+  readonly recovery?: KeepStorageRecovery<TMeta>;
+  private readonly journalController: RecoveryJournalController<TMeta> | undefined;
   private active: "primary" | "fallback" = "primary";
   private readonly listeners = new Set<() => void>();
 
   constructor(options: FallbackStorageAdapterOptions<TMeta>) {
-    this.primary = options.primary;
-    this.fallback = options.fallback;
+    const scope = options.scope ?? options.primary?.scope ?? options.fallback.scope;
+    const primary = options.primary && scope ? createScopedStorageAdapter(options.primary, scope) : options.primary;
+    this.fallback = scope ? createScopedStorageAdapter(options.fallback, scope) : options.fallback;
+    this.primary = primary ?? this.fallback;
     this.shouldFallback = options.shouldFallback ?? isRecoverableStorageError;
     this.onFallback = options.onFallback;
     this.migrateFallbackOnEmpty = options.migrateFallbackOnEmpty ?? false;
     this.mirrorWrites = options.mirrorWrites ?? false;
-    this.storageKey = options.fallback.storageKey ?? options.primary.storageKey;
-    this.scope = options.primary.scope ?? options.fallback.scope;
+    this.storageKey = options.fallback.storageKey ?? options.primary?.storageKey;
+    this.scope = scope;
+    if (!options.primary) this.active = "fallback";
+    if (options.recoveryJournal) {
+      this.journalController = new RecoveryJournalController({
+        primary,
+        fallback: this.fallback,
+        scope: this.scope,
+        migrateFallbackOnEmpty: this.migrateFallbackOnEmpty,
+        journal: options.recoveryJournal,
+        shouldFallback: this.shouldFallback,
+        mirrorWrites: this.mirrorWrites,
+        onSourceChange: (source, error) => {
+          this.active = source;
+          if (source === "fallback" && error !== undefined) this.reportFallbackError(error);
+          this.notifyListeners();
+        },
+        onError: (error) => this.reportFallbackError(error),
+      });
+      this.recovery = this.journalController;
+    }
     if (
       this.primary.getCollections &&
       this.primary.setCollection &&
@@ -115,6 +162,7 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
     ) {
       const fallbackGetCollections = this.fallback.getCollections.bind(this.fallback);
       this.getCollections = async () => {
+        if (this.journalController) return this.journalController.readCollections();
         const collections = await this.execute((adapter) => {
           if (!adapter.getCollections) throw new Error("Collection storage is unavailable.");
           return adapter.getCollections();
@@ -126,12 +174,18 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
         }
         return collections;
       };
-      this.setCollection = (collection) =>
-        this.executeWrite((adapter) => {
-          if (!adapter.setCollection) throw new Error("Collection storage is unavailable.");
-          return adapter.setCollection(collection);
-        });
-      this.removeCollection = (id, scope) =>
+      this.setCollection = (collection) => {
+        const value = this.scope ? { ...collection, scope: this.scope } : collection;
+        return (
+          this.journalController?.write({ type: "setCollection", collection: value }) ??
+          this.executeWrite((adapter) => {
+            if (!adapter.setCollection) throw new Error("Collection storage is unavailable.");
+            return adapter.setCollection(value);
+          })
+        );
+      };
+      this.removeCollection = (id, scope = this.scope) =>
+        this.journalController?.write({ type: "removeCollection", id, scope }) ??
         this.executeWrite((adapter) => {
           if (!adapter.removeCollection) throw new Error("Collection storage is unavailable.");
           return adapter.removeCollection(id, scope);
@@ -147,6 +201,7 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
     ) {
       const fallbackGetMemberships = this.fallback.getCollectionMemberships.bind(this.fallback);
       this.getCollectionMemberships = async () => {
+        if (this.journalController) return this.journalController.readMemberships();
         const memberships = await this.execute(
           (adapter) => adapter.getCollectionMemberships?.() ?? Promise.resolve([]),
         );
@@ -155,9 +210,15 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
         for (const membership of fallbackMemberships) await this.setCollectionMembership?.(membership);
         return fallbackMemberships;
       };
-      this.setCollectionMembership = (membership) =>
-        this.executeWrite((adapter) => adapter.setCollectionMembership?.(membership) ?? Promise.resolve());
-      this.removeCollectionMembership = (collectionId, itemId, scope) =>
+      this.setCollectionMembership = (membership) => {
+        const value = this.scope ? { ...membership, scope: this.scope } : membership;
+        return (
+          this.journalController?.write({ type: "setMembership", membership: value }) ??
+          this.executeWrite((adapter) => adapter.setCollectionMembership?.(value) ?? Promise.resolve())
+        );
+      };
+      this.removeCollectionMembership = (collectionId, itemId, scope = this.scope) =>
+        this.journalController?.write({ type: "removeMembership", collectionId, itemId, scope }) ??
         this.executeWrite(
           (adapter) => adapter.removeCollectionMembership?.(collectionId, itemId, scope) ?? Promise.resolve(),
         );
@@ -173,10 +234,15 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
   }
 
   set(item: KeepItem<TMeta>): Promise<void> {
+    if (this.scope) item = { ...item, scope: this.scope };
+    if (this.journalController)
+      return this.journalController.write({ type: "setItems", items: [item] }, (adapter) => adapter.set(item));
     return this.executeWrite((adapter) => adapter.set(item));
   }
 
   setMany(items: KeepItem<TMeta>[]): Promise<void> {
+    if (this.scope) items = items.map((item) => ({ ...item, scope: this.scope }));
+    if (this.journalController) return this.journalController.write({ type: "setItems", items });
     return this.executeWrite((adapter) =>
       adapter.setMany
         ? adapter.setMany(items)
@@ -184,11 +250,16 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
     );
   }
 
-  remove(id: string, scope?: KeepScope): Promise<void> {
+  remove(id: string, scope: KeepScope | undefined = this.scope): Promise<void> {
+    if (this.journalController)
+      return this.journalController.write({ type: "removeItems", ids: [id], scope }, (adapter) =>
+        adapter.remove(id, scope),
+      );
     return this.executeWrite((adapter) => adapter.remove(id, scope));
   }
 
-  removeMany(ids: string[], scope?: KeepScope): Promise<void> {
+  removeMany(ids: string[], scope: KeepScope | undefined = this.scope): Promise<void> {
+    if (this.journalController) return this.journalController.write({ type: "removeItems", ids, scope });
     return this.executeWrite((adapter) =>
       adapter.removeMany
         ? adapter.removeMany(ids, scope)
@@ -197,10 +268,13 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
   }
 
   clear(): Promise<void> {
+    if (this.journalController) return this.journalController.write({ type: "clearItems" });
     return this.executeWrite((adapter) => adapter.clear());
   }
 
   merge(localItems: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
+    if (this.scope) localItems = localItems.map((item) => ({ ...item, scope: this.scope }));
+    if (this.journalController) return this.journalController.merge(localItems);
     return this.execute(async (adapter) => {
       const merged = adapter.merge
         ? await adapter.merge(localItems)
@@ -224,14 +298,17 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
     };
     const unsubscribePrimary = this.primary.subscribe?.(() => notify("primary"));
     const unsubscribeFallback = this.fallback.subscribe?.(() => notify("fallback"));
+    const unsubscribeJournal = this.journalController?.subscribeJournalChanges(listener);
     return () => {
       this.listeners.delete(listener);
       unsubscribePrimary?.();
       unsubscribeFallback?.();
+      unsubscribeJournal?.();
     };
   }
 
   private async readAll(): Promise<KeepItem<TMeta>[]> {
+    if (this.journalController) return this.journalController.readItems();
     if (this.active === "fallback") return this.fallback.getAll();
     let items: KeepItem<TMeta>[];
     try {
@@ -257,8 +334,26 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
 
   private activateFallback(error: unknown): void {
     this.active = "fallback";
-    this.onFallback?.(error);
-    for (const listener of this.listeners) listener();
+    this.reportFallbackError(error);
+    this.notifyListeners();
+  }
+
+  private reportFallbackError(error: unknown): void {
+    try {
+      this.onFallback?.(error);
+    } catch {
+      // Reporting cannot interrupt an accepted storage operation or later observers.
+    }
+  }
+
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // Each observer receives the source change even if another observer fails.
+      }
+    }
   }
 
   private async executeWrite<TResult>(
@@ -287,7 +382,12 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
   }
 }
 
-export type BrowserStorageAdapterOptions = {
+export type RecoveryJournalFactoryContext = {
+  storageKey: string;
+  lockKey: string;
+  scope?: KeepScope;
+};
+export type BrowserStorageAdapterOptions<TMeta = Record<string, unknown>> = {
   key?: string;
   databaseName?: string;
   storeName?: string;
@@ -295,33 +395,103 @@ export type BrowserStorageAdapterOptions = {
   indexedDB?: IDBFactory;
   storage?: Storage;
   scope?: KeepScope;
+  createRecoveryJournal?: (context: RecoveryJournalFactoryContext) => FallbackRecoveryJournal<TMeta>;
 };
 
-/** IndexedDB-first browser storage with localStorage fallback. */
+/** IndexedDB-first browser storage with a scoped durable recovery checkpoint. */
 export function createBrowserStorageAdapter<TMeta = Record<string, unknown>>(
-  options: BrowserStorageAdapterOptions = {},
+  options: BrowserStorageAdapterOptions<TMeta> = {},
 ): StorageAdapter<TMeta> {
   const browserIndexedDB = options.indexedDB ?? getBrowserIndexedDB();
   const scopeKey = getKeepScopeKey(options.scope);
-  const storageKey = options.key
-    ? `${options.key}${scopeKey}`
-    : scopeKey
-      ? `${DEFAULT_STORAGE_KEY}${scopeKey}`
-      : undefined;
+  const storageKey = `${options.key ?? DEFAULT_STORAGE_KEY}${scopeKey}`;
   const fallback = new LocalStorageAdapter<TMeta>({ key: storageKey, storage: options.storage });
-  if (!browserIndexedDB) return options.scope ? createScopedStorageAdapter(fallback, options.scope) : fallback;
+  const databaseName = options.databaseName ? `${options.databaseName}${scopeKey}` : DEFAULT_INDEXEDDB_DATABASE;
+  const storeName = options.storeName ?? DEFAULT_INDEXEDDB_STORE;
+  const primaryKey = JSON.stringify([databaseName, storeName]);
+  const scopeIdentity = JSON.stringify([options.scope?.tenantId ?? null, options.scope?.userId ?? null]);
+  const journalKey = `${fallback.storageKey}:recovery:${encodeURIComponent(primaryKey)}:${encodeURIComponent(scopeIdentity)}`;
+  const lockKey = `recovery:${primaryKey}`;
+  const legacyBackendKey = `${databaseName}:${storeName}`;
+  const legacyJournalKey = `${fallback.storageKey}:recovery:${encodeURIComponent(legacyBackendKey)}`;
+  const recoveryJournal =
+    options.createRecoveryJournal?.({ storageKey: journalKey, lockKey, scope: options.scope }) ??
+    createBrowserRecoveryJournal<TMeta>(
+      journalKey,
+      legacyJournalKey,
+      lockKey,
+      options.storage ?? getBrowserStorage(),
+      options.scope,
+      isAmbiguousLegacyBackend(legacyBackendKey, scopeKey),
+    );
   const adapter = new FallbackStorageAdapter<TMeta>({
-    primary: new IndexedDBAdapter<TMeta>({
-      databaseName: options.databaseName ? `${options.databaseName}${scopeKey}` : undefined,
-      storeName: options.storeName,
-      version: options.version,
-      indexedDB: browserIndexedDB,
-    }),
+    primary: browserIndexedDB
+      ? new IndexedDBAdapter<TMeta>({
+          databaseName,
+          storeName: options.storeName,
+          version: options.version,
+          indexedDB: browserIndexedDB,
+        })
+      : undefined,
     fallback,
+    scope: options.scope,
+    recoveryJournal,
     migrateFallbackOnEmpty: true,
     mirrorWrites: true,
   });
   return options.scope ? createScopedStorageAdapter(adapter, options.scope) : adapter;
+}
+
+function createBrowserRecoveryJournal<TMeta>(
+  storageKey: string,
+  legacyStorageKey: string,
+  lockKey: string,
+  storage: Storage | undefined,
+  scope: KeepScope | undefined,
+  ambiguousBackend: boolean,
+): FallbackRecoveryJournal<TMeta> {
+  const journal = new LocalStorageRecoveryJournal<TMeta>(storageKey, storage, lockKey);
+  const legacy = new LocalStorageRecoveryJournal<TMeta>(legacyStorageKey, storage, lockKey);
+  return {
+    read: async () => {
+      const current = await journal.read();
+      if (current !== undefined) return current;
+      const previous = await legacy.read();
+      if (previous && ambiguousBackend)
+        throw new KeepStorageParseError({ operation: "getAll", storageKey: legacyStorageKey });
+      // Scoped v1 factories never produced clearItems; the old key cannot identify its scope safely.
+      if (scope && previous?.operations.some((operation) => operation.type === "clearItems"))
+        throw new KeepStorageParseError({ operation: "getAll", storageKey: legacyStorageKey });
+      return previous;
+    },
+    write: async (state) => {
+      await journal.write(state);
+      try {
+        storage?.removeItem(legacyStorageKey);
+      } catch {
+        // The canonical journal is already durable and takes precedence over the retained legacy copy.
+      }
+    },
+    runExclusive: (operation) => journal.runExclusive(operation),
+    subscribe: (listener) => {
+      if (typeof window === "undefined") return () => undefined;
+      const onStorage = (event: StorageEvent) => {
+        if (event.key === null || event.key === storageKey || event.key === legacyStorageKey) listener();
+      };
+      window.addEventListener("storage", onStorage);
+      return () => window.removeEventListener("storage", onStorage);
+    },
+  };
+}
+
+function isAmbiguousLegacyBackend(backendKey: string, scopeKey: string): boolean {
+  let candidates = 0;
+  for (let index = 1; index < backendKey.length - 1; index += 1) {
+    if (backendKey[index] !== ":") continue;
+    const databaseName = backendKey.slice(0, index);
+    if (databaseName === DEFAULT_INDEXEDDB_DATABASE || !scopeKey || databaseName.endsWith(scopeKey)) candidates += 1;
+  }
+  return candidates !== 1;
 }
 
 /** Adapt sync or async persistence functions to the StorageAdapter contract. */
@@ -588,8 +758,9 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
 
   private write(items: KeepItem<TMeta>[], operation: KeepStorageOperation): void {
     if (!this.storage) return;
+    const serialized = serializeKeepStorage(items, { operation, storageKey: this.storageKey });
     try {
-      this.storage.setItem(this.storageKey, JSON.stringify(items));
+      this.storage.setItem(this.storageKey, serialized);
     } catch (cause) {
       if (isQuotaExceededError(cause)) {
         throw new KeepStorageQuotaError({
@@ -612,8 +783,9 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
   ): Promise<void> {
     if (!this.storage) return;
     const storageKey = `${this.storageKey}:collections`;
+    const serialized = serializeKeepStorage(collections, { operation, storageKey });
     try {
-      this.storage.setItem(storageKey, JSON.stringify(collections));
+      this.storage.setItem(storageKey, serialized);
     } catch (cause) {
       if (isQuotaExceededError(cause)) throw new KeepStorageQuotaError({ operation, storageKey, cause });
       throw new KeepStorageAccessError({ operation, storageKey, cause });
@@ -626,8 +798,9 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
   ): Promise<void> {
     if (!this.storage) return;
     const storageKey = `${this.storageKey}:memberships`;
+    const serialized = serializeKeepStorage(memberships, { operation, storageKey });
     try {
-      this.storage.setItem(storageKey, JSON.stringify(memberships));
+      this.storage.setItem(storageKey, serialized);
     } catch (cause) {
       if (isQuotaExceededError(cause)) throw new KeepStorageQuotaError({ operation, storageKey, cause });
       throw new KeepStorageAccessError({ operation, storageKey, cause });
@@ -929,9 +1102,7 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
   }
 }
 
-const indexedDBStoredItemId = Symbol("keepkit.indexeddb-stored-item-id");
-
-type IndexedDBStoredItem<TMeta> = KeepItem<TMeta> & { [indexedDBStoredItemId]?: string };
+const indexedDBStoredItemIds = new WeakMap<object, string>();
 
 function encodeIndexedDBItem<TMeta>(item: KeepItem<TMeta>): Record<string, unknown> {
   if (!item.scope) return item;
@@ -952,12 +1123,12 @@ function decodeIndexedDBItem<TMeta>(item: KeepItem<TMeta>): KeepItem<TMeta> {
     __keepkitOriginalId?: unknown;
   };
   const decoded = isEncoded ? { ...record, id: originalId as string } : item;
-  Object.defineProperty(decoded, indexedDBStoredItemId, { value: item.id });
+  indexedDBStoredItemIds.set(decoded, item.id);
   return decoded;
 }
 
 function getStoredIndexedDBItemId<TMeta>(item: KeepItem<TMeta>): string {
-  return (item as IndexedDBStoredItem<TMeta>)[indexedDBStoredItemId] ?? createScopedIndexedDBItemId(item);
+  return indexedDBStoredItemIds.get(item) ?? createScopedIndexedDBItemId(item);
 }
 
 function createScopedIndexedDBItemId(item: Pick<KeepItem, "id" | "scope">): string {

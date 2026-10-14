@@ -2,11 +2,12 @@
 
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import type { KeepCollectionSummary } from "@keepkit/core/react";
-import type { HTMLAttributes, ReactNode } from "react";
+import { type HTMLAttributes, type ReactNode, useRef } from "react";
 import { getErrorMessage, getMetaTitle, type RenderProp } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepBulkActions } from "./hooks/useKeepBulkActions";
 import { KeepItemCheckbox } from "./KeepItemCheckbox";
+import { KeepRemovalConfirmation } from "./KeepRemovalConfirmation";
 
 export { isAllSelected, toggleSelectAll } from "./hooks/useKeepBulkActions";
 
@@ -22,6 +23,10 @@ export type KeepBulkActionsState<TMeta = Record<string, unknown>> = {
   toggleSelectAll: () => void;
   toggleAll: () => void;
   remove: () => Promise<void>;
+  requestRemoval: () => Promise<void>;
+  confirmRemoval: () => Promise<void>;
+  cancelRemoval: () => void;
+  removalConfirmation: { ids: readonly string[]; count: number } | null;
   updateTags: () => Promise<void>;
   collectionId: string;
   setCollectionId: (value: string) => void;
@@ -48,6 +53,8 @@ export type KeepBulkActionsProps<TMeta = Record<string, unknown>> = Omit<HTMLAtt
   onCompleted?: (action: "remove" | "tags", ids: string[]) => void;
   selectionScope?: KeepSelectionScope;
   onSelectionScopeChange?: (scope: KeepSelectionScope) => void;
+  /** Requires confirmation before removing the full selection, including items on other pages. */
+  confirmRemoval?: boolean;
   render?: RenderProp<KeepBulkActionsState<TMeta>>;
   children?: ReactNode | RenderProp<KeepBulkActionsState<TMeta>>;
 };
@@ -62,6 +69,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   onCompleted,
   selectionScope: controlledScope,
   onSelectionScopeChange,
+  confirmRemoval = false,
   render,
   children,
   ...props
@@ -74,7 +82,9 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
     onCompleted,
     controlledScope,
     onSelectionScopeChange,
+    confirmRemoval,
   });
+  const removalTrigger = useRef<HTMLButtonElement>(null);
   const showSelectItemsLabel = useUiLabelVisibility("selectItems");
   const showSelectionScopeLabel = useUiLabelVisibility("selectionScope");
   const showSelectedCountLabel = useUiLabelVisibility("selectedCount");
@@ -82,6 +92,13 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   const showDeleteLabel = useUiLabelVisibility("deleteSelected");
   const showApplyTagsLabel = useUiLabelVisibility("applyTags");
   const errorLabel = useUiLabel("error");
+  const collectionLabel = useUiLabel("moveSelectedCollection");
+  const uncategorizedLabel = useUiLabel("uncategorized");
+  const moveLabel = useUiLabel("moveSelected");
+  const archiveLabel = useUiLabel("archiveSelected");
+  const unarchiveLabel = useUiLabel("unarchiveSelected");
+  const pinLabel = useUiLabel("pinSelected");
+  const unpinLabel = useUiLabel("unpinSelected");
   const body = render
     ? render(state)
     : typeof children === "function"
@@ -125,6 +142,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
               ))}
             </fieldset>
             <button
+              ref={removalTrigger}
               type="button"
               data-keep-action="delete-selected"
               aria-label={showDeleteLabel ? undefined : labels.deleteSelected}
@@ -133,6 +151,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
             >
               {showDeleteLabel ? labels.deleteSelected : null}
             </button>
+            <KeepRemovalConfirmation state={state} triggerRef={removalTrigger} />
             <label>
               {showTagsLabel ? labels.tags : null}
               <input
@@ -152,9 +171,9 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
               {showApplyTagsLabel ? labels.applyTags : null}
             </button>
             <label>
-              Move selected items to collection
+              {collectionLabel}
               <select value={state.collectionId} onChange={(event) => state.setCollectionId(event.currentTarget.value)}>
-                <option value="">Unassigned</option>
+                <option value="">{uncategorizedLabel}</option>
                 {state.collections.map((collection) => (
                   <option key={collection.id} value={collection.id}>
                     {collection.name}
@@ -167,35 +186,35 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
               onClick={() => void state.moveToCollection().catch(() => undefined)}
               disabled={!state.selectedCount || state.isMutating}
             >
-              Move selected items
+              {moveLabel}
             </button>
             <button
               type="button"
               onClick={() => void state.archive().catch(() => undefined)}
               disabled={!state.selectedCount || state.isMutating}
             >
-              Archive selected items
+              {archiveLabel}
             </button>
             <button
               type="button"
               onClick={() => void state.unarchive().catch(() => undefined)}
               disabled={!state.selectedCount || state.isMutating}
             >
-              Unarchive selected items
+              {unarchiveLabel}
             </button>
             <button
               type="button"
               onClick={() => void state.pin().catch(() => undefined)}
               disabled={!state.selectedCount || state.isMutating}
             >
-              Pin selected items
+              {pinLabel}
             </button>
             <button
               type="button"
               onClick={() => void state.unpin().catch(() => undefined)}
               disabled={!state.selectedCount || state.isMutating}
             >
-              Unpin selected items
+              {unpinLabel}
             </button>
           </>
         ));

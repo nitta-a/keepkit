@@ -10,6 +10,7 @@ import type {
 import { isKeepCollectionDefinition, isKeepCollectionMembership, isKeepItem, isRecord } from "./helpers";
 import { mergeKeepItems } from "./migration";
 import { validateKeepItem } from "./schema";
+import { serializeKeepStorage } from "./serialization";
 
 export const KEEP_BACKUP_FORMAT = "keepkit";
 export const KEEP_BACKUP_VERSION = 2;
@@ -114,7 +115,9 @@ export async function exportItems<TMeta>(adapter: StorageAdapter<TMeta>): Promis
     memberships,
     scopes: collectScopes(items, collections, memberships, adapter.scope ? [adapter.scope] : []),
   };
-  return JSON.stringify(backup, null, 2);
+  const serialized = serializeKeepStorage(backup, { operation: "getAll", storageKey: adapter.storageKey });
+  const json: unknown = JSON.parse(serialized);
+  return JSON.stringify(json, null, 2);
 }
 
 /** Validate and restore a backup, either replacing or merging existing data. */

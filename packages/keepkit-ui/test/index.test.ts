@@ -17,6 +17,7 @@ import {
   KeepCollectionManager,
   KeepCollectionSelect,
   KeepEmptyState,
+  KeepFallbackRecovery,
   KeepItemCard,
   KeepItemCardSkeleton,
   KeepItemCheckbox,
@@ -69,6 +70,8 @@ test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepItemCard, "function");
   assert.equal(typeof KeepItemCardSkeleton, "function");
   assert.equal(typeof KeepItemCard.Media, "function");
+  assert.equal(typeof KeepItemCard.Link, "function");
+  assert.equal(typeof KeepFallbackRecovery, "function");
   assert.equal(typeof KeepItemCard.Content, "function");
   assert.equal(typeof KeepItemCard.Title, "function");
   assert.equal(typeof KeepItemCard.Tags, "function");

@@ -5,3 +5,5 @@ dist
 .DS_Store
 *.tsbuildinfo
 .next
+playwright-report
+test-results

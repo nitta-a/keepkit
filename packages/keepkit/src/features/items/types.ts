@@ -1,3 +1,5 @@
+import type { KeepStorageRecovery } from "../../storage/recovery-journal";
+
 export type KeepItemStatus = "available" | "expired" | "removed" | "deleted" | "private" | "unknown";
 
 export type SyncScope = {
@@ -70,6 +72,8 @@ export type KeepItemInput<TMeta = Record<string, unknown>> = {
 export interface StorageAdapter<TMeta = Record<string, unknown>> {
   /** Active user/tenant scope when this adapter is scoped. */
   readonly scope?: SyncScope;
+  /** Optional local fallback status and explicitly invoked repair tools. */
+  readonly recovery?: KeepStorageRecovery<TMeta>;
   getAll(): Promise<KeepItem<TMeta>[]>;
   /** Optional local collection metadata; independent of saved items and item backups. */
   getCollections?(): Promise<KeepCollectionDefinition[]>;
@@ -350,9 +354,18 @@ export class KeepStorageParseError extends KeepStorageError {
   }
 }
 
+export class KeepStorageSerializationError extends KeepStorageError {
+  constructor(options: { operation: KeepStorageOperation; storageKey?: string; cause?: unknown }) {
+    super("KeepKit cannot store this value without losing data in JSON.", options);
+    this.name = "KeepStorageSerializationError";
+  }
+}
+
 export type KeepErrorContext = {
   action: KeepAction;
   id?: string;
+  /** The mutation was persisted; only a subsequent notification failed. */
+  phase?: "notification";
 };
 
 export type KeepErrorHandler = (error: unknown, context: KeepErrorContext) => void;

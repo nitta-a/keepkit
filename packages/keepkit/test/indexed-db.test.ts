@@ -137,6 +137,227 @@ test("scoped browser adapters isolate same-ID items in shared IndexedDB storage"
   assert.deepEqual(await bob.getAll(), [{ ...itemA, meta: { title: "Bob" }, scope: { userId: "bob" } }]);
 });
 
+test("browser fallback changes survive an IndexedDB outage and factory recreation", async () => {
+  const options: { openError?: Error } = {};
+  const indexedDB = createIndexedDB(options);
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => void values.set(key, value),
+    removeItem: (key) => void values.delete(key),
+  };
+  const create = () => createBrowserStorageAdapter({ key: "factory-recovery", indexedDB, storage });
+  await create().set(itemA);
+  options.openError = new Error("IndexedDB unavailable");
+  const fallback = create();
+  await fallback.set(itemB);
+  await fallback.remove(itemA.id);
+  assert.deepEqual(await fallback.getAll(), [itemB]);
+  options.openError = undefined;
+  assert.deepEqual(await create().getAll(), [itemB]);
+  assert.ok([...values.keys()].some((key) => key.includes(":recovery:")));
+});
+
+test("journals writes made without IndexedDB and restores them when IndexedDB becomes available", async () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => void values.set(key, value),
+    removeItem: (key) => void values.delete(key),
+  };
+  const local = createBrowserStorageAdapter({ key: "initially-no-indexed-db", storage });
+  await local.set(itemA);
+  await local.setCollection?.({ id: "empty", name: "Empty" });
+  await local.setCollectionMembership?.({ collectionId: "empty", itemId: "a", order: 0 });
+  const indexedDB = createIndexedDB();
+  const recovered = createBrowserStorageAdapter({ key: "initially-no-indexed-db", indexedDB, storage });
+  assert.deepEqual(await recovered.getAll(), [itemA]);
+  assert.deepEqual(await recovered.getCollections?.(), [{ id: "empty", name: "Empty" }]);
+  assert.deepEqual(await recovered.getCollectionMemberships?.(), [{ collectionId: "empty", itemId: "a", order: 0 }]);
+});
+
+test("browser recovery journals are isolated by scope and primary backend", async () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => void values.set(key, value),
+    removeItem: (key) => void values.delete(key),
+  };
+  const aliceOptions = { key: "scope-journal", scope: { userId: "alice" }, storage };
+  const bobOptions = { key: "scope-journal", scope: { userId: "bob" }, storage };
+  await createBrowserStorageAdapter(aliceOptions).set({ ...itemA, meta: { title: "Alice" } });
+  await createBrowserStorageAdapter(bobOptions).set({ ...itemA, meta: { title: "Bob" } });
+  await createBrowserStorageAdapter({ key: "backend-journal", databaseName: "one", storage }).set(itemA);
+  await createBrowserStorageAdapter({ key: "backend-journal", databaseName: "two", storage }).set(itemB);
+  const indexedDB = createIndexedDB();
+  assert.deepEqual(await createBrowserStorageAdapter({ ...aliceOptions, indexedDB }).getAll(), [
+    { ...itemA, meta: { title: "Alice" }, scope: { userId: "alice" } },
+  ]);
+  assert.deepEqual(await createBrowserStorageAdapter({ ...bobOptions, indexedDB }).getAll(), [
+    { ...itemA, meta: { title: "Bob" }, scope: { userId: "bob" } },
+  ]);
+  assert.deepEqual(
+    await createBrowserStorageAdapter({ key: "backend-journal", databaseName: "one", indexedDB, storage }).getAll(),
+    [itemA],
+  );
+  assert.deepEqual(
+    await createBrowserStorageAdapter({ key: "backend-journal", databaseName: "two", indexedDB, storage }).getAll(),
+    [itemB],
+  );
+  assert.equal([...values.keys()].filter((key) => key.includes(":recovery:")).length, 4);
+});
+
+test("browser factories recover v1 journals from their original key before creating a v2 checkpoint", async () => {
+  const options: { openError?: Error } = {};
+  const indexedDB = createIndexedDB(options);
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => void values.set(key, value),
+    removeItem: (key) => void values.delete(key),
+  };
+  const key = "legacy-factory-journal";
+  const legacyKey = `${key}:recovery:${encodeURIComponent("keepkit:items")}`;
+  await new IndexedDBAdapter({ indexedDB }).set(itemA);
+  storage.setItem(key, JSON.stringify([itemA]));
+  storage.setItem(
+    legacyKey,
+    JSON.stringify({
+      version: 1,
+      operations: [
+        { type: "removeItems", ids: [itemA.id] },
+        { type: "setItems", items: [itemB] },
+      ],
+    }),
+  );
+  options.openError = new Error("Offline");
+  assert.deepEqual(await createBrowserStorageAdapter({ key, indexedDB, storage }).getAll(), [itemB]);
+  assert.ok(storage.getItem(legacyKey));
+  options.openError = undefined;
+  assert.deepEqual(await createBrowserStorageAdapter({ key, indexedDB, storage }).getAll(), [itemB]);
+  assert.equal(storage.getItem(legacyKey), null);
+  assert.equal(
+    [...values.entries()].some(([entry, value]) => entry.includes(":recovery:") && JSON.parse(value).version === 2),
+    true,
+  );
+  assert.deepEqual(await createBrowserStorageAdapter({ key, indexedDB, storage }).getAll(), [itemB]);
+});
+
+test("browser factories retain the v1 journal when persisting its replacement fails", async () => {
+  const indexedDB = createIndexedDB();
+  const key = "legacy-journal-write-failure";
+  const legacyKey = `${key}:recovery:${encodeURIComponent("keepkit:items")}`;
+  const values = new Map<string, string>([
+    [legacyKey, JSON.stringify({ version: 1, operations: [{ type: "setItems", items: [itemA] }] })],
+  ]);
+  let failReplacement = true;
+  const storage = {
+    getItem: (entry) => values.get(entry) ?? null,
+    setItem: (entry, value) => {
+      if (failReplacement && entry.includes(":recovery:") && entry !== legacyKey) throw new Error("Quota");
+      values.set(entry, value);
+    },
+    removeItem: (entry) => void values.delete(entry),
+  };
+  assert.deepEqual(await createBrowserStorageAdapter({ key, indexedDB, storage }).getAll(), [itemA]);
+  assert.ok(storage.getItem(legacyKey));
+  failReplacement = false;
+  assert.deepEqual(await createBrowserStorageAdapter({ key, indexedDB, storage }).getAll(), [itemA]);
+  assert.equal(storage.getItem(legacyKey), null);
+});
+
+test("canonical browser journals take precedence over an old v1 copy and reject ambiguous scoped clears", async () => {
+  const key = "legacy-journal-precedence";
+  const legacyKey = `${key}:recovery:${encodeURIComponent("keepkit:items")}`;
+  const currentKey = `${key}:recovery:${encodeURIComponent(JSON.stringify(["keepkit", "items"]))}:${encodeURIComponent(JSON.stringify([null, null]))}`;
+  const values = new Map<string, string>([
+    [key, JSON.stringify([itemA])],
+    [legacyKey, JSON.stringify({ version: 1, operations: [{ type: "setItems", items: [itemA] }] })],
+    [
+      currentKey,
+      JSON.stringify({
+        version: 2,
+        operations: [],
+        initialized: true,
+        snapshot: {
+          items: [],
+          collections: [],
+          memberships: [],
+          capabilities: { collections: true, memberships: true },
+          capturedAt: 1,
+        },
+      }),
+    ],
+  ]);
+  const storage = {
+    getItem: (entry) => values.get(entry) ?? null,
+    setItem: (entry, value) => void values.set(entry, value),
+    removeItem: (entry) => void values.delete(entry),
+  };
+  assert.deepEqual(await createBrowserStorageAdapter({ key, storage }).getAll(), []);
+  const scopedKey = `${key}:_:_`;
+  const ambiguousKey = `${scopedKey}:recovery:${encodeURIComponent("keepkit:items")}`;
+  storage.setItem(ambiguousKey, JSON.stringify({ version: 1, operations: [{ type: "clearItems" }] }));
+  await assert.rejects(
+    createBrowserStorageAdapter({ key, storage, scope: { userId: "_" } }).getAll(),
+    KeepStorageParseError,
+  );
+  storage.setItem(
+    ambiguousKey,
+    JSON.stringify({ version: 1, operations: [{ type: "setItems", items: [{ ...itemA, scope: { tenantId: "_" } }] }] }),
+  );
+  await assert.rejects(
+    createBrowserStorageAdapter({ key, storage, scope: { userId: "_" } }).getAll(),
+    KeepStorageParseError,
+  );
+  assert.ok(storage.getItem(ambiguousKey));
+});
+
+test("legacy scoped backend names migrate only when their original physical backend is unambiguous", async () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => void values.set(key, value),
+    removeItem: (key) => void values.delete(key),
+  };
+  const options = {
+    key: "legacy-custom-scoped",
+    databaseName: "app:cache",
+    storeName: "saved:items",
+    scope: { userId: "alice" },
+    storage,
+  };
+  const scoped = { ...itemA, scope: options.scope };
+  const legacyKey = `${options.key}:_:alice:recovery:${encodeURIComponent("app:cache:_:alice:saved:items")}`;
+  storage.setItem(legacyKey, JSON.stringify({ version: 1, operations: [{ type: "setItems", items: [scoped] }] }));
+  assert.deepEqual(await createBrowserStorageAdapter(options).getAll(), [scoped]);
+  assert.deepEqual(await createBrowserStorageAdapter({ ...options, indexedDB: createIndexedDB() }).getAll(), [scoped]);
+  assert.equal(storage.getItem(legacyKey), null);
+
+  const ambiguousOptions = { key: "legacy-backend-ambiguity", databaseName: "app:cache", storeName: "items", storage };
+  const ambiguousKey = `${ambiguousOptions.key}:recovery:${encodeURIComponent("app:cache:items")}`;
+  storage.setItem(ambiguousKey, JSON.stringify({ version: 1, operations: [{ type: "setItems", items: [itemB] }] }));
+  await assert.rejects(createBrowserStorageAdapter(ambiguousOptions).getAll(), KeepStorageParseError);
+  assert.ok(storage.getItem(ambiguousKey));
+  const canonicalKey = `${ambiguousOptions.key}:recovery:${encodeURIComponent(JSON.stringify(["app:cache", "items"]))}:${encodeURIComponent(JSON.stringify([null, null]))}`;
+  storage.setItem(
+    canonicalKey,
+    JSON.stringify({
+      version: 2,
+      operations: [],
+      initialized: true,
+      snapshot: {
+        items: [],
+        collections: [],
+        memberships: [],
+        capabilities: { collections: true, memberships: true },
+        capturedAt: 1,
+      },
+    }),
+  );
+  assert.deepEqual(await createBrowserStorageAdapter(ambiguousOptions).getAll(), []);
+});
+
 test("uses IndexedDB defaults and supports CRUD, merge, and subscriptions", async () => {
   const indexedDB = createIndexedDB();
   const adapter = new IndexedDBAdapter({ indexedDB });

@@ -1,3 +1,4 @@
+import type { KeepStorageRecovery } from "../../storage/recovery-journal";
 import type {
   KeepCollectionDefinition,
   KeepCollectionMembership,
@@ -29,6 +30,7 @@ export function isSameKeepScope(left: KeepScope | undefined, right: KeepScope | 
 export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements StorageAdapter<TMeta> {
   readonly scope?: KeepScope;
   readonly storageKey?: string;
+  readonly recovery?: KeepStorageRecovery<TMeta>;
   readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
   readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
   readonly removeCollection?: (id: string, scope?: SyncScope) => Promise<void>;
@@ -40,6 +42,7 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
   constructor(base: StorageAdapter<TMeta>, scope?: KeepScope) {
     this.base = base;
     this.scope = scope;
+    if (base.recovery && isSameKeepScope(base.scope, scope)) this.recovery = base.recovery;
     const scopeKey = getKeepScopeKey(scope);
     this.storageKey = base.storageKey
       ? base.storageKey.endsWith(scopeKey) && scopeKey
@@ -56,9 +59,14 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
           ? collections.filter((collection) => isSameKeepScope(collection.scope, this.scope))
           : collections;
       };
-      this.setCollection = (collection) =>
-        setCollection({ ...collection, ...(this.scope ? { scope: this.scope } : {}) });
-      this.removeCollection = (id) => removeCollection(id, this.scope);
+      this.setCollection = async (collection) => {
+        this.assertWritableScope();
+        await setCollection({ ...collection, ...(this.scope ? { scope: this.scope } : {}) });
+      };
+      this.removeCollection = async (id) => {
+        this.assertWritableScope();
+        await removeCollection(id, this.scope);
+      };
     }
     if (base.getCollectionMemberships && base.setCollectionMembership && base.removeCollectionMembership) {
       const getMemberships = base.getCollectionMemberships.bind(base);
@@ -70,9 +78,14 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
           ? memberships.filter((membership) => isSameKeepScope(membership.scope, this.scope))
           : memberships;
       };
-      this.setCollectionMembership = (membership) =>
-        setMembership({ ...membership, ...(this.scope ? { scope: this.scope } : {}) });
-      this.removeCollectionMembership = (collectionId, itemId) => removeMembership(collectionId, itemId, this.scope);
+      this.setCollectionMembership = async (membership) => {
+        this.assertWritableScope();
+        await setMembership({ ...membership, ...(this.scope ? { scope: this.scope } : {}) });
+      };
+      this.removeCollectionMembership = async (collectionId, itemId) => {
+        this.assertWritableScope();
+        await removeMembership(collectionId, itemId, this.scope);
+      };
     }
   }
 
@@ -86,47 +99,35 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
   }
 
   async setMany(items: KeepItem<TMeta>[]): Promise<void> {
-    const current = await this.base.getAll();
+    this.assertWritableScope();
     const scoped = items.map((item) => ({ ...item, ...(this.scope ? { scope: this.scope } : {}) }));
-    const ids = new Set(scoped.map((item) => item.id));
-    const next = current.filter((item) => !ids.has(item.id) || !isSameKeepScope(item.scope, this.scope));
-    await writeAll(this.base, [...next, ...scoped], this.scope);
+    if (this.base.setMany) await this.base.setMany(scoped);
+    else for (const item of scoped) await this.base.set(item);
   }
 
   async remove(id: string): Promise<void> {
-    const current = await this.base.getAll();
-    await writeAll(
-      this.base,
-      current.filter((item) => item.id !== id || !isSameKeepScope(item.scope, this.scope)),
-      this.scope,
-    );
+    this.assertWritableScope();
+    await this.base.remove(id, this.scope);
     await this.removeMembershipsForItems([id]);
   }
 
   async removeMany(ids: string[]): Promise<void> {
-    const idSet = new Set(ids);
-    const current = await this.base.getAll();
-    await writeAll(
-      this.base,
-      current.filter((item) => !idSet.has(item.id) || !isSameKeepScope(item.scope, this.scope)),
-      this.scope,
-    );
-    await this.removeMembershipsForItems([...idSet]);
+    this.assertWritableScope();
+    const uniqueIds = [...new Set(ids)];
+    if (this.base.removeMany) await this.base.removeMany(uniqueIds, this.scope);
+    else for (const id of uniqueIds) await this.base.remove(id, this.scope);
+    await this.removeMembershipsForItems(uniqueIds);
   }
 
   async clear(): Promise<void> {
-    const current = await this.base.getAll();
-    const removedIds = current.filter((item) => isSameKeepScope(item.scope, this.scope)).map((item) => item.id);
-    await writeAll(
-      this.base,
-      current.filter((item) => !isSameKeepScope(item.scope, this.scope)),
-      this.scope,
-    );
-    if (removedIds.length > 0) await this.removeMembershipsForItems(removedIds);
+    this.assertWritableScope();
+    const removedIds = (await this.getAll()).map((item) => item.id);
+    await this.removeMany(removedIds);
     await this.clearMembershipsForScope();
   }
 
   async merge(items: KeepItem<TMeta>[]): Promise<KeepItem<TMeta>[]> {
+    this.assertWritableScope();
     const scopedItems = items.map((item) => ({ ...item, ...(this.scope ? { scope: this.scope } : {}) }));
     const merged = mergeKeepItemLists(await this.getAll(), scopedItems);
     await this.setMany(merged);
@@ -135,6 +136,11 @@ export class ScopedStorageAdapter<TMeta = Record<string, unknown>> implements St
 
   subscribe(listener: () => void): () => void {
     return this.base.subscribe?.(listener) ?? (() => undefined);
+  }
+
+  private assertWritableScope(): void {
+    if (this.base.scope && this.scope && !isSameKeepScope(this.base.scope, this.scope))
+      throw new Error("Cannot write through an adapter bound to a different storage scope.");
   }
 
   private async removeMembershipsForItems(ids: string[]): Promise<void> {
@@ -207,29 +213,4 @@ export class ScopedSyncQueueAdapter<TMeta = Record<string, unknown>> implements 
       .map((operation) => operation.operationId);
     await this.base.remove(operationIds);
   }
-}
-
-async function writeAll<TMeta>(
-  base: StorageAdapter<TMeta>,
-  items: KeepItem<TMeta>[],
-  scope?: KeepScope,
-): Promise<void> {
-  const existing = await base.getAll();
-  const desiredItems = new Set(items.filter((item) => isSameKeepScope(item.scope, scope)).map(itemStorageKey));
-  const removedIds = existing
-    .filter((item) => isSameKeepScope(item.scope, scope) && !desiredItems.has(itemStorageKey(item)))
-    .map((item) => item.id);
-  if (removedIds.length > 0) {
-    if (base.removeMany) await base.removeMany(removedIds, scope);
-    else await Promise.all(removedIds.map((id) => base.remove(id, scope)));
-  }
-  if (base.setMany) {
-    await base.setMany(items);
-    return;
-  }
-  for (const item of items) await base.set(item);
-}
-
-function itemStorageKey(item: Pick<KeepItem, "id" | "scope">): string {
-  return JSON.stringify([item.scope?.tenantId ?? null, item.scope?.userId ?? null, item.id]);
 }

@@ -409,10 +409,10 @@ test("uses fallback batch methods and honors custom fallback predicates", async 
   assert.equal(noFallback.isUsingFallback, false);
 });
 
-test("creates a local-storage adapter when IndexedDB is unavailable", async () => {
+test("creates a journaled fallback adapter when IndexedDB is unavailable", async () => {
   const storage = createStorage();
   const adapter = createBrowserStorageAdapter({ key: "browser-fallback", indexedDB: undefined, storage });
-  assert.equal(adapter instanceof LocalStorageAdapter, true);
+  assert.equal(adapter instanceof FallbackStorageAdapter, true);
   await adapter.set(item);
   assert.deepEqual(await adapter.getAll(), [item]);
 });

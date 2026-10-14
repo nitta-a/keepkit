@@ -27,7 +27,9 @@ import {
   mergeKeepItemLists,
   persistKeepItems,
 } from "../features/persistence/helpers";
-import { ScopedSyncQueueAdapter } from "../features/persistence/scope";
+import { isSameKeepScope, ScopedSyncQueueAdapter } from "../features/persistence/scope";
+import { serializeKeepStorage } from "../features/persistence/serialization";
+import type { KeepStorageRecovery } from "./recovery-journal";
 
 export type LocalStorageSyncQueueOptions = {
   key?: string;
@@ -95,7 +97,8 @@ export class LocalStorageSyncQueueAdapter<TMeta = Record<string, unknown>> imple
 
   async setMany(operations: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
     if (!this.storage) return;
-    this.storage.setItem(this.key, JSON.stringify(operations));
+    const serialized = serializeKeepStorage(operations, { operation: "set", storageKey: this.key });
+    this.storage.setItem(this.key, serialized);
   }
 
   async remove(operationIds: string[]): Promise<void> {
@@ -236,6 +239,7 @@ export class FallbackSyncQueueAdapter<TMeta = Record<string, unknown>> implement
 /** A local-first adapter that persists remote operations until they are acknowledged. */
 export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements SyncCapableStorageAdapter<TMeta> {
   readonly storageKey?: string;
+  readonly recovery?: KeepStorageRecovery<TMeta>;
   readonly getCollections?: () => Promise<KeepCollectionDefinition[]>;
   readonly setCollection?: (collection: KeepCollectionDefinition) => Promise<void>;
   readonly removeCollection?: (id: string, scope?: SyncScope) => Promise<void>;
@@ -276,6 +280,13 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     this.retryDelayMs = Math.max(0, options.retryDelayMs ?? 0);
     this.retryBackoff = Math.max(1, options.retryBackoff ?? 2);
     this.storageKey = this.local.storageKey;
+    const localRecovery = this.local.recovery;
+    if (localRecovery && isSameKeepScope(this.local.scope, this.scope ?? this.local.scope)) {
+      this.recovery = {
+        getState: () => ({ ...localRecovery.getState(), repairSupported: false }),
+        subscribe: (listener) => localRecovery.subscribe(listener),
+      };
+    }
     if (this.local.getCollections && this.local.setCollection && this.local.removeCollection) {
       const getCollections = this.local.getCollections.bind(this.local);
       const setCollection = this.local.setCollection.bind(this.local);

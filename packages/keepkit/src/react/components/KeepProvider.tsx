@@ -141,7 +141,7 @@ type KeepStoreAccess<TMeta> = {
 type MutationPlan<TMeta> = {
   next: KeepItem<TMeta>[];
   persist: () => Promise<void>;
-  onSuccess?: () => void;
+  onSuccess?: Array<() => void | Promise<void>>;
   pluginContext?: {
     action: KeepAction;
     id?: string;
@@ -282,8 +282,17 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   const reportError = useCallback(
     (cause: unknown, context: KeepErrorContext) => {
       store.setState({ error: cause });
-      handlersRef.current.onError?.(cause, context);
-      for (const plugin of pluginsRef.current) plugin.onError?.(cause, context);
+      const handlers = [
+        () => handlersRef.current.onError?.(cause, context),
+        ...pluginsRef.current.map((plugin) => () => plugin.onError?.(cause, context)),
+      ];
+      for (const handler of handlers) {
+        try {
+          void Promise.resolve(handler()).catch(() => undefined);
+        } catch {
+          // Error handlers must not replace the original failure.
+        }
+      }
     },
     [store],
   );
@@ -301,9 +310,25 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     return context;
   }, []);
 
-  const runAfterPlugins = useCallback(async (context: NonNullable<MutationPlan<TMeta>["pluginContext"]>) => {
-    for (const plugin of pluginsRef.current) await plugin.after?.(context);
-  }, []);
+  const notify = useCallback(
+    async (callback: () => void | Promise<void>, context: KeepErrorContext) => {
+      try {
+        await callback();
+      } catch (cause) {
+        reportError(cause, { ...context, phase: "notification" });
+      }
+    },
+    [reportError],
+  );
+
+  const runAfterPlugins = useCallback(
+    async (context: NonNullable<MutationPlan<TMeta>["pluginContext"]>) => {
+      const { action, id } = context;
+      const errorContext = id === undefined ? { action } : { action, id };
+      for (const plugin of pluginsRef.current) await notify(() => plugin.after?.(context), errorContext);
+    },
+    [notify],
+  );
 
   const enqueueOperation = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
     const run = operationTailRef.current.then(operation, operation);
@@ -425,20 +450,18 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
           setItems(plan.next);
           store.setState({ error: null });
           await plan.persist();
-          plan.onSuccess?.();
-          if (plan.pluginContext) await runAfterPlugins(plan.pluginContext);
-          if (plan.pluginContext) {
-            const change: KeepChangeContext<TMeta> = { ...plan.pluginContext, phase: "local" };
-            store.setState({ lastChange: change });
-            void Promise.resolve(handlersRef.current.onChange?.(change)).catch((cause) =>
-              reportError(cause, { action, id }),
-            );
-          }
         } catch (cause) {
           setItems(previous);
           reportError(cause, { action, id });
           throw cause;
         }
+        const change: KeepChangeContext<TMeta> | undefined = plan.pluginContext
+          ? { ...plan.pluginContext, phase: "local" }
+          : undefined;
+        if (change) store.setState({ lastChange: change });
+        for (const callback of plan.onSuccess ?? []) void notify(callback, { action, id });
+        if (plan.pluginContext) await runAfterPlugins(plan.pluginContext);
+        if (change) void notify(() => handlersRef.current.onChange?.(change), { action, id });
       });
 
       return run.finally(() => {
@@ -446,7 +469,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         if (pendingMutationsRef.current === 0) store.setState({ isMutating: false });
       });
     },
-    [enqueueOperation, reportError, runAfterPlugins, runBeforePlugins, setItems, store],
+    [enqueueOperation, notify, reportError, runAfterPlugins, runBeforePlugins, setItems, store],
   );
 
   const updateItem = useCallback(
@@ -463,7 +486,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         return {
           next: previous.map((item) => (item.id === id ? next : item)),
           persist: () => storage.set(next),
-          onSuccess: () => onSuccess?.(next),
+          onSuccess: [() => onSuccess?.(next)],
           pluginContext: { action, id, item: next },
         };
       }),
@@ -509,7 +532,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         return {
           next,
           persist: () => storage.set(nextItem),
-          onSuccess: () => handlersRef.current.onSave?.(nextItem),
+          onSuccess: [() => handlersRef.current.onSave?.(nextItem)],
           pluginContext: { action: "save", id: nextItem.id, item: nextItem },
         };
       });
@@ -696,46 +719,64 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     [updateItemsBatch],
   );
 
+  const getCollectionPersistence = useCallback(
+    (id: string) => {
+      if (storage.getCollections && storage.setCollection && storage.removeCollection) {
+        return {
+          setCollection: storage.setCollection.bind(storage),
+          removeCollection: storage.removeCollection.bind(storage),
+        };
+      }
+      const cause = new Error("This storage adapter does not support collection persistence.");
+      reportError(cause, { action: "collection", id });
+      throw cause;
+    },
+    [reportError, storage],
+  );
+
   const createCollection = useCallback(
     (id: string, name: string) =>
       enqueueOperation(async () => {
         const trimmedId = id.trim();
         const trimmedName = name.trim();
+        const persistence = getCollectionPersistence(trimmedId);
         if (!trimmedId || !trimmedName) throw new Error("Collection id and name are required.");
         const current = store.getSnapshot().collections;
         if (current[trimmedId]) throw new Error(`Collection "${trimmedId}" already exists.`);
         try {
-          await storage.setCollection?.({ id: trimmedId, name: trimmedName });
+          await persistence.setCollection({ id: trimmedId, name: trimmedName });
         } catch (cause) {
           reportError(cause, { action: "collection", id: trimmedId });
           throw cause;
         }
         store.setState({ collections: { ...current, [trimmedId]: { name: trimmedName } } });
       }),
-    [enqueueOperation, reportError, storage, store],
+    [enqueueOperation, getCollectionPersistence, reportError, store],
   );
 
   const renameCollection = useCallback(
     (id: string, name: string) =>
       enqueueOperation(async () => {
+        const persistence = getCollectionPersistence(id);
         const trimmedName = name.trim();
         if (!trimmedName) throw new Error("Collection name is required.");
         const current = store.getSnapshot().collections;
         if (!current[id]) throw new Error(`Collection "${id}" does not exist.`);
         try {
-          await storage.setCollection?.({ id, name: trimmedName });
+          await persistence.setCollection({ id, name: trimmedName });
         } catch (cause) {
           reportError(cause, { action: "collection", id });
           throw cause;
         }
         store.setState({ collections: { ...current, [id]: { name: trimmedName } } });
       }),
-    [enqueueOperation, reportError, storage, store],
+    [enqueueOperation, getCollectionPersistence, reportError, store],
   );
 
   const removeCollection = useCallback(
     (id: string) =>
       enqueueOperation(async () => {
+        const persistence = getCollectionPersistence(id);
         const current = store.getSnapshot().collections;
         if (!current[id]) throw new Error(`Collection "${id}" does not exist.`);
         const { [id]: _removed, ...remaining } = current;
@@ -746,7 +787,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         });
         try {
           await persistKeepItems(storage, updated);
-          await storage.removeCollection?.(id);
+          await persistence.removeCollection(id);
         } catch (cause) {
           if (affected.length > 0) {
             try {
@@ -764,7 +805,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         }
         store.setState({ collections: remaining });
       }),
-    [enqueueOperation, reportError, setItems, storage, store],
+    [enqueueOperation, getCollectionPersistence, reportError, setItems, storage, store],
   );
 
   const updateTagsBatch = useCallback(
@@ -804,11 +845,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
               throw cause;
             }
           },
-          onSuccess: () => {
-            updatedItems.forEach((item) => {
-              handlersRef.current.onTagsUpdate?.(item.id, nextTags);
-            });
-          },
+          onSuccess: updatedItems.map((item) => () => handlersRef.current.onTagsUpdate?.(item.id, nextTags)),
           pluginContext: { action: "updateTagsBatch", items: updatedItems },
         };
       });
@@ -850,7 +887,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         return {
           next: previous.filter((item) => item.id !== id),
           persist: () => storage.remove(id),
-          onSuccess: () => handlersRef.current.onRemove?.(current),
+          onSuccess: [() => handlersRef.current.onRemove?.(current)],
           pluginContext: { action: "remove", id, item: current },
         };
       });
@@ -882,11 +919,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
               throw cause;
             }
           },
-          onSuccess: () => {
-            removedItems.forEach((item) => {
-              handlersRef.current.onRemove?.(item);
-            });
-          },
+          onSuccess: removedItems.map((item) => () => handlersRef.current.onRemove?.(item)),
           pluginContext: { action: "removeBatch", items: removedItems },
         };
       });
@@ -951,7 +984,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         persist: async () => {
           await persistKeepItems(storage, pending.items);
         },
-        onSuccess: () => handlersRef.current.onUndo?.(pending.items),
+        onSuccess: [() => handlersRef.current.onUndo?.(pending.items)],
         pluginContext: { action: "undo", items: pending.items },
       };
     });
@@ -982,11 +1015,12 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       const run = enqueueOperation(async () => {
         const previous = itemsRef.current;
         let persistenceStarted = false;
+        let summary: KeepItemRevalidationSummary<TMeta>;
         try {
           const activeRevalidator = revalidator ?? validateItem;
           if (!activeRevalidator)
             throw new Error("KeepProvider.revalidateItems requires a revalidator or validateItem.");
-          const summary = await revalidateKeepItems(previous, activeRevalidator, {
+          summary = await revalidateKeepItems(previous, activeRevalidator, {
             ...options,
             resolveItem: options.resolveItem ?? resolveItem,
           });
@@ -1002,21 +1036,24 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
           }
           setItems(summary.items);
           store.setState({ error: null });
-          const removedIdSet = new Set(summary.removedIds);
-          for (const result of summary.results) {
-            if (removedIdSet.has(result.item.id)) handlersRef.current.onRemove?.(result.item);
-          }
-          await runAfterPlugins(pluginContext);
-          void Promise.resolve(handlersRef.current.onChange?.({ ...pluginContext, phase: "local" })).catch((cause) =>
-            reportError(cause, { action: "revalidate" }),
-          );
-          return summary;
         } catch (cause) {
           if (persistenceStarted) await restoreItems(storage, previous);
           setItems(previous);
           reportError(cause, { action: "revalidate" });
           throw cause;
         }
+        const pluginContext = { action: "revalidate" as const, items: summary.updatedItems };
+        const change: KeepChangeContext<TMeta> = { ...pluginContext, phase: "local" };
+        store.setState({ lastChange: change });
+        const removedIdSet = new Set(summary.removedIds);
+        for (const result of summary.results) {
+          if (removedIdSet.has(result.item.id)) {
+            void notify(() => handlersRef.current.onRemove?.(result.item), { action: "revalidate" });
+          }
+        }
+        await runAfterPlugins(pluginContext);
+        void notify(() => handlersRef.current.onChange?.(change), { action: "revalidate" });
+        return summary;
       });
       return run.finally(() => {
         pendingMutationsRef.current -= 1;
@@ -1025,6 +1062,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     },
     [
       enqueueOperation,
+      notify,
       reportError,
       resolveItem,
       runAfterPlugins,

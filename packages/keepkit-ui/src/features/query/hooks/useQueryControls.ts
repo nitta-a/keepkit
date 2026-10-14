@@ -37,26 +37,32 @@ export function useKeepSearchInput(options: KeepSearchInputOptions) {
 }
 
 type KeepSortSelectOptions = {
-  controlledValue: KeepSortValue | undefined;
-  defaultValue: KeepSortValue;
+  controlledValue: KeepSortValue | "manual" | undefined;
+  defaultValue: KeepSortValue | "manual";
   onValueChange: ((value: KeepSortValue, sort: NonNullable<KeepListQuery["sort"]>) => void) | undefined;
+  onManualSort: (() => void) | undefined;
 };
 
 export function useKeepSortSelect(options: KeepSortSelectOptions) {
-  const { controlledValue, defaultValue, onValueChange } = options;
-  const [uncontrolledValue, setUncontrolledValue] = useState<KeepSortValue>(defaultValue);
+  const { controlledValue, defaultValue, onValueChange, onManualSort } = options;
+  const [uncontrolledValue, setUncontrolledValue] = useState<KeepSortValue | "manual">(defaultValue);
   const value = controlledValue ?? uncontrolledValue;
 
   return {
     value,
     change: (event: ChangeEvent<HTMLSelectElement>) => {
-      const nextValue = event.currentTarget.value as KeepSortValue;
+      const nextValue = event.currentTarget.value as KeepSortValue | "manual";
       if (controlledValue === undefined) setUncontrolledValue(nextValue);
+      if (nextValue === "manual") {
+        onManualSort?.();
+        return;
+      }
       const [by, direction] = nextValue.split(":") as ["savedAt" | "updatedAt" | "lastOpenedAt", "asc" | "desc"];
       onValueChange?.(nextValue, { by, direction });
     },
     labels: {
       sort: useUiLabel("sort"),
+      manualSort: useUiLabel("manualSort"),
       updatedNewest: useUiLabel("updatedNewest"),
       updatedOldest: useUiLabel("updatedOldest"),
       savedNewest: useUiLabel("savedNewest"),

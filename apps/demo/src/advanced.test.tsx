@@ -139,8 +139,9 @@ test("drops invalid hydrated items and reports rejected change handlers to plugi
   await waitFor(() => expect(screen.getByTestId("ids")).toHaveTextContent("item"));
   expect(invalidItems).toEqual(["invalid"]);
   fireEvent.click(screen.getByRole("button", { name: "update" }));
-  await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.any(Error), { action: "updateNote", id: "item" }));
-  expect(pluginError).toHaveBeenCalledWith(expect.any(Error), { action: "updateNote", id: "item" });
+  const context = { action: "updateNote", id: "item", phase: "notification" };
+  await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.any(Error), context));
+  expect(pluginError).toHaveBeenCalledWith(expect.any(Error), context);
 });
 
 test("supports button labels, disabled state, child handlers, and keyboard activation", async () => {

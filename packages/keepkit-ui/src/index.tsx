@@ -107,6 +107,7 @@ import {
   type KeepItemCardBadgeProps,
   type KeepItemCardContentProps,
   type KeepItemCardLinkProps,
+  type KeepItemCardLinkRegionProps,
   type KeepItemCardMediaProps,
   type KeepItemCardPresentation,
   type KeepItemCardProps,
@@ -165,6 +166,7 @@ import {
   type KeepSortSelectProps,
   type KeepSortValue,
 } from "./features/query/query-controls";
+import { KeepFallbackRecovery, type KeepFallbackRecoveryProps } from "./features/recovery/KeepFallbackRecovery";
 import {
   KeepRediscovery,
   KeepRediscoveryPanel,
@@ -383,6 +385,7 @@ export type {
   KeepCollectionToolbarVariant,
   KeepDisplayStatus,
   KeepEmptyStateProps,
+  KeepFallbackRecoveryProps,
   KeepFloatingTourProps,
   KeepImageProps,
   KeepInboxProps,
@@ -391,6 +394,7 @@ export type {
   KeepItemCardBadgeProps,
   KeepItemCardContentProps,
   KeepItemCardLinkProps,
+  KeepItemCardLinkRegionProps,
   KeepItemCardMediaProps,
   KeepItemCardPresentation,
   KeepItemCardProps,
@@ -497,6 +501,7 @@ export {
   KeepCollectionManager,
   KeepCollectionSelect,
   KeepEmptyState,
+  KeepFallbackRecovery,
   KeepFloatingTour,
   KeepInbox,
   KeepItemCard,
@@ -568,6 +573,7 @@ export type KeepKit<TMeta = Record<string, unknown>> = {
   Inbox: ComponentType<KeepInboxProps<TMeta>>;
   SavedViews: ComponentType<KeepSavedViewsProps<TMeta>>;
   CollectionManager: ComponentType<KeepCollectionManagerProps>;
+  FallbackRecovery: ComponentType<KeepFallbackRecoveryProps<TMeta>>;
   Workspace: ComponentType<KeepWorkspaceProps<TMeta>>;
   useContext: () => ReturnType<typeof useKeepContext<TMeta>>;
   useItem: (item?: KeepItemInput<TMeta>) => ReturnType<typeof useKeepItem<TMeta>>;
@@ -646,6 +652,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     Inbox: (props) => <KeepInbox<TMeta> {...props} />,
     SavedViews: (props) => <KeepSavedViews<TMeta> {...props} />,
     CollectionManager: (props) => <KeepCollectionManager<TMeta> {...props} />,
+    FallbackRecovery: (props) => <KeepFallbackRecovery<TMeta> {...props} />,
     Workspace: (props) => (
       <KeepWorkspace<TMeta>
         {...props}

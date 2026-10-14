@@ -14,6 +14,7 @@ import { KeepCollectionFilter } from "../query/KeepCollectionFilter";
 import { KeepTagFilter } from "../query/KeepTagFilter";
 import { KeepPagination, KeepSearchInput, KeepSortSelect } from "../query/query-controls";
 import { KeepSavedViews, KeepSaveViewButton } from "../saved-views/KeepSavedViews";
+import { reorderVisibleItems } from "./hooks/reorderVisibleItems";
 import { useKeepCollection } from "./hooks/useKeepCollection";
 import { KeepCollectionCreate } from "./KeepCollectionCreate";
 import { KeepInlineSelection } from "./KeepInlineSelection";
@@ -70,6 +71,8 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   onReorder?: (items: KeepItem<TMeta>[]) => void | Promise<void>;
   features?: Partial<Record<KeepCollectionFeature, boolean>>;
   bulkActionsVariant?: "separate" | "inline";
+  /** Requires confirmation before a bulk removal. */
+  confirmRemoval?: boolean;
   collectionLabels?: Record<string, string>;
   /** Shows a collection creation form in the toolbar. */
   creatable?: boolean;
@@ -116,6 +119,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   onReorder,
   features,
   bulkActionsVariant = "separate",
+  confirmRemoval = false,
   slots,
   collectionLabels,
   creatable = false,
@@ -132,24 +136,26 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   className,
   ...rootProps
 }: Omit<KeepCollectionProps<TMeta>, "fallback" | "onBoundaryError" | "boundaryResetKey">) {
-  const view = useKeepCollection<TMeta>({ query, pageSize, urlSync, urlAdapter, features, archiveScope });
+  const view = useKeepCollection<TMeta>({ query, pageSize, urlSync, urlAdapter, features, archiveScope, reorderable });
   const revealRequestId = useRef<number | undefined>(undefined);
   useEffect(() => {
-    if (!revealRequest || revealRequestId.current === revealRequest.requestId) return;
+    if (!view.list.isHydrated || !revealRequest || revealRequestId.current === revealRequest.requestId) return;
     revealRequestId.current = revealRequest.requestId;
     const status = view.reveal(revealRequest.itemId);
     onRevealResult?.({ ...revealRequest, status });
-  }, [onRevealResult, revealRequest, view.reveal]);
+  }, [onRevealResult, revealRequest, view.list.isHydrated, view.reveal]);
   const [reorderUndoIds, setReorderUndoIds] = useState<string[] | null>(null);
+  const [reorderError, setReorderError] = useState(false);
   const reorderUndoLabel = useUiLabel("undoReorder");
+  const reorderFailedLabel = useUiLabel("reorderFailed");
   const handleReorder = async (orderedIds: string[]) => {
     const previousIds = view.list.items.map((item) => item.id);
-    await view.list.reorder(orderedIds);
     const itemsById = new Map(view.list.items.map((item) => [item.id, item]));
     const orderedItems = orderedIds.flatMap((id) => {
       const item = itemsById.get(id);
       return item ? [item] : [];
     });
+    setReorderError(false);
     setReorderUndoIds(previousIds);
     await onReorder?.(orderedItems);
   };
@@ -161,8 +167,15 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   const undoReorder = async () => {
     if (!reorderUndoIds) return;
     const previous = reorderUndoIds;
-    setReorderUndoIds(null);
-    await view.list.reorder(previous);
+    const existingIds = new Set(view.allState.items.map((item) => item.id));
+    const remainingIds = previous.filter((id) => existingIds.has(id));
+    setReorderError(false);
+    try {
+      await view.list.reorder(reorderVisibleItems(view.allState.items, remainingIds));
+      setReorderUndoIds(null);
+    } catch {
+      setReorderError(true);
+    }
   };
   const resolvedItemCardProps = {
     ...itemCardProps,
@@ -189,7 +202,13 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   const queryControls = hasQueryControls ? (
     <>
       {view.enabled.search ? <KeepSearchInput value={view.searchValue} onValueChange={view.setSearchValue} /> : null}
-      {view.enabled.sort ? <KeepSortSelect value={view.sortValue} onValueChange={view.setSortValue} /> : null}
+      {view.enabled.sort ? (
+        <KeepSortSelect
+          value={view.sortValue}
+          onValueChange={view.setSortValue}
+          onManualSort={reorderable ? view.setManualSort : undefined}
+        />
+      ) : null}
     </>
   ) : null;
   const filterControls = hasFilterControls ? (
@@ -199,7 +218,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
       ) : null}
       {view.enabled.collectionFilter ? (
         <KeepCollectionFilter
-          value={view.activeCollection}
+          value={view.activeCollection ?? ""}
           onValueChange={view.setCollection}
           collectionLabels={collectionLabels}
         />
@@ -228,8 +247,12 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         : (collectionLabels?.[view.activeCollection] ?? view.activeCollection);
   const toolbarStartContent = slots?.toolbarStart === undefined ? null : resolveContent(slots.toolbarStart, view.list);
   const creatableContent = creatable ? <KeepCollectionCreate /> : null;
-  const toolbarEndContent =
-    creatableContent ?? (slots?.toolbarEnd === undefined ? null : resolveContent(slots.toolbarEnd, view.list));
+  const toolbarEndContent = (
+    <>
+      {creatableContent}
+      {slots?.toolbarEnd === undefined ? null : resolveContent(slots.toolbarEnd, view.list)}
+    </>
+  );
   const hasToolbarContent =
     hasQueryControls ||
     hasFilterControls ||
@@ -320,7 +343,11 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
           tags={view.activeTags}
           collection={view.activeCollection}
           collectionLabel={activeCollectionLabel}
-          organization={view.resolvedQuery.organization}
+          organization={
+            view.activeCollection === "__uncategorized__"
+              ? { ...view.resolvedQuery.organization, collection: undefined }
+              : view.resolvedQuery.organization
+          }
           savedBetween={view.resolvedQuery.savedBetween}
           activity={view.activity}
           archiveScope={view.archiveScope}
@@ -343,15 +370,20 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         resolveContent(activeFilters, view.list)
       )}
       {view.enabled.bulkActions && bulkActionsVariant === "inline" ? (
-        <KeepInlineSelection query={view.resolvedQuery}>{renderList}</KeepInlineSelection>
+        <KeepInlineSelection query={view.resolvedQuery} confirmRemoval={confirmRemoval}>
+          {renderList}
+        </KeepInlineSelection>
       ) : (
         <>
           {renderList()}
-          {view.enabled.bulkActions ? <KeepBulkActions<TMeta> query={view.resolvedQuery} /> : null}
+          {view.enabled.bulkActions ? (
+            <KeepBulkActions<TMeta> query={view.resolvedQuery} confirmRemoval={confirmRemoval} />
+          ) : null}
         </>
       )}
       {reorderable && reorderUndoIds ? (
         <div data-keepkit="reorder-feedback" role="status" aria-live="polite">
+          {reorderError ? <p role="alert">{reorderFailedLabel}</p> : null}
           <button type="button" data-keep-action="undo-reorder" onClick={() => void undoReorder()}>
             {reorderUndoLabel}
           </button>

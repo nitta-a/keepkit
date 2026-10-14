@@ -104,9 +104,9 @@ function KeepListContent<TMeta = Record<string, unknown>>({
     query,
     itemCardProps,
     layout,
-    reorderable,
+    reorderable: reorderable && query?.sort === undefined && !query?.pinnedFirst,
     onReorder,
-    reorder: state.reorder,
+    reorder: view.reorder,
   });
   return renderRoot(
     asChild,
@@ -249,6 +249,7 @@ function hasActiveQueryFilters<TMeta>(query: KeepListQuery<TMeta> | undefined): 
       query.tags?.some((tag) => tag.trim()) ||
       query.targetType ||
       query.savedBetween ||
+      query.organization ||
       (query.archiveScope !== undefined && query.archiveScope !== "active") ||
       query.collectionId ||
       query.activity ||

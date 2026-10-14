@@ -117,6 +117,8 @@ export type KeepItemCardMediaProps = Omit<HTMLAttributes<HTMLDivElement>, "child
   children?: ReactNode;
   fallback?: ReactNode;
 };
+/** An explicit linked region. Keep tags, buttons, and editors outside this region. */
+export type KeepItemCardLinkRegionProps = HTMLAttributes<HTMLElement>;
 export type KeepItemCardContentProps = HTMLAttributes<HTMLDivElement>;
 export type KeepItemCardTitleProps = Omit<HTMLAttributes<HTMLHeadingElement>, "title"> & {
   as?: "h2" | "h3" | "h4" | "h5" | "h6";
@@ -132,6 +134,7 @@ type KeepItemCardCompoundContext = {
   collectionLabel?: string;
   resolvedTitle: ReactNode;
   renderTitle: (content: ReactNode) => ReactNode;
+  renderLink: (content: ReactNode, props?: KeepItemCardLinkRegionProps) => ReactNode;
   image: ReactNode | null;
   imageStatus: "loaded" | "error" | "loading";
   fallbackLabel: string;
@@ -143,6 +146,7 @@ type KeepItemCardCompoundContext = {
   meta: ReactNode | null;
   source: string | undefined;
   reading: boolean;
+  cardLinkSurface: boolean;
   error: ReactNode | null;
   actions: ReactNode;
   saveButtonLabels?: KeepButtonLabels;
@@ -222,6 +226,8 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   const contextQuery = useKeepSearchQuery();
   const searchQuery = highlightQuery ?? contextQuery;
   const contentChildren = asChild && isValidElement(children) ? undefined : children;
+  const hasCustomBody = render !== undefined || contentChildren !== undefined;
+  const cardLinkSurface = linkTarget === "card" && !hasCustomBody && Boolean(view.href) && view.isAvailable;
   const [isEditOpen, setEditOpen] = useState(false);
   const editTriggerRef = useRef<HTMLButtonElement>(null);
   const editPanelRef = useRef<HTMLDivElement>(null);
@@ -237,13 +243,23 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     wasEditOpen.current = isEditOpen;
   }, [isEditOpen]);
 
-  function renderLink(content: ReactNode): ReactNode {
-    if (!view.href || !view.isAvailable) return content;
+  function renderLink(content: ReactNode, props: KeepItemCardLinkRegionProps = {}): ReactNode {
+    if (!view.href || !view.isAvailable) {
+      return (
+        <span {...props} aria-disabled={view.href ? true : undefined} data-link-disabled={view.href ? true : undefined}>
+          {content}
+        </span>
+      );
+    }
     const linkProps: KeepItemCardLinkProps = {
+      ...props,
       href: view.href,
       target: view.resolvedLinkTarget,
       rel: view.resolvedLinkRel,
       onClick: (event) => {
+        const alreadyPrevented = event.defaultPrevented;
+        props.onClick?.(event);
+        if (!alreadyPrevented && event.defaultPrevented) return;
         if (trackOpen) void view.itemState.recordOpen();
         onOpen?.(item, event);
       },
@@ -253,7 +269,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   }
 
   function renderTitle(content: ReactNode): ReactNode {
-    if (linkTarget !== "title") return content;
+    if (cardLinkSurface) return content;
     if (view.isAvailable) return renderLink(content);
     return view.href ? (
       <span aria-disabled="true" data-link-disabled="true">
@@ -380,6 +396,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
       : undefined,
     resolvedTitle: view.resolvedTitle,
     renderTitle,
+    renderLink,
     image: imageStatus === "error" ? null : image,
     imageStatus,
     fallbackLabel: String(view.resolvedTitle),
@@ -391,6 +408,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     meta,
     source: getSource(view.href),
     reading: presentation === "reading",
+    cardLinkSurface,
     error,
     actions,
     saveButtonLabels,
@@ -400,9 +418,23 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     saveAriaLabel: `${view.labels.remove} ${String(view.resolvedTitle)}`,
     renderText: (content) => <KeepHighlight query={searchQuery}>{content}</KeepHighlight>,
   };
-  const defaultBody = (
+  const media = presentation !== "reading" || resolvedImageProps?.src ? <KeepItemCardMedia /> : null;
+  const customMedia = renderImage !== undefined || ImageComponent !== undefined;
+  const defaultBody = cardLinkSurface ? (
     <>
-      {presentation !== "reading" || resolvedImageProps?.src ? <KeepItemCardMedia /> : null}
+      {customMedia ? media : null}
+      {renderLink(
+        <>
+          {customMedia ? null : media}
+          <KeepItemCardContent />
+        </>,
+      )}
+      <KeepItemCardTags />
+      <KeepItemCardActions />
+    </>
+  ) : (
+    <>
+      {media}
       <KeepItemCardContent />
       <KeepItemCardActions />
     </>
@@ -412,7 +444,6 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     : typeof contentChildren === "function"
       ? contentChildren(view.state)
       : (contentChildren ?? defaultBody);
-  const linkedBody = linkTarget === "card" && view.isAvailable ? renderLink(body) : body;
   const root = renderRoot(
     asChild,
     isValidElement(children) ? children : undefined,
@@ -431,7 +462,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
       "data-card-variant": cardVariant !== "outlined" ? cardVariant : undefined,
       "data-loading": view.itemState.isMutating ? "true" : undefined,
     },
-    linkedBody,
+    body,
     "KeepItemCard",
   );
   return <KeepItemCardContext.Provider value={compoundValue}>{root}</KeepItemCardContext.Provider>;
@@ -450,6 +481,16 @@ function KeepItemCardMedia({ children, fallback, ...props }: KeepItemCardMediaPr
   );
 }
 
+function KeepItemCardLink({ children, ...props }: KeepItemCardLinkRegionProps) {
+  const context = useKeepItemCardCompound("Link");
+  const content = (
+    <KeepItemCardContext.Provider value={{ ...context, cardLinkSurface: true, renderTitle: (title) => title }}>
+      {children}
+    </KeepItemCardContext.Provider>
+  );
+  return context.cardLinkSurface ? content : context.renderLink(content, props);
+}
+
 function KeepItemCardContent({ children, ...props }: KeepItemCardContentProps) {
   const context = useKeepItemCardCompound("Content");
   return (
@@ -466,7 +507,7 @@ function KeepItemCardContent({ children, ...props }: KeepItemCardContentProps) {
               {context.note}
             </p>
           ) : null}
-          <KeepItemCardTags />
+          {context.cardLinkSurface ? null : <KeepItemCardTags />}
           {context.reading ? (
             <div data-keep-card-part="reading-metadata">
               {context.meta}
@@ -630,6 +671,7 @@ function KeepItemCardCollectionBadge({ children, ...props }: KeepItemCardBadgePr
 }
 
 export const KeepItemCard = Object.assign(KeepItemCardRoot, {
+  Link: KeepItemCardLink,
   Media: KeepItemCardMedia,
   Content: KeepItemCardContent,
   Title: KeepItemCardTitle,

@@ -100,7 +100,8 @@ test("scoped storage isolates reads, writes, and clears", async () => {
       items = [...items.filter((current) => current.id !== item.id), item];
     },
     setMany: (next) => {
-      items = next;
+      const ids = new Set(next.map((item) => item.id));
+      items = [...items.filter((item) => !ids.has(item.id)), ...next];
     },
     remove: (id) => {
       items = items.filter((item) => item.id !== id);

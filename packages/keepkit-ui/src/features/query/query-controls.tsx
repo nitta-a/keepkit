@@ -56,9 +56,11 @@ export type KeepSortSelectProps = Omit<
   SelectHTMLAttributes<HTMLSelectElement>,
   "value" | "defaultValue" | "onChange"
 > & {
-  value?: KeepSortValue;
-  defaultValue?: KeepSortValue;
+  value?: KeepSortValue | "manual";
+  defaultValue?: KeepSortValue | "manual";
   onValueChange?: (value: KeepSortValue, sort: NonNullable<KeepListQuery["sort"]>) => void;
+  /** Adds a manual-order option without changing the dated-sort callback. */
+  onManualSort?: () => void;
 };
 
 /** Emits a normalized sort descriptor that can be passed directly to useKeepList. */
@@ -66,13 +68,15 @@ export function KeepSortSelect({
   value: controlledValue,
   defaultValue = "updatedAt:desc",
   onValueChange,
+  onManualSort,
   "aria-label": ariaLabel,
   children,
   ...props
 }: KeepSortSelectProps) {
-  const view = useKeepSortSelect({ controlledValue, defaultValue, onValueChange });
+  const view = useKeepSortSelect({ controlledValue, defaultValue, onValueChange, onManualSort });
   const options = children ?? (
     <>
+      {onManualSort || view.value === "manual" ? <option value="manual">{view.labels.manualSort}</option> : null}
       <option value="updatedAt:desc">{view.labels.updatedNewest}</option>
       <option value="updatedAt:asc">{view.labels.updatedOldest}</option>
       <option value="savedAt:desc">{view.labels.savedNewest}</option>

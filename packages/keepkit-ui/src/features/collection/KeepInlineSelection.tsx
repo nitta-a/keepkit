@@ -3,15 +3,18 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "../../foundation/shared";
 import { useUiLabel } from "../../foundation/ui-context";
 import { useKeepBulkActions } from "../actions/hooks/useKeepBulkActions";
+import { KeepRemovalConfirmation } from "../actions/KeepRemovalConfirmation";
 import type { KeepListSelection } from "./KeepList";
 
 /** Shares one selection between the visible item rows and their bulk operation bar. */
 export function KeepInlineSelection<TMeta>({
   query,
   children,
+  confirmRemoval = false,
 }: {
   query: KeepListQuery<TMeta>;
   children: (selection?: KeepListSelection) => ReactNode;
+  confirmRemoval?: boolean;
 }) {
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -29,7 +32,9 @@ export function KeepInlineSelection<TMeta>({
     onCompleted: undefined,
     controlledScope: "page",
     onSelectionScopeChange: undefined,
+    confirmRemoval,
   });
+  const removalTrigger = useRef<HTMLButtonElement>(null);
   const selectLabel = useUiLabel("selectItems");
   const doneLabel = useUiLabel("done");
   const pageLabel = useUiLabel("currentPage");
@@ -116,13 +121,14 @@ export function KeepInlineSelection<TMeta>({
                 <button type="button" onClick={() => run(state.unpin)}>
                   {unpinLabel}
                 </button>
-                <button type="button" onClick={() => run(state.remove)}>
+                <button ref={removalTrigger} type="button" onClick={() => run(state.remove)}>
                   {removeLabel}
                 </button>
               </div>
             </details>
           </fieldset>
         ) : null}
+        <KeepRemovalConfirmation state={state} triggerRef={removalTrigger} />
         {selecting && state.error ? <p role="alert">{getErrorMessage(state.error, errorLabel)}</p> : null}
       </fieldset>
       {children(

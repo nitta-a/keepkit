@@ -73,8 +73,10 @@ export function useKeepUrlSync<TMeta = Record<string, unknown>>({
         ...(decoded.search ? { search: decoded.search } : { search: undefined }),
         ...(decoded.tags ? { tags: decoded.tags } : { tags: undefined }),
         collectionId: decoded.collectionId,
-        ...(decoded.sort ? { sort: decoded.sort } : {}),
-        ...(decoded.pagination ? { pagination: { ...previousQuery.pagination, ...decoded.pagination } } : {}),
+        sort: decoded.sort,
+        pagination: previousQuery.pagination
+          ? { ...previousQuery.pagination, page: decoded.pagination?.page ?? 1 }
+          : decoded.pagination,
         activity: decoded.activity,
         organization: decoded.organization,
         pinnedFirst: decoded.pinnedFirst,
@@ -97,6 +99,7 @@ export function useKeepUrlSync<TMeta = Record<string, unknown>>({
       return;
     }
     const currentUrl = new URL(adapter.getUrl(), "http://keepkit.invalid");
+    const previousUrl = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
     const urlParams = { ...DEFAULT_KEEP_URL_PARAMS, ...params };
     for (const key of Object.values(urlParams)) currentUrl.searchParams.delete(key);
     const nextParams = encodeKeepListQuery(query, { params });
@@ -104,6 +107,7 @@ export function useKeepUrlSync<TMeta = Record<string, unknown>>({
       currentUrl.searchParams.append(key, value);
     });
     const nextUrl = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+    if (nextUrl === previousUrl) return;
     adapter.navigate(nextUrl, options.history ?? "push");
   }, [adapter, enabled, options.history, params, query]);
 }

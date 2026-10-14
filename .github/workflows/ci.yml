@@ -59,3 +59,50 @@ jobs:
 
       - name: Build and typecheck examples
         run: pnpm turbo run build typecheck --filter='./examples/*'
+
+  browser:
+    name: Browser regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.x
+          package-manager-cache: false
+
+      - name: Set up pnpm
+        uses: pnpm/setup@v2
+        with:
+          version: 11.24.0
+          cache: true
+          install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install browsers
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Build packages
+        run: pnpm turbo run build --filter=@keepkit/core --filter=@keepkit/ui
+
+      - name: Check browser test types
+        run: pnpm --filter @keepkit/ui exec tsc -p test/browser/tsconfig.json
+
+      - name: Run browser regressions
+        run: pnpm test:browser
+
+      - name: Save failure report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

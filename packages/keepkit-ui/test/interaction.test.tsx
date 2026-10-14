@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type {
+  KeepCollectionDefinition,
   KeepItem,
   KeepSyncConflict,
   KeepSyncState,
@@ -84,6 +85,7 @@ const secondItem: KeepItem<Meta> = {
 
 function createStorage(initialItems: KeepItem<Meta>[] = []): StorageAdapter<Meta> {
   let items = [...initialItems];
+  const collections = new Map<string, KeepCollectionDefinition>();
   return {
     getAll: async () => [...items],
     set: async (nextItem) => {
@@ -94,7 +96,11 @@ function createStorage(initialItems: KeepItem<Meta>[] = []): StorageAdapter<Meta
     },
     clear: async () => {
       items = [];
+      collections.clear();
     },
+    getCollections: async () => [...collections.values()].map((collection) => ({ ...collection })),
+    setCollection: async (collection) => void collections.set(collection.id, { ...collection }),
+    removeCollection: async (id) => void collections.delete(id),
   };
 }
 
@@ -443,11 +449,11 @@ test("restores organization filters from URL history and removes their summary c
     </KeepProvider>,
   );
 
-  const chip = await screen.findByText("collection: unassigned");
+  const chip = await screen.findByText("Uncategorized");
   expect(screen.getByLabelText("Active filters")).not.toBeNull();
   currentUrl = "http://keepkit.test/items";
   for (const listener of listeners) listener();
-  await waitFor(() => expect(screen.queryByText("collection: unassigned")).toBeNull());
+  await waitFor(() => expect(screen.queryByText("Uncategorized")).toBeNull());
   expect(chip).not.toBeNull();
 });
 

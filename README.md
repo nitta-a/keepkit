@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.9
+Release: v0.28.10
 
 ## 日本語
 
@@ -90,8 +90,13 @@ export function App() {
 | [@keepkit/core](./packages/keepkit/README.md) | フレームワーク中立の処理、React hooks、ストレージ・同期・バックアップ |
 
 `createBrowserStorageAdapter`はIndexedDBを優先し、使えない場合はlocalStorageに切り替えます。
+fallbackで受け付けた変更は永続journalに記録し、IndexedDB復旧後に削除も含めて自動反映します。障害中は最後に永続化できた完全スナップショットと保留操作を表示します。予備データが古い場合は`storage.recovery.getState()`で確認できます。障害時の書き込み・復旧にはWeb Locks API、または独自journalの排他実装が必要です。
+既存の分岐データは`KeepFallbackRecovery`で比較し、競合を選択して復元できます。導入時は旧実装のタブをすべて更新してください。復旧手順と残る制約は[Coreガイド](./packages/keepkit/README.md)を参照してください。
 端末間の同期には`SyncStorageAdapter`とアプリ側の`RemoteSyncDriver`が必要です。
 認証とサーバーAPIはアプリ側で実装します。
+
+保存成功後のコールバック・プラグイン通知の例外は`onError`の`phase: "notification"`で報告します。保存済みデータは維持し、保存操作は成功として完了します。
+`Collection`の`reorderable`は手動順序を既定にし、表示中の項目だけを並べ替えます。日時ソートとの切替、Undo、カードリンクの構成は[UIガイド](./packages/keepkit-ui/README.md)を参照してください。
 
 JSONバックアップは保存アイテム・コレクション定義・所属を含みます。閲覧履歴・鑑賞記録・進行位置は含みません。
 Replace（置換）は対象範囲の既存データを置き換え、失敗時のロールバックはありません。
@@ -122,6 +127,9 @@ pnpm typecheck
 pnpm check
 pnpm test
 pnpm package:check
+pnpm exec playwright install chromium firefox webkit
+pnpm typecheck:browser
+pnpm test:browser
 ```
 
 変更履歴は[RELEASE_NOTES.md](./RELEASE_NOTES.md)を参照してください。
@@ -210,8 +218,13 @@ The collection includes search, sorting, pagination, and loading, empty, and err
 | [@keepkit/core](./packages/keepkit/README.md) | Framework-neutral logic, React hooks, storage, sync, and backups |
 
 `createBrowserStorageAdapter` prefers IndexedDB and falls back to localStorage.
+Changes accepted in fallback storage enter a durable journal and replay automatically, including deletions, after IndexedDB recovers. During an outage, reads use the last durable complete snapshot plus pending operations. Inspect `storage.recovery.getState()` for stale reserve data. Fallback writes and recovery require Web Locks or a custom journal with safe exclusive access.
+Use `KeepFallbackRecovery` to compare existing branches and select conflicting records for restoration. Refresh all tabs running the older implementation when adopting this journal. See the [Core guide](./packages/keepkit/README.md) for recovery steps and limits.
 Cross-device sync requires `SyncStorageAdapter` and an application-provided `RemoteSyncDriver`.
 Your app owns authentication and server APIs.
+
+Post-save callback and plugin errors are reported through `onError` with `phase: "notification"`. Persisted data remains committed and the mutation resolves successfully.
+`Collection` with `reorderable` defaults to manual order and reorders only the visible items. See the [UI guide](./packages/keepkit-ui/README.md) for date sorting, Undo, and card link composition.
 
 JSON backups include saved items, collection definitions, and memberships. History, viewing records, and progress are excluded.
 Replace imports overwrite the target data and do not roll back on failure.
@@ -242,6 +255,9 @@ pnpm typecheck
 pnpm check
 pnpm test
 pnpm package:check
+pnpm exec playwright install chromium firefox webkit
+pnpm typecheck:browser
+pnpm test:browser
 ```
 
 See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the changelog.
