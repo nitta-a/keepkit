@@ -1,6 +1,6 @@
 {
   "name": "@keepkit/ui",
-  "version": "0.28.10",
+  "version": "0.28.11",
   "description": "Headless, accessible React UI components for KeepKit.",
   "type": "module",
   "license": "MIT",
@@ -80,7 +80,7 @@
     "react-dom": "^19.2.8",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vite": "^8.2.2",
-    "vitest": "^4.1.11"
+    "vite": "^8.2.4",
+    "vitest": "^4.1.12"
   }
 }
