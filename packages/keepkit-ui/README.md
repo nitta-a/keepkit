@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.11
+Release: v0.28.12
 
 ## 日本語
 

@@ -15,5 +15,5 @@ overrides:
   js-yaml: ^4.3.2
   sharp: ^0.35.5
   source-map-js: ^1.2.2
-  undici: ^8.10.2
+  undici: ^8.12.2
   postcss: ^8.5.23
