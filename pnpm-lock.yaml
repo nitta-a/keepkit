@@ -14,6 +14,9 @@ overrides:
   undici: ^8.12.2
   postcss: ^8.5.23
 
+patchedDependencies:
+  deepmerge@4.3.1: d08c387b4b74bcbe544da5b1004fd39fa46880cd4aeee98b0618214281cd480e
+
 importers:
 
   .:
@@ -4671,7 +4674,7 @@ snapshots:
 
   dedent@1.7.2: {}
 
-  deepmerge@4.3.1: {}
+  deepmerge@4.3.1(patch_hash=d08c387b4b74bcbe544da5b1004fd39fa46880cd4aeee98b0618214281cd480e): {}
 
   dequal@2.0.3: {}
 
@@ -4978,7 +4981,7 @@ snapshots:
       babel-jest: 30.5.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       chalk: 4.1.2
       ci-info: 4.4.0
-      deepmerge: 4.3.1
+      deepmerge: 4.3.1(patch_hash=d08c387b4b74bcbe544da5b1004fd39fa46880cd4aeee98b0618214281cd480e)
       glob: 13.0.6
       graceful-fs: 4.2.11
       jest-circus: 30.5.0(supports-color@8.1.1)

@@ -1,0 +1,35 @@
+diff --git a/index.js b/index.js
+index 77968aed5d456cccc294f60912ef381fa1e52a7b..1d68b35c0595ae81c33dad6a16a7829e3b22dd0f 100644
+--- a/index.js
++++ b/index.js
+@@ -40,7 +40,7 @@ function propertyIsOnObject(object, property) {
+ 	try {
+ 		return property in object
+ 	} catch(_) {
+-		return false
++		return true
+ 	}
+ }
+ 
+@@ -51,15 +51,20 @@ function propertyIsUnsafe(target, key) {
+ 			&& Object.propertyIsEnumerable.call(target, key)) // and also unsafe if they're nonenumerable.
+ }
+ 
++function keyIsForbidden(key) {
++	return key === '__proto__' || key === 'constructor' || key === 'prototype'
++}
++
+ function mergeObject(target, source, options) {
+ 	var destination = {}
+ 	if (options.isMergeableObject(target)) {
+ 		getKeys(target).forEach(function(key) {
++			if (keyIsForbidden(key)) return
+ 			destination[key] = cloneUnlessOtherwiseSpecified(target[key], options)
+ 		})
+ 	}
+ 	getKeys(source).forEach(function(key) {
+-		if (propertyIsUnsafe(target, key)) {
++		if (keyIsForbidden(key) || propertyIsUnsafe(target, key)) {
+ 			return
+ 		}
+ 
