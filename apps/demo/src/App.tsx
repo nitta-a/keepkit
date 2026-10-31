@@ -7,9 +7,7 @@ import {
   type KeepCollectionRevealRequest,
   type KeepCollectionRevealResult,
   KeepEmptyState,
-  KeepItemCard,
-  KeepItemCheckbox,
-  type KeepItemSelection,
+  KeepRediscoveryPanel,
   KeepUndo,
   useKeepCollections,
   useKeepList,
@@ -182,7 +180,9 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
     setPendingReveal(undefined);
     if (pendingReveal?.local) {
       window.requestAnimationFrame(() => {
-        const card = document.getElementById(`saved-item-${encodeURIComponent(result.itemId)}`);
+        const card =
+          document.getElementById(`saved-item-${encodeURIComponent(result.itemId)}`) ??
+          document.querySelector<HTMLElement>(`[data-keep-item-id="${CSS.escape(result.itemId)}"]`);
         card?.scrollIntoView?.({ block: "nearest" });
         card?.focus();
       });
@@ -358,7 +358,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
                 pageSize={12}
                 query={query}
                 collectionLabels={collectionLabels}
-                features={{ tagFilter: true, bulkActions: true }}
+                features={{ tagFilter: true, bulkActions: true, savedViews: areFiltersOpen }}
                 {...(view === "archive" ? { activeFilters: null } : {})}
                 {...(currentReveal ? { revealRequest: currentReveal, onRevealResult: finishReveal } : {})}
                 slots={{
@@ -392,12 +392,35 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
                     </button>
                   </div>
                 }
-                renderItem={(item, _state, selection) => (
-                  <SavedItem key={item.id} item={item} collectionLabels={collectionLabels} selection={selection} />
-                )}
+                itemCardProps={{
+                  tabIndex: -1,
+                  presentation: "reading",
+                  href: (item) => item.meta.url,
+                  collectionLabels,
+                  editFeatures: { title: true },
+                  showPinButton: true,
+                  showArchiveButton: true,
+                  trackOpen: true,
+                  getImageProps: (entry) =>
+                    entry.meta.image ? { src: entry.meta.image, alt: "", loading: "lazy" } : undefined,
+                }}
               />
               <KeepUndo />
             </section>
+            {view === "unread" && !selectedCollection ? (
+              <KeepRediscoveryPanel<DemoMeta>
+                strategy="forgotten"
+                title="Saved a while ago"
+                description="Items that have been waiting in your library for over 30 days."
+                limit={3}
+                itemCardProps={{
+                  presentation: "reading",
+                  href: (entry) => entry.meta.url,
+                  collectionLabels,
+                  trackOpen: true,
+                }}
+              />
+            ) : null}
             {view === "all" && !selectedCollection ? (
               <section className="sample-section" aria-labelledby="content-heading">
                 <div className="section-heading">
@@ -466,39 +489,11 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
               Export a JSON backup to move your library or keep a copy. Merge adds items; Replace replaces the current
               browser data.
             </p>
-            <KeepBackup<DemoMeta> />
+            <KeepBackup<DemoMeta> confirmReplace allowMarkdownExport />
           </section>
         )}
       </main>
     </div>
-  );
-}
-
-function SavedItem({
-  item,
-  collectionLabels,
-  selection,
-}: {
-  item: KeepItem<DemoMeta>;
-  collectionLabels: Record<string, string>;
-  selection?: KeepItemSelection | undefined;
-}) {
-  return (
-    <li data-selectable={selection ? "true" : undefined}>
-      {selection ? <KeepItemCheckbox item={item} {...selection} /> : null}
-      <KeepItemCard
-        id={`saved-item-${encodeURIComponent(item.id)}`}
-        tabIndex={-1}
-        item={item}
-        presentation="reading"
-        href={item.meta.url}
-        collectionLabels={collectionLabels}
-        showPinButton
-        showArchiveButton
-        trackOpen
-        getImageProps={(entry) => (entry.meta.image ? { src: entry.meta.image, alt: "", loading: "lazy" } : undefined)}
-      />
-    </li>
   );
 }
 

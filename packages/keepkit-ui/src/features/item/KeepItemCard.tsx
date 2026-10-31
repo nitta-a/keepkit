@@ -76,6 +76,7 @@ export type KeepItemCardProps<TMeta = Record<string, unknown>> = Omit<
   imageComponent?: ComponentType<KeepImageProps>;
   renderImage?: (props: KeepImageProps, item: KeepItem<TMeta>) => ReactNode;
   renderTags?: (tags: string[], item: KeepItem<TMeta>) => ReactNode;
+  onTagClick?: (tag: string, item: KeepItem<TMeta>) => void;
   showTags?: boolean;
   showNote?: boolean;
   showSavedAt?: boolean;
@@ -142,7 +143,9 @@ type KeepItemCardCompoundContext = {
   activity: ReactNode | null;
   tags: string[];
   tagsLabel: string;
+  filterTagsLabel: string;
   renderedTags: ReactNode | null;
+  onTagClick?: (tag: string, item: KeepItem<unknown>) => void;
   meta: ReactNode | null;
   source: string | undefined;
   reading: boolean;
@@ -174,6 +177,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
   imageComponent: ImageComponent,
   renderImage,
   renderTags,
+  onTagClick,
   presentation = "default",
   showTags = true,
   showNote = presentation === "reading",
@@ -220,6 +224,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     onRemoveError,
     onRemoved,
   });
+  const filterTagsLabel = useUiLabel("filterTags");
   const collections = useKeepCollections<TMeta>();
   const doneLabel = useUiLabel("done");
   const moreLabel = useUiLabel("moreActions");
@@ -404,7 +409,9 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     activity: showActivity ? <KeepLastActivity item={item} kind={activityKind} /> : null,
     tags,
     tagsLabel: view.labels.tags,
+    filterTagsLabel,
     renderedTags,
+    onTagClick: onTagClick ? (tag, currentItem) => onTagClick(tag, currentItem as KeepItem<TMeta>) : undefined,
     meta,
     source: getSource(view.href),
     reading: presentation === "reading",
@@ -449,6 +456,7 @@ function KeepItemCardRoot<TMeta = Record<string, unknown>>({
     isValidElement(children) ? children : undefined,
     {
       ...rootProps,
+      id: rootProps.id ?? `saved-item-${encodeURIComponent(item.id)}`,
       className,
       "data-keepkit": "card",
       "aria-busy": view.itemState.isMutating || rootProps["aria-busy"],
@@ -552,7 +560,23 @@ function KeepItemCardTags({ children, ...props }: KeepItemCardTagsProps) {
   if (children === undefined && context.tags.length === 0) return null;
   return (
     <ul {...props} aria-label={props["aria-label"] ?? context.tagsLabel} data-keep-card-part="tags">
-      {children ?? context.tags.map((tag) => <li key={tag}>{tag}</li>)}
+      {children ??
+        context.tags.map((tag) => (
+          <li key={tag}>
+            {context.onTagClick ? (
+              <button
+                type="button"
+                data-keep-action="card-filter-tag"
+                aria-label={`${context.filterTagsLabel}: ${tag}`}
+                onClick={() => context.onTagClick?.(tag, context.item)}
+              >
+                {tag}
+              </button>
+            ) : (
+              tag
+            )}
+          </li>
+        ))}
     </ul>
   );
 }

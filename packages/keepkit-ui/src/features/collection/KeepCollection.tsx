@@ -181,6 +181,8 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
     ...itemCardProps,
     collectionLabels: itemCardProps?.collectionLabels ?? collectionLabels,
     showTags: itemCardProps?.showTags ?? view.enabled.tags,
+    onTagClick:
+      itemCardProps?.onTagClick ?? (view.enabled.tagFilter ? (tag: string) => view.toggleTag(tag) : undefined),
     showPinButton: itemCardProps?.showPinButton ?? view.enabled.pin,
     showArchiveButton: itemCardProps?.showArchiveButton ?? view.enabled.archive,
     showEditButton:
@@ -214,7 +216,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   const filterControls = hasFilterControls ? (
     <>
       {view.enabled.tagFilter ? (
-        <KeepTagFilter<TMeta> query={query} value={view.activeTags[0]} onValueChange={view.setTag} />
+        <KeepTagFilter<TMeta> query={query} values={view.activeTags} onValuesChange={view.setTags} />
       ) : null}
       {view.enabled.collectionFilter ? (
         <KeepCollectionFilter

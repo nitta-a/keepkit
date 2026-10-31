@@ -24,9 +24,16 @@ const existing: KeepItem<DemoMeta> = {
 
 function createStorage(initial: KeepItem<DemoMeta>[] = []) {
   let items = [...initial];
+  let collections = [{ id: "work", name: "Work research" }];
   const storage: StorageAdapter<DemoMeta> = {
     getAll: async () => [...items],
-    getCollections: async () => [{ id: "work", name: "Work research" }],
+    getCollections: async () => [...collections],
+    setCollection: async (collection) => {
+      collections = [...collections.filter((entry) => entry.id !== collection.id), collection];
+    },
+    removeCollection: async (id) => {
+      collections = collections.filter((entry) => entry.id !== id);
+    },
     set: async (item) => {
       items = [...items.filter((current) => current.id !== item.id), item];
     },
@@ -37,7 +44,7 @@ function createStorage(initial: KeepItem<DemoMeta>[] = []) {
       items = [];
     },
   };
-  return { storage, getItems: () => items };
+  return { storage, getItems: () => items, getCollections: () => collections };
 }
 
 async function renderForm(storage: StorageAdapter<DemoMeta>, onSaved = vi.fn(), onCancel = vi.fn()) {
@@ -97,6 +104,47 @@ test.each([
   await waitFor(() => expect(screen.getByRole("textbox", { name: "URL" })).toHaveFocus());
   expect(getItems()).toHaveLength(0);
   expect(onSaved).not.toHaveBeenCalled();
+});
+
+test("normalizes tracking query parameters, supports tags, and closes on Escape", async () => {
+  const { storage, getItems } = createStorage([existing]);
+  const { onSaved, onCancel } = await renderForm(storage);
+  enterLink("https://example.com/guide?utm_source=newsletter&utm_medium=email&fbclid=123&topic=react", "Tagged guide");
+  fireEvent.click(screen.getByRole("button", { name: "+ Reference" }));
+  expect(screen.getByRole("textbox", { name: "Tags (optional)" })).toHaveValue("Reference");
+  fireEvent.change(screen.getByRole("textbox", { name: "Tags (optional)" }), {
+    target: { value: " React, Architecture , React " },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save link" }));
+
+  await screen.findByRole("status");
+  const saved = getItems().find((item) => item.id === "link:https://example.com/guide?topic=react");
+  expect(saved).toMatchObject({
+    id: "link:https://example.com/guide?topic=react",
+    tags: ["React", "Architecture"],
+    meta: { title: "Tagged guide", url: "https://example.com/guide?topic=react" },
+  });
+  expect(onSaved).toHaveBeenCalledWith("link:https://example.com/guide?topic=react");
+
+  fireEvent.keyDown(screen.getByRole("form", { name: "Save a link" }), { key: "Escape" });
+  expect(onCancel).toHaveBeenCalledOnce();
+});
+
+test("creates a new collection inline while saving a link", async () => {
+  const { storage, getItems, getCollections } = createStorage();
+  await renderForm(storage);
+  enterLink("https://example.com/design-notes", "Design notes");
+  fireEvent.change(screen.getByRole("combobox", { name: "Collection (optional)" }), {
+    target: { value: "__new__" },
+  });
+  fireEvent.change(screen.getByRole("textbox", { name: "New collection name" }), {
+    target: { value: "Design System" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save link" }));
+
+  await screen.findByRole("status");
+  expect(getCollections()).toContainEqual(expect.objectContaining({ id: "design-system", name: "Design System" }));
+  expect(getItems()[0]?.collectionId).toBe("design-system");
 });
 
 test("saves a URL without a title using its domain", async () => {

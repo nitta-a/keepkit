@@ -225,10 +225,10 @@ test("failed bulk operations retain selection and can be retried", async () => {
   expect(screen.getByRole("status").textContent).toBe("0 selected");
 });
 
-test.each(["Pin", "Unpin", "Apply tags", "Move selected items"])(
+test.each(["Pin", "Unpin", "Add tags", "Remove tags", "Apply tags", "Move selected items"])(
   "inline selection applies %s and clears only after success",
   async (operation) => {
-    const saved = storage([{ ...first, pinned: true }]);
+    const saved = storage([{ ...first, pinned: true, tags: ["Existing", "Old"] }]);
     render(
       <KeepProvider storage={saved.adapter}>
         <KeepCollection<Meta> bulkActionsVariant="inline" features={{ bulkActions: true }} />
@@ -241,15 +241,21 @@ test.each(["Pin", "Unpin", "Apply tags", "Move selected items"])(
       fireEvent.change(screen.getByRole("combobox", { name: "Collection" }), { target: { value: "reading" } });
     } else {
       fireEvent.click(screen.getByText("More"));
-      if (operation === "Apply tags")
+      if (operation === "Apply tags" || operation === "Add tags")
         fireEvent.change(screen.getByRole("textbox", { name: "Tags to apply" }), {
           target: { value: "Reference, Work" },
+        });
+      if (operation === "Remove tags")
+        fireEvent.change(screen.getByRole("textbox", { name: "Tags to apply" }), {
+          target: { value: "Old" },
         });
     }
     fireEvent.click(screen.getByRole("button", { name: operation }));
     await waitFor(() => expect(screen.getByRole("status").textContent).toBe("0 selected"));
     if (operation === "Pin") expect(saved.items()[0]?.pinned).toBe(true);
     if (operation === "Unpin") expect(saved.items()[0]?.pinned).toBe(false);
+    if (operation === "Add tags") expect(saved.items()[0]?.tags).toEqual(["Existing", "Old", "Reference", "Work"]);
+    if (operation === "Remove tags") expect(saved.items()[0]?.tags).toEqual(["Existing"]);
     if (operation === "Apply tags") expect(saved.items()[0]?.tags).toEqual(["Reference", "Work"]);
     if (operation === "Move selected items") expect(saved.items()[0]?.collectionId).toBe("reading");
   },

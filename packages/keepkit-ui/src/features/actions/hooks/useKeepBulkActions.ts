@@ -156,6 +156,16 @@ export function useKeepBulkActions<TMeta>(options: KeepBulkActionsOptions<TMeta>
       await list.updateTagsBatch(ids, normalizeUiTags(tagsInput.split(",")));
       onCompleted?.("tags", ids);
     });
+  const addTags = () =>
+    run(async (ids) => {
+      await list.addTagsBatch(ids, normalizeUiTags(tagsInput.split(",")));
+      onCompleted?.("tags", ids);
+    });
+  const removeTags = () =>
+    run(async (ids) => {
+      await list.removeTagsBatch(ids, normalizeUiTags(tagsInput.split(",")));
+      onCompleted?.("tags", ids);
+    });
   const moveToCollection = () => run((ids) => list.moveToCollectionBatch(ids, collectionId || undefined));
   const archive = () => run((ids) => list.archiveBatch(ids));
   const unarchive = () => run((ids) => list.unarchiveBatch(ids));
@@ -184,6 +194,8 @@ export function useKeepBulkActions<TMeta>(options: KeepBulkActionsOptions<TMeta>
     removalConfirmation:
       confirmationValid && confirmation ? { ids: [...confirmation.ids], count: confirmation.ids.length } : null,
     updateTags,
+    addTags,
+    removeTags,
     collectionId,
     setCollectionId,
     collections,
@@ -208,6 +220,8 @@ export function useKeepBulkActions<TMeta>(options: KeepBulkActionsOptions<TMeta>
       deleteSelected: useUiLabel("deleteSelected"),
       tags: useUiLabel("tagsToApply"),
       applyTags: useUiLabel("applyTags"),
+      addTags: useUiLabel("addTags"),
+      removeTags: useUiLabel("removeTags"),
       selectionScope: useUiLabel("selectionScope"),
       currentPage: useUiLabel("currentPage"),
       searchResults: useUiLabel("searchResults"),
