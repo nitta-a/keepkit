@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.13
+Release: v0.28.14
 
 ## 日本語
 
@@ -126,11 +126,14 @@ pnpm build
 pnpm typecheck
 pnpm check
 pnpm test
+pnpm test:integration
 pnpm package:check
 pnpm exec playwright install chromium firefox webkit
 pnpm typecheck:browser
 pnpm test:browser
 ```
+
+`pnpm test:integration`は、パックした公開パッケージを独立した利用側プロジェクトへ導入して検証し、HTTP APIを介した同期も確認します。
 
 変更履歴は[RELEASE_NOTES.md](./RELEASE_NOTES.md)を参照してください。
 
@@ -254,10 +257,13 @@ pnpm build
 pnpm typecheck
 pnpm check
 pnpm test
+pnpm test:integration
 pnpm package:check
 pnpm exec playwright install chromium firefox webkit
 pnpm typecheck:browser
 pnpm test:browser
 ```
+
+`pnpm test:integration` installs the packed publishable packages into isolated consumer projects and verifies synchronization over an HTTP API.
 
 See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the changelog.

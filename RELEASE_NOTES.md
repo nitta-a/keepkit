@@ -1,5 +1,31 @@
 # Release notes
 
+## [0.28.14] - 2026-11-01
+
+### 日本語
+
+- `createAuthenticatedSyncKit`で`scope`を指定せず`getScope`を使う場合、scopeが解決するまで未送信キューの再開と送信を待つようにしました。再起動直後に、キュー内の書き込みが別アカウントのトークンで送信される問題を修正しました。
+- scope未指定のセッションで共有`queue`を使う場合は、scopeを持たない操作だけを送信し、他アカウントの操作はキューに残します。
+- アカウントを扱う`createAuthenticatedSyncKit`（`scope`・`getScope`・`setScope`を利用）でホスト指定の`local`を共有する場合、未ログインのセッションはscopeを持たないアイテム・コレクション・所属だけを表示・削除するようにしました。ログアウト中の`clear()`で他アカウントのローカルデータが消える問題を修正しました。
+- `AuthenticatedSyncTransport.pushCollection`がサーバーの結果を返せるようにし、認証付きキットでもコレクションのrevisionを保存して競合を通知するようにしました。認証付きキットに`resolveCollectionSyncConflict`を追加しました。
+- pullしたアイテムの`revision`がローカルと異なる場合は、`updatedAt`が古くてもサーバー版を採用するようにしました。古い時刻のローカル版を残して競合を解決した後、他の端末が古いrevisionに留まり続ける問題を修正しました。
+- `SyncStorageAdapter`に`itemPullMode: "snapshot"`を追加しました。`pull()`の結果を完全なアイテム一覧として扱い、他の端末で削除されたアイテムをローカルからも削除します。削除対象は、サーバー受理済み（`revision`あり）で未送信の変更がないアイテムだけです。既定の`"merge"`では従来どおり削除しません。
+- 共有localStorage同期キューの追加・削除をWeb Locks APIで直列化し、複数タブからのオフライン書き込みが互いに消える問題を修正しました。Web Locks非対応ブラウザーでは安全でない更新を拒否します。
+- 認証・一時エラーを除く4xx同期エラーの操作をキューに残したまま、後続の独立した操作を同期できるようにしました。`getSyncState().rejectedOperations`で失敗を確認し、`resolveRejectedSyncOperation`で再試行または破棄できます。
+- パックした公開パッケージを利用側プロジェクトで検証する統合テストと、HTTP APIを介した同期の統合テストを追加し、CIで実行するようにしました。
+
+### English
+
+- `createAuthenticatedSyncKit` with `getScope` and no static `scope` now waits for the scope before resuming or sending the pending queue, so queued writes are no longer sent with another account's token after a restart.
+- Unscoped sessions over a shared `queue` now send only unscoped operations and keep other accounts' operations queued.
+- When an account-aware `createAuthenticatedSyncKit` (using `scope`, `getScope`, or `setScope`) shares a host-supplied `local` adapter, a signed-out session now reads and removes only unscoped items, collections, and memberships, so `clear()` while signed out no longer deletes other accounts' local data.
+- `AuthenticatedSyncTransport.pushCollection` can now return the server result, so the authenticated kit stores collection revisions and reports conflicts. The authenticated kit also exposes `resolveCollectionSyncConflict`.
+- Pulled items whose `revision` differs from the local copy now replace it even when their `updatedAt` is older, so other devices no longer stay on a stale revision after a conflict is resolved by keeping an older local edit.
+- Added `itemPullMode: "snapshot"` to `SyncStorageAdapter`. It treats `pull()` results as the complete item list and removes items deleted on another device. Only server-acknowledged items (with a `revision`) without pending local changes are removed. The default `"merge"` mode still never deletes.
+- Shared localStorage sync queue additions and removals are now serialized across tabs with the Web Locks API, preventing one tab's offline writes from overwriting another's. Unsafe writes are rejected in browsers without Web Locks.
+- Non-authentication, non-transient 4xx sync failures stay queued while later independent operations continue. Hosts can inspect `getSyncState().rejectedOperations` and use `resolveRejectedSyncOperation` to retry or discard an operation.
+- Added integration tests that install the packed packages into consumer projects and exercise synchronization over an HTTP API, and run them in CI.
+
 ## [0.28.9] - 2026-10-12
 
 ### 日本語

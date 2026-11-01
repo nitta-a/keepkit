@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.13
+Release: v0.28.14
 
 ## 日本語
 
@@ -81,6 +81,8 @@ hooksはProvider内のコンポーネントで呼び出します。
 
 - `createBrowserStorageAdapter`はIndexedDB優先で、localStorageへフォールバックします。`scope`でユーザー／テナントを分離できます。
 - `SyncStorageAdapter`と`RemoteSyncDriver`で永続オフラインキュー・再試行・競合処理を組み込みます。定義・所属の同期には、それぞれ`pushCollection` / `pullCollections`、`pushMembership` / `pullMemberships`が必要です。
+- `remote.pull()`の結果は既定（`itemPullMode: "merge"`）で部分的な一覧として統合し、ローカルのアイテムを削除しません。APIがscope内の全アイテムを返す場合は`itemPullMode: "snapshot"`を指定すると、サーバー受理済み（`revision`あり）で一覧から消えたアイテムを削除します。未送信の変更があるアイテムは残るため、オフライン中に編集したアイテムは再送されます。pullしたアイテムの`revision`がローカルと異なる場合は、`updatedAt`にかかわらずサーバー版を採用します。
+- 400〜499のうち認証・一時エラーではないpush失敗は`getSyncState().rejectedOperations`に残り、独立した後続操作は同期を続けます。ホストは`resolveRejectedSyncOperation(operationId, "retry" | "discard")`で再試行または破棄できます。共有localStorageキューは複数タブの追加・削除をWeb Locks APIで直列化します。ブラウザーがWeb Locksに対応しない場合、安全な更新を拒否します。
 - 認証方式はアプリ側で管理します。[認証付き同期の例](../../examples/authenticated-sync/README.md)でトークン取得とscope切り替えを確認できます。
 - `exportItems(storage)` / `importItems(storage, json, { mode: "merge" })`で保存アイテム・コレクション定義・所属をバックアップ・復元します。閲覧履歴・鑑賞記録・進行位置は含みません。
 
@@ -192,6 +194,8 @@ Failures in `before` plugins or persistence reject the mutation. Errors from pos
 
 - `createBrowserStorageAdapter` prefers IndexedDB and falls back to localStorage. Use `scope` to isolate users and tenants.
 - Combine `SyncStorageAdapter` and `RemoteSyncDriver` for durable offline queues, retries, and conflicts. Definition and membership sync require `pushCollection` / `pullCollections` and `pushMembership` / `pullMemberships`, respectively.
+- By default (`itemPullMode: "merge"`), `remote.pull()` results are merged as a partial list and never delete local items. If your API returns every item in the scope, set `itemPullMode: "snapshot"` to remove server-acknowledged items (with a `revision`) that are no longer listed. Items with pending local changes are kept, so an item edited offline is pushed again. A pulled item whose `revision` differs from the local copy is adopted regardless of `updatedAt`.
+- Non-authentication, non-transient 4xx push failures are retained in `getSyncState().rejectedOperations`, while later independent operations continue syncing. Hosts can retry or discard one with `resolveRejectedSyncOperation(operationId, "retry" | "discard")`. Shared localStorage queues serialize cross-tab additions and removals with the Web Locks API and reject unsafe writes in browsers without it.
 - Authentication belongs to your app. See the [authenticated sync example](../../examples/authenticated-sync/README.md) for tokens and scope changes.
 - Use `exportItems(storage)` / `importItems(storage, json, { mode: "merge" })` to back up and restore saved items, collection definitions, and memberships. History, viewing records, and progress are excluded.
 

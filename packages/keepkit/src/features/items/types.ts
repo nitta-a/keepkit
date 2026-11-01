@@ -163,6 +163,11 @@ export type KeepSyncConflict<TMeta = Record<string, unknown>> = {
   revision?: string;
 };
 
+export type KeepSyncRejectedOperation<TMeta = Record<string, unknown>> = {
+  operation: KeepSyncQueueOperation<TMeta>;
+  error: unknown;
+};
+
 export type KeepSyncState<TMeta = Record<string, unknown>> = {
   status: KeepSyncStatus;
   pendingCount: number;
@@ -170,6 +175,8 @@ export type KeepSyncState<TMeta = Record<string, unknown>> = {
   /** Detailed conflict records when the adapter supports interactive resolution. */
   conflicts?: KeepSyncConflict<TMeta>[];
   collectionConflicts?: KeepCollectionSyncConflict[];
+  /** Permanently rejected operations stay queued until the host retries or discards them. */
+  rejectedOperations?: KeepSyncRejectedOperation<TMeta>[];
   lastSyncedAt?: number;
   error?: unknown;
 };
@@ -276,6 +283,7 @@ export type KeepConflictResolver<TMeta = Record<string, unknown>> = (
 
 export interface RemoteSyncDriver<TMeta = Record<string, unknown>> {
   push(operation: SyncOperation<TMeta>): Promise<RemoteSyncResult<TMeta>>;
+  /** Return remote items for the active scope; with `itemPullMode: "snapshot"` this must be the complete list. */
   pull?: () => Promise<KeepItem<TMeta>[]>;
   /** Push collection operations through the same scoped, durable queue as item operations. */
   // biome-ignore lint/suspicious/noConfusingVoidType: Existing drivers may return void; new drivers can return conflict results.
@@ -290,6 +298,7 @@ export interface RemoteSyncDriver<TMeta = Record<string, unknown>> {
 
 export interface SyncQueueAdapter<TMeta = Record<string, unknown>> {
   getAll(): Promise<KeepSyncQueueOperation<TMeta>[]>;
+  /** Upsert each operation by operation ID without replacing unrelated queued work. */
   setMany(operations: KeepSyncQueueOperation<TMeta>[]): Promise<void>;
   remove(operationIds: string[]): Promise<void>;
   clear(): Promise<void>;
@@ -302,6 +311,7 @@ export interface SyncCapableStorageAdapter<TMeta = Record<string, unknown>> exte
   flushSync(): Promise<void>;
   retrySync?(): Promise<void>;
   resolveSyncConflict?(id: string, resolution: KeepSyncResolution, item?: KeepItem<TMeta>): Promise<void>;
+  resolveRejectedSyncOperation?(operationId: string, resolution: "retry" | "discard"): Promise<void>;
   resolveCollectionSyncConflict?(
     id: string,
     resolution: "local" | "remote",

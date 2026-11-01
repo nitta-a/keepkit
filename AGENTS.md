@@ -33,6 +33,7 @@ Persistence is abstracted behind `StorageAdapter`. Browser storage is IndexedDB-
 - Run the demo alone with `pnpm --filter @keepkit/demo dev`.
 - Build first with `pnpm build`, then run package tests with `pnpm --filter @keepkit/core test` and `pnpm --filter @keepkit/ui test`. These use Node's built-in `node:test` runner against the built `dist` files.
 - Run demo tests with `pnpm --filter @keepkit/demo test`. These use Vitest with a jsdom environment and Testing Library.
+- Run integration tests with `pnpm test:integration`. The private `tests/integration` package builds the publishable packages, installs their packed tarballs into isolated consumer projects under `tests/integration/fixtures`, and exercises synchronization against a local HTTP reference API with `node:test`.
 
 Repository-level commands:
 

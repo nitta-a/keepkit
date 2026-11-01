@@ -1,0 +1,22 @@
+{
+  "name": "@keepkit/integration-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Integration tests that exercise the packed KeepKit packages and HTTP synchronization.",
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test:integration": "node --experimental-strip-types --test --test-concurrency=1 test/*.test.ts"
+  },
+  "devDependencies": {
+    "@keepkit/core": "workspace:*",
+    "@keepkit/ui": "workspace:*",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^6.0.3"
+  }
+}
