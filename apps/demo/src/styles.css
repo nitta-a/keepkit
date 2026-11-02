@@ -699,7 +699,7 @@ button:disabled {
 }
 .app-shell .favorite-button {
   width: 100%;
-  min-height: 34px;
+  min-height: 44px;
   margin-top: auto;
   border-radius: 6px;
   padding: 7px 9px;
@@ -1056,6 +1056,7 @@ button:disabled {
   }
   .mobile-navigation-toggle {
     display: block;
+    min-height: 44px;
     border: 1px solid var(--keep-border);
     border-radius: 6px;
     padding: 8px 10px;

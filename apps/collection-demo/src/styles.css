@@ -199,6 +199,12 @@ h3 {
 }
 
 @media (max-width: 760px) {
+  .mode-switch {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
   .page-shell {
     width: min(100% - 28px, 600px);
     padding-top: 40px;

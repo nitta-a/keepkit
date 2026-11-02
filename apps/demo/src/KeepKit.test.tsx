@@ -362,6 +362,7 @@ test("covers useKeepItem errors and KeepButton behavior", async () => {
   const button = screen.getByRole("button", { name: "Custom save" });
   expect(button).toHaveAttribute("type", "button");
   expect(button).toHaveAttribute("aria-pressed", "false");
+  await waitFor(() => expect(button).toBeEnabled());
   fireEvent.click(button);
   await waitFor(() => expect(onToggleError).toHaveBeenCalledWith(toggleError));
   expect(onClick).toHaveBeenCalled();
@@ -373,7 +374,9 @@ test("covers useKeepItem errors and KeepButton behavior", async () => {
       <KeepButton item={{ id: "prevented", meta: { title: "Prevented" } }} onClick={prevented} />
     </KeepProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+  const preventedButton = screen.getByRole("button", { name: "Save item" });
+  await waitFor(() => expect(preventedButton).toBeEnabled());
+  fireEvent.click(preventedButton);
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(prevented).toHaveBeenCalled();
   expect(preventStorage.getItems()).toEqual([]);
@@ -400,6 +403,7 @@ test("supports createKeepKit wrappers and asChild", async () => {
     </KitProvider>,
   );
   const link = screen.getByTestId("kit-link");
+  await waitFor(() => expect(link).toHaveAttribute("aria-disabled", "false"));
   fireEvent.click(link);
   await waitFor(() => expect(screen.getByTestId("kit-items")).toHaveTextContent("kit-item"));
   expect(testStorage.getItems()[0]?.schemaVersion).toBe(3);
@@ -415,7 +419,9 @@ test("supports createKeepKit wrappers and asChild", async () => {
       <ConfiguredProbe />
     </ConfiguredProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+  const configuredButton = screen.getByRole("button", { name: "Save item" });
+  await waitFor(() => expect(configuredButton).toBeEnabled());
+  fireEvent.click(configuredButton);
   await waitFor(() => expect(screen.getByTestId("configured-items")).toHaveTextContent("1"));
 });
 

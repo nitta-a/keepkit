@@ -68,13 +68,17 @@
   background-color: var(--keep-background);
 }
 
-:where(.keep-theme, [data-keep-theme]) *,
-:where(.keep-theme, [data-keep-theme]) *::before,
-:where(.keep-theme, [data-keep-theme]) *::after {
+:where(.keep-theme, [data-keep-theme]) :where([data-keepkit]),
+:where(.keep-theme, [data-keep-theme]) :where([data-keepkit]) *,
+:where(.keep-theme, [data-keep-theme]) :where([data-keepkit]) *::before,
+:where(.keep-theme, [data-keep-theme]) :where([data-keepkit]) *::after {
   box-sizing: inherit;
 }
 
-:where(.keep-theme, [data-keep-theme]) :is(button, a, input, select, textarea):focus-visible {
+:where(.keep-theme, [data-keep-theme])
+  :is([data-keepkit], [data-keepkit] *)
+  :is(button, a, input, select, textarea):focus-visible,
+:where(.keep-theme, [data-keep-theme]) :is(button, a, input, select, textarea)[data-keepkit]:focus-visible {
   outline: 2px solid var(--keep-ring);
   outline-offset: 2px;
 }
@@ -84,12 +88,15 @@
   outline-offset: 3px;
 }
 
-:where(.keep-theme, [data-keep-theme]) :is(button, a) {
+:where(.keep-theme, [data-keep-theme]) :is([data-keepkit]:is(button, a), [data-keepkit] :is(button, a)) {
   min-height: var(--keep-button-size);
 }
 
 :where(.keep-theme, [data-keep-theme])
-  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
+  :where(
+    [data-keepkit]:is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea),
+    [data-keepkit] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea)
+  ) {
   min-height: var(--keep-button-size);
   border: 1px solid var(--keep-input);
   border-radius: var(--keep-radius);

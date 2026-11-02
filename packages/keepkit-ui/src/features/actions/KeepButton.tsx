@@ -97,6 +97,12 @@ export function KeepButton<TMeta = Record<string, unknown>>({
       </>
     );
   };
+  const meta = props.item.meta;
+  const title =
+    typeof meta === "object" && meta !== null && "title" in meta && typeof meta.title === "string"
+      ? meta.title.trim()
+      : "";
+  const accessibleLabel = (label: string) => (title ? `${label}: ${title}` : label);
   const sharedProps = {
     ...props,
     onClick: (event: MouseEvent<HTMLElement>) => {
@@ -119,11 +125,15 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     savedAriaLabel:
       labels?.savedAriaLabel ??
       props.savedAriaLabel ??
-      (props.children === undefined && !showSavedLabel ? removeLabel : undefined),
+      (props.children === undefined && !props.asChild && (iconOnly || !showLabel || !showSavedLabel)
+        ? accessibleLabel(removeLabel)
+        : undefined),
     unsavedAriaLabel:
       labels?.unsavedAriaLabel ??
       props.unsavedAriaLabel ??
-      (props.children === undefined && !showSaveLabel ? view.labels.save : undefined),
+      (props.children === undefined && !props.asChild && (iconOnly || !showLabel || !showSaveLabel)
+        ? accessibleLabel(view.labels.save)
+        : undefined),
   };
   if (!view.customStateLabel) return <CoreKeepButton<TMeta> {...sharedProps} />;
   return (

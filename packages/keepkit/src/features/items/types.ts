@@ -26,6 +26,7 @@ export type KeepCollectionMembership = {
 };
 
 export type KeepItem<TMeta = Record<string, unknown>> = {
+  /** Unique across all target types within the storage scope. */
   id: string;
   savedAt: number;
   updatedAt: number;
@@ -58,6 +59,7 @@ export type KeepItem<TMeta = Record<string, unknown>> = {
 
 /** The minimal item description accepted by save controls and hooks. */
 export type KeepItemInput<TMeta = Record<string, unknown>> = {
+  /** Unique across all target types within the storage scope. */
   id: string;
   meta: TMeta;
   order?: number;

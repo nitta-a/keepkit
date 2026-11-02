@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createElement } from "react";
+import { renderToString } from "react-dom/server";
 import {
   createKeepKit,
   createSlot,
@@ -153,4 +155,16 @@ test("provides complete built-in dictionaries for all supported locales and alia
   assert.equal(getKeepLocaleLabels("zh-TW").save, getKeepLocaleLabels("zh-Hant").save);
   assert.equal(getKeepLocaleLabels("pt_pt").save, getKeepLocaleLabels("pt-BR").save);
   assert.notEqual(getKeepLocaleLabels("zh-Hans").save, getKeepLocaleLabels("zh-Hant").save);
+});
+
+test("renders an initially open save editor safely on the server", () => {
+  const item = { id: "ssr", meta: { title: "Server item" }, savedAt: 1, updatedAt: 1 };
+  const html = renderToString(
+    createElement(
+      KeepKitProvider,
+      { initialItems: [item] },
+      createElement(KeepSavePopover, { item, defaultOpen: true }),
+    ),
+  );
+  assert.match(html, /save-popover/);
 });

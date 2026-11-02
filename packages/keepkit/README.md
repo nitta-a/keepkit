@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.15
+Release: v0.28.16
 
 ## 日本語
 
@@ -117,7 +117,16 @@ scope付きadapterを別のscopeで包み直しても書き込み先は切り替
 
 デモと開発手順は[リポジトリREADME](../../README.md)、変更履歴は[リリースノート](../../RELEASE_NOTES.md)を参照してください。
 
+保存ボタンは保存状態の読み込み中と更新中は操作できません。
+
+同じ保存領域内では、`targetType`に関係なく`id`を一意にしてください。例えば `article:123` と `product:123` を使います。
+
 ## English
+
+Save buttons are disabled while saved state is loading or a mutation is in progress.
+
+Use an `id` unique across all target types within the same storage scope, for example `article:123` and `product:123`.
+
 
 Framework-neutral persistence primitives and React providers and hooks.
 Use [@keepkit/ui](../keepkit-ui/README.md) when you want a ready-made collection UI. Its opt-in `presentation="reading"` and inline selection add UI behavior without changing Core types or storage formats. Unvisited uses the existing `lastOpenedAt` and `recordOpen()` contracts.

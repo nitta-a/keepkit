@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.15
+Release: v0.28.16
 
 ## 日本語
 
@@ -145,11 +145,34 @@ function RecoveryScreen() {
 | コレクション管理 | `keep.CollectionManager` |
 | 画面一式 | `keep.Workspace`。`basic` / `standard` / `management` / `sync`プリセット |
 | メモ・タグ・保存直後の編集 | `KeepNoteEditor`、`KeepTagEditor`、`KeepSavePopover`、`KeepQuickEditor` |
+
 | 再発見・巡回・並び替え | `KeepRediscoveryPanel`、`KeepTourBar`、`KeepFloatingTour`、`KeepReorderableList` |
 | 復元・保存対象の状態・同期状態 | `KeepUndo`、`keep.Backup`、`KeepItemStatusBadge`、`KeepSyncStatusBanner`、`KeepSyncRecoveryDialog` |
 
 各コンポーネントは同じProvider内に配置します。`renderItem`、slots、render propsで独自レイアウトへ組み込めます。
+`KeepSavePopover`の編集パネルは、最も近い開いている`dialog`内、または`document.body`に表示されます。独自モーダルでは`portalContainer`にモーダルのコンテンツ要素を指定してください。
 `KeepItemCard`の`Link` / `Media` / `Content` / `Title` / `Tags` / `Actions`でカードの一部だけを組み替えることもできます。
+
+### サイトのナビゲーションから一覧を開く
+
+共通レイアウトにProviderを一つ置き、ヘッダーやモバイルナビゲーションから保存一覧のURLへリンクします。保存通知からも同じURLに移動できます。ルーティングには利用側のRouterを使用してください。
+
+```tsx
+import { useState } from "react";
+
+function Site() {
+  const [saved, setSaved] = useState(false);
+  return (
+    <keep.Provider onFeedback={(event) => { if (event.type === "item-saved") setSaved(true); }}>
+      <header><a href="/saved">保存一覧</a></header>
+      {saved && <p role="status">保存しました。 <a href="/saved">保存一覧を見る</a></p>}
+      <SiteRoutes /> {/* 記事ページは keep.Button、/saved は keep.Collection */}
+    </keep.Provider>
+  );
+}
+```
+
+既存のDrawerを使う場合は、同じProvider内のDrawerに`keep.Collection`を配置します。保存後の編集パネルは画面端とスクロールに追従します。`buttonProps`でラベルやアイコンを指定できます。
 
 ### テーマとアクセシビリティ
 
@@ -174,7 +197,16 @@ Providerの`theme="ocean"`や`mode="light" | "dark" | "system"`、`density`、`r
 
 保存・同期の契約は[Core README](../keepkit/README.md)、デモとNext.jsサンプルは[リポジトリREADME](../../README.md)を参照してください。
 
+保存ボタンは保存状態の読み込み中と更新中は操作できません。
+
+同じ保存領域内では、`targetType`に関係なく`id`を一意にしてください。例えば `article:123` と `product:123` を使います。
+
 ## English
+
+Save buttons are disabled while saved state is loading or a mutation is in progress.
+
+Use an `id` unique across all target types within the same storage scope, for example `article:123` and `product:123`.
+
 
 React UI for KeepKit, including `@keepkit/core`, with a shared provider for save buttons and collections.
 CSS is optional: use the supplied theme or your own styles. Requires React 18 or later.
@@ -320,6 +352,29 @@ Use `KeepQuickEditor.closeLabel` to customize the completion button. Manual savi
 
 Place components under the same provider. Use `renderItem`, slots, or render props for custom layouts.
 Rearrange card regions through `KeepItemCard.Link` / `Media` / `Content` / `Title` / `Tags` / `Actions`.
+
+### Open saved items from site navigation
+
+Mount one provider in the shared layout and link to the saved page from the header or mobile navigation. A save notification can link to the same page. Use your application's router for navigation.
+
+```tsx
+import { useState } from "react";
+
+function Site() {
+  const [saved, setSaved] = useState(false);
+  return (
+    <keep.Provider onFeedback={(event) => { if (event.type === "item-saved") setSaved(true); }}>
+      <header><a href="/saved">Saved items</a></header>
+      {saved && <p role="status">Saved. <a href="/saved">View saved items</a></p>}
+      <SiteRoutes /> {/* Article pages use keep.Button; /saved renders keep.Collection. */}
+    </keep.Provider>
+  );
+}
+```
+
+To use an existing drawer, place `keep.Collection` inside it under the same provider. The post-save editor follows the trigger and viewport. Configure its labels and icons through `buttonProps`.
+
+`KeepSavePopover` renders its editor in the nearest open native `dialog`, or in `document.body` otherwise. For a custom modal with a focus trap, pass its content element as `portalContainer` so the editor remains inside the modal.
 
 ### Theme and accessibility
 

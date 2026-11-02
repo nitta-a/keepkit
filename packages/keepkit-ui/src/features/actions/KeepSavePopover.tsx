@@ -9,9 +9,12 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
+import { KeepThemeProvider, useKeepTheme } from "../../foundation/theme";
 import { useUiLabel } from "../../foundation/ui-context";
 import { type KeepQuickEditorProps, KeepQuickEditorView, useKeepQuickEditor } from "../editor/KeepQuickEditor";
 import { KeepButton, type KeepButtonProps } from "./KeepButton";
@@ -22,6 +25,7 @@ export type KeepSavePopoverProps<TMeta = Record<string, unknown>> = Omit<HTMLAtt
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   dialogLabel?: string;
+  portalContainer?: HTMLElement | null;
   buttonProps?: Omit<KeepButtonProps<TMeta>, "item" | "asChild"> & { asChild?: false };
   editorProps?: Omit<KeepQuickEditorProps<TMeta>, "item" | "onClose">;
   children?: ReactNode;
@@ -34,6 +38,7 @@ export function KeepSavePopover<TMeta = Record<string, unknown>>({
   defaultOpen = false,
   onOpenChange,
   dialogLabel,
+  portalContainer,
   buttonProps,
   editorProps,
   children,
@@ -45,6 +50,7 @@ export function KeepSavePopover<TMeta = Record<string, unknown>>({
   const triggerRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(isOpen);
   const previousSaved = useRef(state.isSaved);
+  const initiatedSave = useRef(false);
   const observedHydration = useRef(!state.isLoading);
   const panelId = useId();
   const titleId = `${panelId}-title`;
@@ -70,7 +76,10 @@ export function KeepSavePopover<TMeta = Record<string, unknown>>({
       previousSaved.current = state.isSaved;
       return;
     }
-    if (!previousSaved.current && state.isSaved) setOpen(true);
+    if (!previousSaved.current && state.isSaved && initiatedSave.current) {
+      initiatedSave.current = false;
+      setOpen(true);
+    }
     previousSaved.current = state.isSaved;
   }, [setOpen, state.isLoading, state.isSaved]);
 
@@ -84,6 +93,14 @@ export function KeepSavePopover<TMeta = Record<string, unknown>>({
       <KeepButton
         {...resolvedButtonProps}
         item={item}
+        onClick={(event) => {
+          resolvedButtonProps.onClick?.(event);
+          if (!event.defaultPrevented && !state.isSaved) initiatedSave.current = true;
+        }}
+        onToggleError={(error) => {
+          initiatedSave.current = false;
+          resolvedButtonProps.onToggleError?.(error);
+        }}
         asChild={false}
         ref={triggerRef}
         aria-haspopup="dialog"
@@ -98,6 +115,7 @@ export function KeepSavePopover<TMeta = Record<string, unknown>>({
           item={currentItem}
           editorProps={editorProps}
           triggerRef={triggerRef}
+          portalContainer={portalContainer}
           onClose={() => setOpen(false)}
         >
           {children}
@@ -114,6 +132,7 @@ type KeepSavePopoverPanelProps<TMeta> = {
   item: KeepItem<TMeta>;
   editorProps?: KeepSavePopoverProps<TMeta>["editorProps"];
   triggerRef: RefObject<HTMLElement | null>;
+  portalContainer?: HTMLElement | null;
   onClose: () => void;
   children?: ReactNode;
 };
@@ -125,6 +144,7 @@ function KeepSavePopoverPanel<TMeta>({
   item,
   editorProps,
   triggerRef,
+  portalContainer,
   onClose,
   children,
 }: KeepSavePopoverPanelProps<TMeta>) {
@@ -133,6 +153,35 @@ function KeepSavePopoverPanel<TMeta>({
   const panelRef = useRef<HTMLDivElement>(null);
   const closingRef = useRef<Promise<void> | null>(null);
   const closeLabel = useUiLabel("close");
+  const theme = useKeepTheme();
+  const [position, setPosition] = useState({ left: 8, top: 8, width: 320 });
+  useLayoutEffect(() => {
+    const place = () => {
+      const trigger = triggerRef.current?.getBoundingClientRect();
+      const panel = panelRef.current;
+      if (!trigger || !panel) return;
+      const width = Math.min(Math.max(trigger.width, 320), window.innerWidth - 16);
+      const left = Math.max(8, Math.min(trigger.left, window.innerWidth - width - 8));
+      panel.style.width = `${width}px`;
+      const height = panel.getBoundingClientRect().height;
+      const below = trigger.bottom + 8;
+      const top = Math.max(
+        8,
+        Math.min(
+          below + height <= window.innerHeight - 8 ? below : trigger.top - height - 8,
+          window.innerHeight - height - 8,
+        ),
+      );
+      setPosition({ left, top, width });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [triggerRef]);
   const requestClose = useCallback(() => {
     if (closingRef.current) return closingRef.current;
     const promise = state
@@ -168,34 +217,49 @@ function KeepSavePopoverPanel<TMeta>({
     return () => document.removeEventListener("pointerdown", closeFromOutside);
   }, [requestClose, triggerRef]);
 
-  return (
-    <div
-      ref={panelRef}
-      id={id}
-      role="dialog"
-      aria-labelledby={titleId}
-      data-keep-popover-panel="true"
-      data-save-status={state.saveStatus}
-      onKeyDownCapture={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        event.stopPropagation();
-        void requestClose();
-      }}
-    >
-      <h2 id={titleId} data-keep-popover-title="true">
-        {dialogLabel}
-      </h2>
-      {children}
-      <KeepQuickEditorView {...editorViewProps} state={state} focusScopeRef={panelRef} />
-      <button
-        type="button"
-        onClick={() => void requestClose()}
-        disabled={state.isSaving}
-        data-keep-action="close-save-popover"
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <KeepThemeProvider {...theme}>
+      <div
+        ref={panelRef}
+        style={{
+          position: "fixed",
+          boxSizing: "border-box",
+          left: position.left,
+          top: position.top,
+          width: position.width,
+          right: "auto",
+          bottom: "auto",
+          maxHeight: "calc(100dvh - 16px)",
+          overflowY: "auto",
+        }}
+        id={id}
+        role="dialog"
+        aria-labelledby={titleId}
+        data-keep-popover-panel="true"
+        data-save-status={state.saveStatus}
+        onKeyDownCapture={(event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          event.stopPropagation();
+          void requestClose();
+        }}
       >
-        {closeLabel}
-      </button>
-    </div>
+        <h2 id={titleId} data-keep-popover-title="true">
+          {dialogLabel}
+        </h2>
+        {children}
+        <KeepQuickEditorView {...editorViewProps} state={state} focusScopeRef={panelRef} />
+        <button
+          type="button"
+          onClick={() => void requestClose()}
+          disabled={state.isSaving}
+          data-keep-action="close-save-popover"
+        >
+          {closeLabel}
+        </button>
+      </div>
+    </KeepThemeProvider>,
+    portalContainer ?? triggerRef.current?.closest("dialog[open]") ?? document.body,
   );
 }

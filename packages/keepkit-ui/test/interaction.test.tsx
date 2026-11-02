@@ -642,7 +642,7 @@ test("scopes theme options and supports icon-only save buttons", async () => {
   expect(button.getAttribute("data-keepkit")).toBe("button");
   expect(button.getAttribute("data-keep-action")).toBe("toggle-save");
   expect(button.getAttribute("data-has-custom-icon")).toBe("true");
-  expect(button.getAttribute("aria-label")).toBe("Save item");
+  expect(button.getAttribute("aria-label")).toBe("Save: Interaction item");
   expect(screen.getByTestId("save-icon")).not.toBeNull();
   expect(button.textContent).toBe("");
 });
@@ -2197,4 +2197,46 @@ test("publishes the error boundary as a standalone primitive", () => {
   );
 
   expect(screen.getByTestId("standalone-fallback").textContent).toBe("Recovered");
+});
+
+test("opens only the popover whose save button was activated", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage()}>
+      <KeepSavePopover item={{ id: item.id, meta: item.meta }} />
+      <KeepSavePopover item={{ id: item.id, meta: item.meta }} />
+    </KeepProvider>,
+  );
+  const buttons = screen.getAllByRole("button", { name: "Save item" });
+  await waitFor(() => expect(buttons[0].hasAttribute("disabled")).toBe(false));
+  fireEvent.click(buttons[0]);
+  await waitFor(() => expect(screen.getAllByRole("dialog")).toHaveLength(1));
+  expect(buttons[0].getAttribute("aria-expanded")).toBe("true");
+  expect(buttons[1].getAttribute("aria-expanded")).toBe("false");
+});
+
+test("labels icon-only save buttons with the localized action and item title", async () => {
+  render(
+    <KeepKitProvider<Meta> storage={createStorage()} locale="ja">
+      <KeepButton item={{ id: "one", meta: { title: "記事 A" } }} iconOnly icons={{ save: "☆" }} />
+      <KeepButton item={{ id: "two", meta: { title: "記事 B" } }} iconOnly icons={{ save: "☆" }} />
+    </KeepKitProvider>,
+  );
+  expect(screen.getByRole("button", { name: /保存.*記事 A/ })).not.toBeNull();
+  expect(screen.getByRole("button", { name: /保存.*記事 B/ })).not.toBeNull();
+});
+
+test("renders the save editor outside a clipped host", async () => {
+  render(
+    <KeepKitProvider<Meta> storage={createStorage()}>
+      <div data-testid="clipped-host" style={{ overflow: "hidden" }}>
+        <KeepSavePopover item={{ id: item.id, meta: item.meta }} />
+      </div>
+    </KeepKitProvider>,
+  );
+  const button = screen.getByRole("button", { name: "Save item" });
+  await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
+  fireEvent.click(button);
+  const dialog = await screen.findByRole("dialog");
+  expect(screen.getByTestId("clipped-host").contains(dialog)).toBe(false);
+  expect(dialog.style.position).toBe("fixed");
 });

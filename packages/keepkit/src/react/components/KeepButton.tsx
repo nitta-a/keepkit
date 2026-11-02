@@ -73,7 +73,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
 }: KeepButtonProps<TMeta>) {
   const state = useKeepItem(item);
   const { isSaved, toggle } = state;
-  const isDisabled = disabled ?? state.isMutating;
+  const isDisabled = Boolean(disabled || state.isLoading || state.isMutating);
 
   async function handleClick(event: MouseEvent<HTMLElement>) {
     if (isDisabled) return;
@@ -95,11 +95,17 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   const content =
     typeof children === "function" ? children(state) : (children ?? (isSaved ? savedLabel : unsavedLabel));
   function handleElementClick(event: MouseEvent<HTMLElement>) {
-    if (isDisabled) return;
+    if (isDisabled) {
+      if (asChild) event.preventDefault();
+      return;
+    }
     if (asChild && isValidElement<{ onClick?: (event: MouseEvent<HTMLElement>) => void }>(content)) {
       content.props.onClick?.(event);
     }
-    if (!event.defaultPrevented) void handleClick(event);
+    if (!event.defaultPrevented) {
+      void handleClick(event);
+      if (asChild && event.currentTarget instanceof HTMLAnchorElement) event.preventDefault();
+    }
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {

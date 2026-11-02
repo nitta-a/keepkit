@@ -1,5 +1,19 @@
 # Release notes
 
+## [0.28.16] - 2026-11-02
+
+### 日本語
+
+- 保存後の編集ポップオーバーをビューポートに合わせて配置し、ポータル表示で親要素のクリッピングを避けます。`portalContainer`で表示先を指定できます。
+- 保存ボタンの読み上げラベルに項目名を含め、読み込み中・更新中は操作を無効にします。
+- KeepItem IDが保存scope内でtarget typeをまたいで一意であることを明記しました。
+
+### English
+
+- Position the post-save editor popover within the viewport and render it through a portal to avoid clipping by parent elements. `portalContainer` lets hosts choose the container.
+- Include the item title in save button accessible labels and disable interaction while loading or mutating.
+- Document that KeepItem IDs are unique across target types within a storage scope.
+
 ## [0.28.15] - 2026-11-02
 
 ### 日本語

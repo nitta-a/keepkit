@@ -138,7 +138,9 @@ test("can manage an item-derived collection", async () => {
 test("reading mode uses the package card and selects the same resource row", async () => {
   renderDemo();
   fireEvent.click(screen.getByRole("button", { name: "Reading" }));
-  fireEvent.click(screen.getAllByRole("button", { name: "Save resource" })[0]);
+  const saveButton = screen.getAllByRole("button", { name: "Save resource" })[0];
+  await waitFor(() => expect(saveButton).toBeEnabled());
+  fireEvent.click(saveButton);
   await screen.findByRole("button", { name: "Edit saved item" });
   expect(document.querySelector('[data-presentation="reading"]')).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Select saved items" }));

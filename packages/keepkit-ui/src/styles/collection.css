@@ -817,7 +817,7 @@
   background: transparent;
 }
 @media (max-width: 32rem) {
-  :where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] {
+  :where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"].keep-floating-tour {
     right: var(--keep-tour-offset, 16px);
     left: var(--keep-tour-offset, 16px);
     max-width: none;
@@ -831,7 +831,7 @@
     [data-keepkit="floating-tour"]
     .keep-floating-tour__bar
     > [data-keep-action^="tour-"] {
-    min-width: 0;
+    min-width: 2.75rem;
     flex: 1;
   }
   :where(.keep-theme, [data-keep-theme]) [data-keepkit="floating-tour"] [data-tour-preview] {

@@ -86,3 +86,49 @@ test("binds a shortcut and ignores editable controls", async () => {
   fireEvent.keyDown(window, { key: "k", metaKey: true });
   await waitFor(async () => expect(await testStorage.getAll()).toHaveLength(1));
 });
+
+test("prevents saving until the existing item is loaded", async () => {
+  let resolveRead: (items: Array<typeof item & { savedAt: number; updatedAt: number; note: string }>) => void =
+    () => {};
+  const read = new Promise<Array<typeof item & { savedAt: number; updatedAt: number; note: string }>>((resolve) => {
+    resolveRead = resolve;
+  });
+  const existing = { ...item, savedAt: 1, updatedAt: 1, note: "keep this note" };
+  let writes = 0;
+  const storage: StorageAdapter<typeof item.meta> = {
+    getAll: () => read,
+    set: async () => {
+      writes += 1;
+    },
+    remove: async () => {},
+    clear: async () => {},
+  };
+  render(
+    <KeepProvider storage={storage}>
+      <KeepButton item={item} />
+    </KeepProvider>,
+  );
+  const button = screen.getByRole("button", { name: "Save item" });
+  expect(button).toBeDisabled();
+  fireEvent.click(button);
+  resolveRead([existing]);
+  await waitFor(() => expect(button).toHaveAttribute("aria-pressed", "true"));
+  expect(writes).toBe(0);
+  expect(await storage.getAll()).toEqual([existing]);
+});
+
+test("prevents navigation when an anchor is used as a save button", async () => {
+  render(
+    <KeepProvider storage={createStorage()}>
+      <KeepButton item={item} asChild>
+        <a href="/saved">Save</a>
+      </KeepButton>
+    </KeepProvider>,
+  );
+  const link = screen.getByRole("button");
+  await waitFor(() => expect(link).toHaveAttribute("aria-disabled", "false"));
+  const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+  fireEvent(link, event);
+  expect(event.defaultPrevented).toBe(true);
+  await waitFor(() => expect(link).toHaveAttribute("aria-pressed", "true"));
+});
