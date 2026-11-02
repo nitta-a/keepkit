@@ -37,6 +37,30 @@ export type KeepBackup<TMeta = Record<string, unknown>> = KeepBackupV1<TMeta> | 
 
 type ParsedKeepBackup<TMeta> = Omit<KeepBackupV2<TMeta>, "version"> & { version: 1 | typeof KEEP_BACKUP_VERSION };
 
+export type KeepBackupSummary = {
+  version: 1 | typeof KEEP_BACKUP_VERSION;
+  exportedAt: number;
+  itemCount: number;
+  collectionCount: number;
+  membershipCount: number;
+  scopes: SyncScope[];
+};
+
+/** Validate a serialized backup and return its record counts without modifying storage. */
+export function inspectKeepBackup<TMeta = Record<string, unknown>>(
+  data: string | KeepBackup<TMeta>,
+): KeepBackupSummary {
+  const backup = parseBackup<TMeta>(data);
+  return {
+    version: backup.version,
+    exportedAt: backup.exportedAt,
+    itemCount: backup.items.length,
+    collectionCount: backup.collections.length,
+    membershipCount: backup.memberships.length,
+    scopes: collectScopes(backup.items, backup.collections, backup.memberships, backup.scopes),
+  };
+}
+
 export type ImportItemsOptions<TMeta = unknown> = {
   mode?: "replace" | "merge";
   schema?: KeepSchema<TMeta>;
@@ -118,6 +142,33 @@ export async function exportItems<TMeta>(adapter: StorageAdapter<TMeta>): Promis
   const serialized = serializeKeepStorage(backup, { operation: "getAll", storageKey: adapter.storageKey });
   const json: unknown = JSON.parse(serialized);
   return JSON.stringify(json, null, 2);
+}
+
+/** Format saved items as a portable Markdown list for notes, docs, or sharing. */
+export function formatItemsAsMarkdown<TMeta = Record<string, unknown>>(
+  items: readonly KeepItem<TMeta>[],
+  options: { collectionLabels?: Record<string, string> } = {},
+): string {
+  if (items.length === 0) return "";
+  return items
+    .map((item) => {
+      const meta: Record<string, unknown> = isRecord(item.meta) ? item.meta : {};
+      const rawTitle = typeof meta.title === "string" && meta.title.trim() ? meta.title.trim() : item.id;
+      const rawUrl = typeof meta.url === "string" && meta.url.trim() ? meta.url.trim() : undefined;
+      const link = rawUrl ? `[${rawTitle}](${rawUrl})` : rawTitle;
+      const details: string[] = [];
+      if (item.collectionId) {
+        details.push(`Collection: ${options.collectionLabels?.[item.collectionId] ?? item.collectionId}`);
+      }
+      if (item.tags && item.tags.length > 0) {
+        details.push(`Tags: ${item.tags.map((tag) => `#${tag}`).join(" ")}`);
+      }
+      if (item.note?.trim()) {
+        details.push(item.note.trim());
+      }
+      return details.length > 0 ? `- ${link} — ${details.join(" | ")}` : `- ${link}`;
+    })
+    .join("\n");
 }
 
 /** Validate and restore a backup, either replacing or merging existing data. */

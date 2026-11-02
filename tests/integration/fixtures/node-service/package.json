@@ -1,0 +1,5 @@
+{
+  "name": "keepkit-node-consumer",
+  "private": true,
+  "type": "module"
+}

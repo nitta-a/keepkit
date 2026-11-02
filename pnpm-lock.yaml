@@ -249,6 +249,33 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(jsdom@30.0.1)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2))
 
+  tests/integration:
+    devDependencies:
+      '@keepkit/core':
+        specifier: workspace:*
+        version: link:../../packages/keepkit
+      '@keepkit/ui':
+        specifier: workspace:*
+        version: link:../../packages/keepkit-ui
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.2.5
+        version: 19.2.5(@types/react@19.2.18)
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.8
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
 packages:
 
   '@adobe/css-tools@4.5.0':

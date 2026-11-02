@@ -128,7 +128,7 @@ test("filters the collection by resource type", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Filter" }));
   expect(document.getElementById("collection-filters")).toHaveAttribute("data-filters-open", "true");
-  fireEvent.click(screen.getByRole("button", { name: /Product/ }));
+  fireEvent.click(screen.getAllByRole("button", { name: /Product/ })[0]);
 
   await waitFor(() => {
     expect(within(collection).getByText(product.meta.title)).toBeInTheDocument();
@@ -146,7 +146,7 @@ test("reveals a saved item after a filter hides it", async () => {
   );
   const collection = await findCollectionList();
   fireEvent.click(screen.getByRole("button", { name: "Filter" }));
-  fireEvent.click(screen.getByRole("button", { name: /Product/ }));
+  fireEvent.click(screen.getAllByRole("button", { name: /Product/ })[0]);
   await waitFor(() => expect(within(collection).queryByText(firstArticle.meta.title)).not.toBeInTheDocument());
 
   fireEvent.click(screen.getByRole("button", { name: "Reveal first article" }));
@@ -204,6 +204,32 @@ test("reveals an archived item in Archive without replaying after navigation", a
   expect(within(collection).queryByText(firstArticle.meta.title)).not.toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 1, name: "All saves" })).toBeInTheDocument();
   expect(screen.getByLabelText("Reveal status")).toHaveTextContent(/^visible$/);
+});
+
+test("edits an item title, clicks a tag on a card to filter, and toggles multi-tag filters", async () => {
+  const { getItems } = renderDemo([
+    { ...toSavedItem(firstArticle), tags: ["Article", "React"] },
+    { ...toSavedItem(product, 2), tags: ["Product", "Gear"] },
+  ]);
+  const collection = await findCollectionList();
+  const savedItem = await findSavedItem(firstArticle.meta.title);
+
+  fireEvent.click(within(savedItem).getByRole("button", { name: "Edit saved item" }));
+  const titleInput = within(savedItem).getByRole("textbox", { name: "Title" });
+  expect(titleInput).toHaveValue(firstArticle.meta.title);
+  fireEvent.change(titleInput, { target: { value: "Renamed RSC Guide" } });
+  fireEvent.click(within(savedItem).getByRole("button", { name: "Done" }));
+
+  await waitFor(() => {
+    expect(getItems().find((entry) => entry.id === firstArticle.id)?.meta.title).toBe("Renamed RSC Guide");
+  });
+  const renamedItem = await findSavedItem("Renamed RSC Guide");
+  fireEvent.click(within(renamedItem).getByRole("button", { name: "Filter saved items by tag: React" }));
+
+  await waitFor(() => {
+    expect(within(collection).getByText("Renamed RSC Guide")).toBeInTheDocument();
+    expect(within(collection).queryByText(product.meta.title)).not.toBeInTheDocument();
+  });
 });
 
 test("adds and saves a note for an existing resource", async () => {
@@ -358,7 +384,7 @@ test("bulk selection acts only on the current filtered scope and can be undone",
   const { getItems } = renderDemo([toSavedItem(firstArticle), toSavedItem(product, 2)]);
   const collection = await findCollectionList();
   fireEvent.click(screen.getByRole("button", { name: "Filter" }));
-  fireEvent.click(screen.getByRole("button", { name: /Product/ }));
+  fireEvent.click(screen.getAllByRole("button", { name: /Product/ })[0]);
   await waitFor(() => expect(within(collection).queryByText(firstArticle.meta.title)).not.toBeInTheDocument());
 
   fireEvent.click(screen.getByRole("button", { name: "Select saved items" }));
@@ -477,6 +503,11 @@ test("opens capture with Ctrl or Meta K while leaving text input shortcuts alone
 
   fireEvent.keyDown(window, { key: "k", metaKey: true });
   expect(screen.getByRole("form", { name: "Save a link" })).toBeInTheDocument();
+  fireEvent.keyDown(screen.getByRole("form", { name: "Save a link" }), { key: "Escape" });
+  expect(screen.queryByRole("form", { name: "Save a link" })).not.toBeInTheDocument();
+
+  fireEvent.keyDown(window, { key: "/" });
+  expect(search).toHaveFocus();
 });
 
 test("opens storage settings with backup controls and preserves the library", async () => {
@@ -486,6 +517,7 @@ test("opens storage settings with backup controls and preserves the library", as
   fireEvent.click(screen.getByRole("button", { name: "Storage and settings" }));
 
   expect(screen.getByRole("button", { name: "Export JSON" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Export Markdown" })).toBeInTheDocument();
   expect(screen.getByText(/stores items in this browser/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /^All saves/ }));
   expect(await findSavedItem(firstArticle.meta.title)).toBeInTheDocument();

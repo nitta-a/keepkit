@@ -301,7 +301,7 @@ test("serializes quick editor flushes and persists the latest draft", async () =
   releaseFirstSave?.();
 
   await waitFor(() => expect(storedItem.note).toBe("latest draft"));
-  expect(screen.getByTestId("quick-save-status").textContent).toBe("saved");
+  await waitFor(() => expect(screen.getByTestId("quick-save-status").textContent).toBe("saved"));
   expect(saveCount).toBe(2);
 });
 
@@ -2097,10 +2097,12 @@ test("emits sync failure feedback from the combined provider", async () => {
 
 test("exports and imports JSON backups through the standard UI", async () => {
   const onExport = vi.fn();
+  const onExportMarkdown = vi.fn();
   const importedItem = { ...item, id: "imported", meta: { title: "Imported" } };
+  const storage = createStorage([item]);
   render(
-    <KeepProvider<Meta> storage={createStorage([item])}>
-      <KeepBackup onExport={onExport} />
+    <KeepProvider<Meta> storage={storage}>
+      <KeepBackup confirmReplace allowMarkdownExport onExport={onExport} onExportMarkdown={onExportMarkdown} />
     </KeepProvider>,
   );
 
@@ -2108,12 +2110,27 @@ test("exports and imports JSON backups through the standard UI", async () => {
   expect(exportButton.getAttribute("data-keep-action")).toBe("export-backup");
   fireEvent.click(exportButton);
   await waitFor(() => expect(onExport).toHaveBeenCalledWith(expect.stringContaining("ui-interaction-item")));
+  fireEvent.click(screen.getByRole("button", { name: "Export Markdown" }));
+  expect(onExportMarkdown).toHaveBeenCalledWith(expect.stringContaining("- Interaction item — old note"));
   const input = document.querySelector('input[type="file"]');
   if (!(input instanceof HTMLInputElement)) throw new Error("Backup file input was not rendered.");
   expect(input.getAttribute("data-keep-action")).toBe("select-backup-file");
   const data = JSON.stringify({ format: "keepkit", version: 1, exportedAt: 1, items: [importedItem] });
   fireEvent.change(input, { target: { files: [new File([data], "backup.json", { type: "application/json" })] } });
   expect((await screen.findByRole("status")).textContent).toContain("1 items imported");
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Import mode" }), { target: { value: "replace" } });
+  fireEvent.change(input, { target: { files: [new File([data], "backup.json", { type: "application/json" })] } });
+  const dialog = await screen.findByRole("dialog", { name: "Confirm replace" });
+  expect(dialog.textContent).toContain("1 item — Replace your current library with this backup?");
+  expect((await storage.getAll()).map((entry) => entry.id)).toEqual(["ui-interaction-item", "imported"]);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog", { name: "Confirm replace" })).toBeNull();
+
+  fireEvent.change(input, { target: { files: [new File([data], "backup.json", { type: "application/json" })] } });
+  await screen.findByRole("dialog", { name: "Confirm replace" });
+  fireEvent.click(screen.getByRole("button", { name: "Replace" }));
+  await waitFor(async () => expect((await storage.getAll()).map((entry) => entry.id)).toEqual(["imported"]));
 });
 
 test("exposes the undo action without changing its accessible label", async () => {

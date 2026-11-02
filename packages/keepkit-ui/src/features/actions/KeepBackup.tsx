@@ -8,19 +8,37 @@ import { useKeepBackup } from "./hooks/useKeepBackup";
 
 export type KeepBackupProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   filename?: string;
+  markdownFilename?: string;
+  /** Enables a button to export saved items as a portable Markdown list. */
+  allowMarkdownExport?: boolean;
+  /** Requires confirmation with a backup summary before replacing current storage data. */
+  confirmReplace?: boolean;
   onExport?: (data: string) => void;
+  onExportMarkdown?: (markdown: string) => void;
   onImported?: (result: ImportItemsResult<TMeta>) => void;
 };
 
 /** Accessible JSON backup controls backed by the current KeepProvider storage. */
 export function KeepBackup<TMeta = Record<string, unknown>>({
   filename = "keepkit-backup.json",
+  markdownFilename = "keepkit-links.md",
+  allowMarkdownExport = false,
+  confirmReplace = false,
   onExport,
+  onExportMarkdown,
   onImported,
   ...props
 }: KeepBackupProps<TMeta>) {
-  const view = useKeepBackup<TMeta>({ filename, onExport, onImported });
+  const view = useKeepBackup<TMeta>({
+    filename,
+    markdownFilename,
+    confirmReplace,
+    onExport,
+    onExportMarkdown,
+    onImported,
+  });
   const showExportLabel = useUiLabelVisibility("exportData");
+  const showExportMarkdownLabel = useUiLabelVisibility("exportMarkdown");
   const showImportModeLabel = useUiLabelVisibility("importMode");
   const showImportLabel = useUiLabelVisibility("importData");
 
@@ -28,7 +46,7 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
     <section
       {...props}
       data-keepkit="backup"
-      data-state={view.error ? "error" : view.result ? "complete" : "idle"}
+      data-state={view.error ? "error" : view.replaceConfirmation ? "confirming" : view.result ? "complete" : "idle"}
       data-loading={view.isMutating ? "true" : undefined}
     >
       <button
@@ -40,6 +58,17 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
       >
         {showExportLabel ? view.labels.export : null}
       </button>
+      {allowMarkdownExport ? (
+        <button
+          type="button"
+          data-keep-action="export-markdown"
+          onClick={view.exportMarkdown}
+          disabled={view.isMutating}
+          aria-label={showExportMarkdownLabel ? undefined : view.labels.exportMarkdown}
+        >
+          {showExportMarkdownLabel ? view.labels.exportMarkdown : null}
+        </button>
+      ) : null}
       <label>
         {showImportModeLabel ? view.labels.importMode : null}
         <select
@@ -69,6 +98,42 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
         aria-label={view.labels.import}
         onChange={(event) => void view.importBackup(event)}
       />
+      {view.replaceConfirmation ? (
+        <div
+          role="dialog"
+          aria-label={view.labels.confirmReplaceTitle}
+          aria-busy={view.isMutating}
+          data-keepkit="replace-confirmation"
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" || view.isMutating) return;
+            event.preventDefault();
+            event.stopPropagation();
+            view.cancelReplace();
+          }}
+        >
+          <p>
+            {view.replaceConfirmation.summary.itemCount}{" "}
+            {view.replaceConfirmation.summary.itemCount === 1 ? view.labels.item : view.labels.items} —{" "}
+            {view.labels.confirmReplaceDescription}
+          </p>
+          <button
+            type="button"
+            data-keep-action="confirm-replace-backup"
+            disabled={view.isMutating}
+            onClick={() => void view.confirmReplace()}
+          >
+            {view.labels.replace}
+          </button>
+          <button
+            type="button"
+            data-keep-action="cancel-replace-backup"
+            disabled={view.isMutating}
+            onClick={view.cancelReplace}
+          >
+            {view.labels.cancel}
+          </button>
+        </div>
+      ) : null}
       {view.result ? (
         <p role="status">
           {view.result.imported} {view.labels.importedCount}; {view.result.failed} {view.labels.failedCount}

@@ -9,6 +9,7 @@ import type {
   KeepMembershipSyncOperation,
   KeepSyncConflict,
   KeepSyncQueueOperation,
+  KeepSyncRejectedOperation,
   KeepSyncResolution,
   KeepSyncState,
   RemoteSyncDriver,
@@ -29,6 +30,7 @@ import {
 } from "../features/persistence/helpers";
 import { isSameKeepScope, ScopedSyncQueueAdapter } from "../features/persistence/scope";
 import { serializeKeepStorage } from "../features/persistence/serialization";
+import { withLocalStorageWriteLock } from "../features/persistence/write-lock";
 import type { KeepStorageRecovery } from "./recovery-journal";
 
 export type LocalStorageSyncQueueOptions = {
@@ -64,6 +66,13 @@ export type SyncStorageAdapterOptions<TMeta = Record<string, unknown>> = {
   retryDelayMs?: number;
   retryBackoff?: number;
   scope?: SyncScope;
+  /**
+   * How `remote.pull()` results are applied. `"merge"` (default) treats them as a partial list and never deletes
+   * local items. `"snapshot"` treats them as the complete item list for the active scope and removes local items
+   * that the server has acknowledged before (they carry a `revision`) but no longer returns. Items with pending
+   * local operations are kept, so an offline edit of a remotely deleted item is pushed again.
+   */
+  itemPullMode?: "merge" | "snapshot";
 };
 
 export const DEFAULT_SYNC_QUEUE_KEY = "keepkit:sync-queue";
@@ -80,6 +89,44 @@ export class LocalStorageSyncQueueAdapter<TMeta = Record<string, unknown>> imple
   }
 
   async getAll(): Promise<KeepSyncQueueOperation<TMeta>[]> {
+    return this.readAll();
+  }
+
+  async setMany(operations: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
+    if (!this.storage) return;
+    await withLocalStorageWriteLock(
+      this.key,
+      async () => {
+        const byId = new Map((await this.readAll()).map((operation) => [operation.operationId, operation]));
+        for (const operation of operations) byId.set(operation.operationId, operation);
+        this.writeAll([...byId.values()]);
+      },
+      new Error("KeepKit needs the Web Locks API to safely update a sync queue across tabs."),
+    );
+  }
+
+  async remove(operationIds: string[]): Promise<void> {
+    if (!this.storage || operationIds.length === 0) return;
+    await withLocalStorageWriteLock(
+      this.key,
+      async () => {
+        const ids = new Set(operationIds);
+        this.writeAll((await this.readAll()).filter((operation) => !ids.has(operation.operationId)));
+      },
+      new Error("KeepKit needs the Web Locks API to safely update a sync queue across tabs."),
+    );
+  }
+
+  async clear(): Promise<void> {
+    if (!this.storage) return;
+    await withLocalStorageWriteLock(
+      this.key,
+      async () => this.storage?.removeItem(this.key),
+      new Error("KeepKit needs the Web Locks API to safely update a sync queue across tabs."),
+    );
+  }
+
+  private async readAll(): Promise<KeepSyncQueueOperation<TMeta>[]> {
     if (!this.storage) return [];
     const raw = this.storage.getItem(this.key);
     if (!raw) return [];
@@ -95,20 +142,10 @@ export class LocalStorageSyncQueueAdapter<TMeta = Record<string, unknown>> imple
     return value as KeepSyncQueueOperation<TMeta>[];
   }
 
-  async setMany(operations: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
+  private writeAll(operations: KeepSyncQueueOperation<TMeta>[]): void {
     if (!this.storage) return;
     const serialized = serializeKeepStorage(operations, { operation: "set", storageKey: this.key });
     this.storage.setItem(this.key, serialized);
-  }
-
-  async remove(operationIds: string[]): Promise<void> {
-    const ids = new Set(operationIds);
-    const current = await this.getAll();
-    await this.setMany(current.filter((operation) => !ids.has(operation.operationId)));
-  }
-
-  async clear(): Promise<void> {
-    this.storage?.removeItem(this.key);
   }
 }
 
@@ -256,6 +293,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   private readonly maxRetries: number;
   private readonly retryDelayMs: number;
   private readonly retryBackoff: number;
+  private readonly itemPullMode: "merge" | "snapshot";
   private readonly listeners = new Set<() => void>();
   private readonly dataListeners = new Set<() => void>();
   private queueItems: KeepSyncQueueOperation<TMeta>[] = [];
@@ -264,6 +302,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   private flushPromise: Promise<void> | undefined;
   private state: KeepSyncState<TMeta> = { status: "idle", pendingCount: 0, conflictIds: [], conflicts: [] };
   private readonly conflicts = new Map<string, KeepSyncConflict<TMeta>>();
+  private readonly rejectedOperations = new Map<string, KeepSyncRejectedOperation<TMeta>>();
   private onlineHandler?: () => void;
   private disposed = false;
 
@@ -279,6 +318,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     this.maxRetries = Math.max(0, options.maxRetries ?? 3);
     this.retryDelayMs = Math.max(0, options.retryDelayMs ?? 0);
     this.retryBackoff = Math.max(1, options.retryBackoff ?? 2);
+    this.itemPullMode = options.itemPullMode ?? "merge";
     this.storageKey = this.local.storageKey;
     const localRecovery = this.local.recovery;
     if (localRecovery && isSameKeepScope(this.local.scope, this.scope ?? this.local.scope)) {
@@ -563,6 +603,20 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     if (resolution !== "remote" && this.queueItems.length > 0) await this.flushSync();
   }
 
+  async resolveRejectedSyncOperation(operationId: string, resolution: "retry" | "discard"): Promise<void> {
+    await this.loadQueue();
+    if (!this.rejectedOperations.has(operationId)) return;
+    if (resolution === "discard") {
+      await this.removeQueued(operationId);
+      if (this.queueItems.length > 0) await this.flushSync();
+      return;
+    }
+
+    this.rejectedOperations.delete(operationId);
+    this.updateState({ status: "pending", error: undefined });
+    await this.flushSync();
+  }
+
   async resolveCollectionSyncConflict(
     id: string,
     resolution: "local" | "remote",
@@ -630,6 +684,11 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     this.updateState({ status: "syncing", error: undefined });
     for (const operation of [...this.queueItems]) {
       if (this.disposed) return;
+      const isBlocked = [...this.rejectedOperations.values()].some(
+        ({ operation: rejected }) =>
+          rejected.operationId !== operation.operationId && dependsOnRejectedOperation(operation, rejected),
+      );
+      if (isBlocked) continue;
       try {
         if (isCollectionSyncOperation(operation)) {
           if (!this.remote.pushCollection) throw new Error("Remote sync driver does not support collection sync.");
@@ -712,11 +771,25 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
           conflicts: [...this.conflicts.values()].filter((conflict) => conflict.id !== operation.id),
         });
       } catch (error) {
+        if (isPermanentSyncError(error)) {
+          this.rejectedOperations.set(operation.operationId, { operation, error });
+          this.updateState({ status: "syncing" });
+          continue;
+        }
         this.updateState({ status: "error", error });
         return;
       }
     }
-    if (this.queueItems.length === 0) this.updateState({ status: "synced", pendingCount: 0 });
+    if (this.rejectedOperations.size > 0) {
+      const rejected = [...this.rejectedOperations.values()];
+      this.updateState({
+        status: "error",
+        error: rejected[rejected.length - 1]?.error,
+        rejectedOperations: rejected,
+      });
+    } else if (this.queueItems.length === 0) {
+      this.updateState({ status: "synced", pendingCount: 0 });
+    }
   }
 
   private createOperation(
@@ -776,13 +849,23 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     return this.scope ? { ...item, scope: this.scope } : item;
   }
 
+  private async removeLocalItems(ids: string[]): Promise<void> {
+    // An explicit empty scope limits built-in adapters to unscoped records instead of every record with the same ID.
+    const scope = this.scope ?? this.local.scope ?? {};
+    if (this.local.removeMany) {
+      await this.local.removeMany(ids, scope);
+      return;
+    }
+    for (const id of ids) await this.local.remove(id, scope);
+  }
+
   private async pushWithRetry(operation: SyncOperation<TMeta>): Promise<RemoteSyncResult<TMeta>> {
     let attempt = 0;
     while (true) {
       try {
         return await this.remote.push({ ...operation, attempts: attempt });
       } catch (error) {
-        if (isKeepSyncAuthError(error) || attempt >= this.maxRetries) throw error;
+        if (isKeepSyncAuthError(error) || isPermanentSyncError(error) || attempt >= this.maxRetries) throw error;
         attempt += 1;
         const delay = this.retryDelayMs * this.retryBackoff ** (attempt - 1);
         if (delay > 0) await wait(delay);
@@ -799,7 +882,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
       try {
         return await this.remote.pushCollection?.({ ...operation, attempts: attempt });
       } catch (error) {
-        if (isKeepSyncAuthError(error) || attempt >= this.maxRetries) throw error;
+        if (isKeepSyncAuthError(error) || isPermanentSyncError(error) || attempt >= this.maxRetries) throw error;
         attempt += 1;
         const delay = this.retryDelayMs * this.retryBackoff ** (attempt - 1);
         if (delay > 0) await wait(delay);
@@ -852,7 +935,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
         await this.remote.pushMembership?.({ ...operation, attempts: attempt });
         return;
       } catch (error) {
-        if (isKeepSyncAuthError(error) || attempt >= this.maxRetries) throw error;
+        if (isKeepSyncAuthError(error) || isPermanentSyncError(error) || attempt >= this.maxRetries) throw error;
         attempt += 1;
         const delay = this.retryDelayMs * this.retryBackoff ** (attempt - 1);
         if (delay > 0) await wait(delay);
@@ -909,11 +992,12 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   }
 
   private async persistQueue(next: KeepSyncQueueOperation<TMeta>[]): Promise<void> {
-    const previousIds = new Set(this.queueItems.map((operation) => operation.operationId));
-    const nextIds = new Set(next.map((operation) => operation.operationId));
-    const removed = [...previousIds].filter((id) => !nextIds.has(id));
+    const previousById = new Map(this.queueItems.map((operation) => [operation.operationId, operation]));
+    const nextById = new Map(next.map((operation) => [operation.operationId, operation]));
+    const removed = [...previousById.keys()].filter((id) => !nextById.has(id));
     if (removed.length > 0) await this.queue.remove(removed);
-    if (next.length > 0) await this.queue.setMany(next);
+    const changed = next.filter((operation) => previousById.get(operation.operationId) !== operation);
+    if (changed.length > 0) await this.queue.setMany(changed);
     this.queueItems = next;
   }
 
@@ -922,6 +1006,7 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
     const ids = new Set(typeof operationIds === "string" ? [operationIds] : operationIds);
     await this.queue.remove([...ids]);
     this.queueItems = this.queueItems.filter((operation) => !ids.has(operation.operationId));
+    for (const id of ids) this.rejectedOperations.delete(id);
     this.setPendingState();
   }
 
@@ -933,9 +1018,12 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   }
 
   private setPendingState(): void {
+    const rejected = [...this.rejectedOperations.values()];
     this.updateState({
-      status: this.queueItems.length > 0 ? "pending" : "synced",
+      status: rejected.length > 0 ? "error" : this.queueItems.length > 0 ? "pending" : "synced",
       pendingCount: this.queueItems.length,
+      ...(rejected.length > 0 ? { error: rejected[rejected.length - 1]?.error } : { error: undefined }),
+      rejectedOperations: rejected,
     });
   }
 
@@ -949,29 +1037,26 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
         );
         const localItems = await this.getAll();
         const localById = new Map(localItems.map((item) => [item.id, item]));
+        const remoteIds = new Set<string>();
         const remoteById = new Map<string, KeepItem<TMeta>>();
         for (const item of remoteItems) {
           if (this.scope && item.scope && !sameScope(item.scope, this.scope)) continue;
+          remoteIds.add(item.id);
           if (pendingIds.has(item.id)) continue;
           const previous = remoteById.get(item.id);
           remoteById.set(item.id, previous ? (mergeKeepItemLists([item], [previous])[0] ?? item) : item);
         }
         const incoming = [...remoteById.values()].flatMap((item) => {
-          const current = localById.get(item.id);
-          if (
-            current &&
-            item.updatedAt < current.updatedAt &&
-            (item.lastOpenedAt ?? 0) <= (current.lastOpenedAt ?? 0)
-          ) {
-            return [];
-          }
-          const merged = current ? (mergeKeepItemLists([item], [current])[0] ?? item) : item;
-          return [this.applyScope(merged)];
+          const merged = mergePulledItem(item, localById.get(item.id));
+          return merged ? [this.applyScope(merged)] : [];
         });
-        if (incoming.length > 0) {
-          await persistKeepItems(this.local, incoming);
-          this.notifyDataListeners();
-        }
+        const removedIds =
+          this.itemPullMode === "snapshot"
+            ? getSnapshotRemovals(localItems, remoteIds, pendingIds, this.scope ?? this.local.scope)
+            : [];
+        if (incoming.length > 0) await persistKeepItems(this.local, incoming);
+        if (removedIds.length > 0) await this.removeLocalItems(removedIds);
+        if (incoming.length > 0 || removedIds.length > 0) this.notifyDataListeners();
       }
       if (
         this.remote.pullCollections &&
@@ -1044,11 +1129,15 @@ export class SyncStorageAdapter<TMeta = Record<string, unknown>> implements Sync
   }
 
   private updateState(next: Partial<KeepSyncState<TMeta>>): void {
-    this.state = {
+    const state: KeepSyncState<TMeta> = {
       ...this.state,
       ...next,
       pendingCount: next.pendingCount ?? this.queueItems.length,
     };
+    const rejected = [...this.rejectedOperations.values()];
+    if (rejected.length > 0) state.rejectedOperations = rejected;
+    else delete state.rejectedOperations;
+    this.state = state;
     for (const listener of this.listeners) listener();
   }
 }
@@ -1173,6 +1262,83 @@ function getScopeKey<TMeta>(options: SyncStorageAdapterOptions<TMeta>): string {
 
 function sameScope(left: SyncScope | undefined, right: SyncScope): boolean {
   return left?.userId === right.userId && left?.tenantId === right.tenantId;
+}
+
+/** Returns the item to store after a pull, or undefined when the local copy is newer. */
+function mergePulledItem<TMeta>(
+  remote: KeepItem<TMeta>,
+  current: KeepItem<TMeta> | undefined,
+): KeepItem<TMeta> | undefined {
+  if (!current) return remote;
+  if (remote.revision !== undefined && current.revision !== undefined && remote.revision !== current.revision) {
+    // A different server revision is authoritative even when device clocks make its content look older.
+    const lastOpenedAt = Math.max(remote.lastOpenedAt ?? 0, current.lastOpenedAt ?? 0);
+    return lastOpenedAt > 0 ? { ...remote, lastOpenedAt } : remote;
+  }
+  if (remote.updatedAt < current.updatedAt && (remote.lastOpenedAt ?? 0) <= (current.lastOpenedAt ?? 0)) {
+    return undefined;
+  }
+  return mergeKeepItemLists([remote], [current])[0] ?? remote;
+}
+
+/** Only server-acknowledged records without pending writes can be removed by an item snapshot. */
+function getSnapshotRemovals<TMeta>(
+  localItems: KeepItem<TMeta>[],
+  remoteIds: Set<string>,
+  pendingIds: Set<string>,
+  scope: SyncScope | undefined,
+): string[] {
+  const isRemovable = (item: KeepItem<TMeta>) =>
+    isSameKeepScope(item.scope, scope) &&
+    item.revision !== undefined &&
+    !remoteIds.has(item.id) &&
+    !pendingIds.has(item.id);
+  return localItems.filter(isRemovable).map((item) => item.id);
+}
+
+function isPermanentSyncError(error: unknown): boolean {
+  const status = getHttpStatus(error);
+  return (
+    status !== undefined &&
+    status >= 400 &&
+    status < 500 &&
+    status !== 401 &&
+    status !== 403 &&
+    status !== 408 &&
+    status !== 425 &&
+    status !== 429
+  );
+}
+
+function dependsOnRejectedOperation<TMeta>(
+  operation: KeepSyncQueueOperation<TMeta>,
+  rejected: KeepSyncQueueOperation<TMeta>,
+): boolean {
+  if (isMembershipSyncOperation(rejected)) {
+    if (isMembershipSyncOperation(operation)) return operation.id === rejected.id;
+    if (isCollectionSyncOperation(operation)) return operation.id === rejected.collectionId;
+    return operation.id === rejected.itemId;
+  }
+  if (isMembershipSyncOperation(operation)) {
+    return isCollectionSyncOperation(rejected)
+      ? operation.collectionId === rejected.id
+      : operation.itemId === rejected.id;
+  }
+  if (isCollectionSyncOperation(operation)) {
+    return isCollectionSyncOperation(rejected) && operation.id === rejected.id;
+  }
+  return !isCollectionSyncOperation(rejected) && operation.id === rejected.id;
+}
+
+function getHttpStatus(error: unknown): number | undefined {
+  const seen = new Set<object>();
+  while (isRecord(error) && !seen.has(error)) {
+    seen.add(error);
+    if (typeof error.status === "number") return error.status;
+    if (isRecord(error.response) && typeof error.response.status === "number") return error.response.status;
+    error = error.cause;
+  }
+  return undefined;
 }
 
 function wait(delay: number): Promise<void> {

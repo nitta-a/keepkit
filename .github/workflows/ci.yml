@@ -60,6 +60,35 @@ jobs:
       - name: Build and typecheck examples
         run: pnpm turbo run build typecheck --filter='./examples/*'
 
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.x
+          package-manager-cache: false
+
+      - name: Set up pnpm
+        uses: pnpm/setup@v2
+        with:
+          version: 11.24.0
+          cache: true
+          install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Builds the publishable packages first, then packs them into isolated consumer projects.
+      - name: Run integration tests
+        run: pnpm test:integration
+
   browser:
     name: Browser regressions
     runs-on: ubuntu-latest

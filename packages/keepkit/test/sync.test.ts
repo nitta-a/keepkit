@@ -82,6 +82,21 @@ test("persists, filters, and clears local sync queue operations", async () => {
   await unavailable.clear();
 });
 
+test("local sync queue instances merge concurrent writes and replace matching operation IDs", async () => {
+  const storage = createStorage();
+  const first = new LocalStorageSyncQueueAdapter({ key: "shared-queue", storage });
+  const second = new LocalStorageSyncQueueAdapter({ key: "shared-queue", storage });
+  const firstOperation = operation("first");
+  const secondOperation = operation("second");
+
+  await Promise.all([first.setMany([firstOperation]), second.setMany([secondOperation])]);
+  assert.deepEqual(await first.getAll(), [firstOperation, secondOperation]);
+
+  const updatedFirst = { ...firstOperation, createdAt: 2 };
+  await second.setMany([updatedFirst]);
+  assert.deepEqual(await first.getAll(), [updatedFirst, secondOperation]);
+});
+
 test("scoped sync queues preserve pending work and restrict removals to their scope", async () => {
   const aliceScope = { tenantId: "tenant-1", userId: "alice" };
   const bobScope = { tenantId: "tenant-1", userId: "bob" };
@@ -449,6 +464,96 @@ test("pulls newer activity without rolling back newer content", async () => {
   adapter.dispose();
 });
 
+test("pulls adopt a newer server revision even when its content timestamp is older", async () => {
+  const phoneEdit = { ...itemA, meta: { title: "Phone edit" }, updatedAt: 30, lastOpenedAt: 40, revision: "rev-2" };
+  const keptLaptopEdit = { ...itemA, meta: { title: "Laptop edit" }, updatedAt: 20, revision: "rev-3" };
+  const pendingEdit = { ...itemB, meta: { title: "Pending" }, updatedAt: 30, revision: "rev-1" };
+  const { local, values } = createLocal([phoneEdit]);
+  const pushed: string[] = [];
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote: {
+      pull: async () => [keptLaptopEdit, { ...itemB, meta: { title: "Server" }, updatedAt: 10, revision: "rev-9" }],
+      push: async (operation) => {
+        pushed.push(operation.id);
+        return { type: "synced" };
+      },
+    },
+  });
+
+  await adapter.set(pendingEdit);
+  await adapter.flushSync();
+  assert.deepEqual(values.get(itemA.id), { ...keptLaptopEdit, lastOpenedAt: 40 });
+  assert.equal(values.get(itemB.id)?.meta.title, "Pending", "pending local writes are never replaced by a pull");
+  assert.deepEqual(pushed, [itemB.id]);
+  adapter.dispose();
+});
+
+test("snapshot item pulls remove acknowledged items that the server no longer has", async () => {
+  const acknowledged = { ...itemA, revision: "rev-1" };
+  const pendingEdit = { id: "c", savedAt: 1, updatedAt: 2, meta: { title: "C" }, revision: "rev-1" };
+  const remote = { pull: async () => [], push: async () => ({ type: "synced" as const }) };
+
+  const merging = createLocal([acknowledged, itemB]);
+  const mergeAdapter = new SyncStorageAdapter({ local: merging.local, queue: createMemoryQueue().queue, remote });
+  await mergeAdapter.flushSync();
+  assert.deepEqual([...merging.values.keys()], ["a", "b"], "the default pull merges partial results");
+  mergeAdapter.dispose();
+
+  const { local, values } = createLocal([acknowledged, itemB]);
+  let dataNotifications = 0;
+  const adapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote,
+    itemPullMode: "snapshot",
+  });
+  const unsubscribe = adapter.subscribe(() => dataNotifications++);
+  await adapter.set(pendingEdit);
+  dataNotifications = 0;
+  await adapter.flushSync();
+  assert.deepEqual([...values.keys()].sort(), ["b", "c"], "unacknowledged and pending items are kept");
+  assert.ok(dataNotifications > 0);
+  unsubscribe();
+  adapter.dispose();
+});
+
+test("scoped snapshot item pulls leave other scopes with the same item IDs untouched", async () => {
+  const alice = { userId: "alice", tenantId: "tenant-a" };
+  const bob = { userId: "bob", tenantId: "tenant-a" };
+  const local = new LocalStorageAdapter<{ title: string }>({ key: "snapshot-scopes", storage: createStorage() });
+  const bobItem = { ...itemA, scope: bob, revision: "rev-b" };
+  const guestItem = { ...itemA, revision: "rev-guest" };
+  await local.setMany([{ ...itemA, scope: alice, revision: "rev-a" }, bobItem, guestItem]);
+  const remote = { pull: async () => [], push: async () => ({ type: "synced" as const }) };
+
+  const aliceAdapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote,
+    scope: alice,
+    itemPullMode: "snapshot",
+  });
+  await aliceAdapter.flushSync();
+  aliceAdapter.dispose();
+  assert.deepEqual(sortByScope(await local.getAll()), sortByScope([bobItem, guestItem]));
+
+  const guestAdapter = new SyncStorageAdapter({
+    local,
+    queue: createMemoryQueue().queue,
+    remote,
+    itemPullMode: "snapshot",
+  });
+  await guestAdapter.flushSync();
+  guestAdapter.dispose();
+  assert.deepEqual(await local.getAll(), [bobItem], "an unscoped snapshot only covers unscoped records");
+});
+
+function sortByScope<T extends { scope?: { userId?: string } }>(items: T[]): T[] {
+  return [...items].sort((left, right) => (left.scope?.userId ?? "").localeCompare(right.scope?.userId ?? ""));
+}
+
 test("retries transient pushes and carries user and tenant scope", async () => {
   const { local } = createLocal();
   const queued: SyncOperation[] = [];
@@ -527,6 +632,151 @@ test("authenticated sync refreshes tokens per request and isolates scope changes
   kit.dispose();
 });
 
+test("authenticated sync waits for getScope before resuming a shared queue", async () => {
+  const alice = { userId: "alice", tenantId: "tenant-a" };
+  const bob = { userId: "bob", tenantId: "tenant-a" };
+  const aliceOperation: SyncOperation = {
+    operationId: "alice-op",
+    type: "upsert",
+    id: itemA.id,
+    item: { ...itemA, scope: alice },
+    createdAt: 1,
+    scope: alice,
+  };
+  const queue = createMemoryQueue([aliceOperation]);
+  const requests: Array<{ token: string | null; operationId?: string }> = [];
+  let activeScope = bob;
+  const kit = createAuthenticatedSyncKit({
+    local: createLocal().local,
+    queue: queue.queue,
+    getScope: () => activeScope,
+    getAuthToken: async () => `token-${activeScope.userId}`,
+    transport: {
+      push: async (operation, { token }) => {
+        requests.push({ token, operationId: operation.operationId });
+        return { type: "synced" };
+      },
+      pull: async ({ token }) => {
+        requests.push({ token });
+        return [];
+      },
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(requests, [], "no request may run before the active scope is resolved");
+  assert.equal(kit.storage.getSyncState().status, "idle");
+
+  assert.deepEqual(await kit.storage.getAll(), []);
+  await kit.storage.flushSync();
+  assert.ok(requests.length > 0);
+  assert.ok(requests.every((request) => request.token === "token-bob" && request.operationId === undefined));
+  assert.deepEqual(queue.operations, [aliceOperation]);
+
+  activeScope = alice;
+  await kit.storage.flushSync();
+  const pushes = requests.filter((request) => request.operationId !== undefined);
+  assert.deepEqual(pushes, [{ token: "token-alice", operationId: "alice-op" }]);
+  assert.deepEqual(queue.operations, []);
+  kit.dispose();
+});
+
+test("authenticated sync keeps account operations out of an unscoped session", async () => {
+  const alice = { userId: "alice", tenantId: "tenant-a" };
+  const aliceOperation: SyncOperation = {
+    operationId: "alice-op",
+    type: "upsert",
+    id: itemA.id,
+    item: { ...itemA, scope: alice },
+    createdAt: 1,
+    scope: alice,
+  };
+  const guestOperation: SyncOperation = {
+    operationId: "guest-op",
+    type: "upsert",
+    id: itemB.id,
+    item: itemB,
+    createdAt: 2,
+  };
+  const queue = createMemoryQueue([aliceOperation, guestOperation]);
+  const pushes: Array<[string | null, string]> = [];
+  let activeScope: typeof alice | undefined;
+  const kit = createAuthenticatedSyncKit({
+    local: createLocal().local,
+    queue: queue.queue,
+    getScope: () => activeScope,
+    getAuthToken: async () => (activeScope ? `token-${activeScope.userId}` : null),
+    transport: {
+      push: async (operation, { token }) => {
+        pushes.push([token, operation.operationId]);
+        return { type: "synced" };
+      },
+    },
+  });
+
+  await kit.storage.flushSync();
+  assert.deepEqual(pushes, [[null, "guest-op"]]);
+  assert.equal(kit.storage.getSyncState().pendingCount, 0);
+  assert.deepEqual(queue.operations, [aliceOperation]);
+
+  activeScope = alice;
+  await kit.storage.flushSync();
+  assert.deepEqual(pushes, [
+    [null, "guest-op"],
+    ["token-alice", "alice-op"],
+  ]);
+  assert.deepEqual(queue.operations, []);
+  kit.dispose();
+});
+
+test("authenticated sync hides and preserves account records in an unscoped session over shared storage", async () => {
+  const alice = { userId: "alice", tenantId: "tenant-a" };
+  const storage = createStorage();
+  const local = new LocalStorageAdapter<{ title: string }>({ key: "shared-auth-local", storage });
+  const aliceItem = { ...itemA, meta: { title: "Alice private" }, scope: alice };
+  const guestItem = { ...itemA, meta: { title: "Guest" } };
+  await local.setMany([aliceItem, guestItem, itemB]);
+  await local.setCollection({ id: "alice-course", name: "Alice course", scope: alice });
+  await local.setCollectionMembership({ collectionId: "alice-course", itemId: itemA.id, order: 0, scope: alice });
+  let activeScope: typeof alice | undefined;
+  const pushes: Array<[string | undefined, string]> = [];
+  const kit = createAuthenticatedSyncKit({
+    local,
+    queue: createMemoryQueue().queue,
+    getScope: () => activeScope,
+    getAuthToken: async () => (activeScope ? `token-${activeScope.userId}` : null),
+    transport: {
+      push: async (operation) => {
+        pushes.push([operation.scope?.userId, operation.id]);
+        return { type: "synced" };
+      },
+    },
+  });
+
+  const signedOutView = await kit.storage.getAll();
+  assert.deepEqual(signedOutView.map((item) => item.meta.title).sort(), ["B", "Guest"]);
+  assert.deepEqual(await kit.storage.getCollections?.(), []);
+  await kit.storage.remove(itemA.id);
+  await kit.storage.clear();
+  await kit.storage.flushSync();
+  assert.deepEqual(await local.getAll(), [aliceItem], "signing out never removes another account's records");
+  assert.equal((await local.getCollectionMemberships()).length, 1);
+  assert.ok(pushes.every(([userId]) => userId === undefined));
+
+  activeScope = alice;
+  assert.deepEqual(await kit.storage.getAll(), [aliceItem]);
+  kit.dispose();
+
+  const singleAccount = createAuthenticatedSyncKit({
+    local,
+    queue: createMemoryQueue().queue,
+    getAuthToken: async () => null,
+    transport: { push: async () => ({ type: "synced" }) },
+  });
+  assert.deepEqual(await singleAccount.storage.getAll(), [aliceItem], "kits without accounts keep the shared view");
+  singleAccount.dispose();
+});
+
 test("authenticated collection transport carries request tokens and the active scope", async () => {
   const requests: Array<{ token: string | null; scope?: { userId?: string; tenantId?: string } }> = [];
   const kit = createAuthenticatedSyncKit({
@@ -563,6 +813,51 @@ test("authenticated collection transport carries request tokens and the active s
     { token: "token-a", scope: { userId: "user-a", tenantId: "tenant-a" } },
     { token: "token-a", scope: { userId: "user-a", tenantId: "tenant-a" } },
   ]);
+  kit.dispose();
+});
+
+test("authenticated collection pushes save server revisions and surface conflicts for host resolution", async () => {
+  const local = new LocalStorageAdapter({ key: "authenticated-collection-results", storage: createStorage() });
+  const baseRevisions: Array<string | undefined> = [];
+  const kit = createAuthenticatedSyncKit({
+    local,
+    queue: createMemoryQueue().queue,
+    scope: { userId: "user-a" },
+    getAuthToken: async () => "token-a",
+    transport: {
+      push: async () => ({ type: "synced" }),
+      pushCollection: async (operation) => {
+        baseRevisions.push(operation.baseRevision);
+        if (baseRevisions.length === 1) return { type: "synced" as const, revision: "revision-1" };
+        return {
+          type: "conflict" as const,
+          resolution: "manual" as const,
+          deleted: false as const,
+          collection: { id: "course-a", name: "Remote rename" },
+          revision: "revision-2",
+        };
+      },
+    },
+  });
+
+  await kit.storage.setCollection?.({ id: "course-a", name: "Course A" });
+  await kit.storage.flushSync();
+  assert.equal((await kit.storage.getCollections?.())?.[0]?.revision, "revision-1");
+
+  await kit.storage.setCollection?.({ id: "course-a", name: "Local rename" });
+  await kit.storage.flushSync();
+  assert.deepEqual(baseRevisions, [undefined, "revision-1"]);
+  const state = kit.storage.getSyncState();
+  assert.equal(state.status, "conflict");
+  assert.equal(state.collectionConflicts?.[0]?.collection?.name, "Remote rename");
+  assert.equal(state.pendingCount, 1, "the conflicting operation stays queued until the host resolves it");
+
+  assert.ok(kit.storage.resolveCollectionSyncConflict);
+  await kit.storage.resolveCollectionSyncConflict("course-a", "remote");
+  const [resolved] = (await kit.storage.getCollections?.()) ?? [];
+  assert.equal(resolved?.name, "Remote rename");
+  assert.equal(resolved?.revision, "revision-2");
+  assert.equal(kit.storage.getSyncState().pendingCount, 0);
   kit.dispose();
 });
 

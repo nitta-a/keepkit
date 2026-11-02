@@ -48,6 +48,8 @@ export function KeepInlineSelection<TMeta>({
   const unpinLabel = useUiLabel("unpin");
   const tagsLabel = useUiLabel("tagsToApply");
   const applyTagsLabel = useUiLabel("applyTags");
+  const addTagsLabel = useUiLabel("addTags");
+  const removeTagsLabel = useUiLabel("removeTags");
   const removeLabel = useUiLabel("deleteSelected");
   const moreLabel = useUiLabel("moreActions");
   const errorLabel = useUiLabel("error");
@@ -112,6 +114,12 @@ export function KeepInlineSelection<TMeta>({
                   {tagsLabel}
                   <input value={state.tagsInput} onChange={(event) => state.setTagsInput(event.currentTarget.value)} />
                 </label>
+                <button type="button" onClick={() => run(state.addTags)}>
+                  {addTagsLabel}
+                </button>
+                <button type="button" onClick={() => run(state.removeTags)}>
+                  {removeTagsLabel}
+                </button>
                 <button type="button" onClick={() => run(state.updateTags)}>
                   {applyTagsLabel}
                 </button>

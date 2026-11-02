@@ -28,6 +28,8 @@ export type KeepBulkActionsState<TMeta = Record<string, unknown>> = {
   cancelRemoval: () => void;
   removalConfirmation: { ids: readonly string[]; count: number } | null;
   updateTags: () => Promise<void>;
+  addTags: () => Promise<void>;
+  removeTags: () => Promise<void>;
   collectionId: string;
   setCollectionId: (value: string) => void;
   collections: KeepCollectionSummary[];
@@ -91,6 +93,8 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   const showTagsLabel = useUiLabelVisibility("tagsToApply");
   const showDeleteLabel = useUiLabelVisibility("deleteSelected");
   const showApplyTagsLabel = useUiLabelVisibility("applyTags");
+  const showAddTagsLabel = useUiLabelVisibility("addTags");
+  const showRemoveTagsLabel = useUiLabelVisibility("removeTags");
   const errorLabel = useUiLabel("error");
   const collectionLabel = useUiLabel("moveSelectedCollection");
   const uncategorizedLabel = useUiLabel("uncategorized");
@@ -169,6 +173,24 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
               disabled={state.selectedIds.length === 0 || state.isMutating}
             >
               {showApplyTagsLabel ? labels.applyTags : null}
+            </button>
+            <button
+              type="button"
+              data-keep-action="add-tags"
+              aria-label={showAddTagsLabel ? undefined : labels.addTags}
+              onClick={() => void state.addTags().catch(() => undefined)}
+              disabled={state.selectedIds.length === 0 || state.isMutating}
+            >
+              {showAddTagsLabel ? labels.addTags : null}
+            </button>
+            <button
+              type="button"
+              data-keep-action="remove-tags"
+              aria-label={showRemoveTagsLabel ? undefined : labels.removeTags}
+              onClick={() => void state.removeTags().catch(() => undefined)}
+              disabled={state.selectedIds.length === 0 || state.isMutating}
+            >
+              {showRemoveTagsLabel ? labels.removeTags : null}
             </button>
             <label>
               {collectionLabel}

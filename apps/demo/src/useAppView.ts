@@ -21,13 +21,25 @@ export function useAppView() {
       event.preventDefault();
       setIsCaptureOpen(true);
     };
+    const focusSearch = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key !== "/") return;
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable='true']")) return;
+      const searchInput = document.querySelector<HTMLInputElement>('input[type="search"]');
+      if (!searchInput) return;
+      event.preventDefault();
+      searchInput.focus();
+    };
     window.addEventListener("online", updateOnline);
     window.addEventListener("offline", updateOnline);
     window.addEventListener("keydown", openCapture);
+    window.addEventListener("keydown", focusSearch);
     return () => {
       window.removeEventListener("online", updateOnline);
       window.removeEventListener("offline", updateOnline);
       window.removeEventListener("keydown", openCapture);
+      window.removeEventListener("keydown", focusSearch);
     };
   }, []);
 

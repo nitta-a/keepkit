@@ -186,6 +186,16 @@ export function useKeepCollection<TMeta>({
       setActiveTags(value ? [value] : []);
       setPage(1);
     },
+    setTags: (values: string[]) => {
+      setActiveTags(values);
+      setPage(1);
+    },
+    toggleTag: (tag: string) => {
+      setActiveTags((current) =>
+        current.includes(tag) ? current.filter((entry) => entry !== tag) : [...current, tag],
+      );
+      setPage(1);
+    },
     setCollection: (value?: string) => {
       setActiveCollection(value);
       setActiveOrganization((current) => {

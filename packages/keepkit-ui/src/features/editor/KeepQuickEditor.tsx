@@ -13,14 +13,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { getErrorMessage } from "../../foundation/shared";
+import { getErrorMessage, getMetaTitle } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepQuickEditorState<TMeta = Record<string, unknown>> = {
   item: KeepItem<TMeta>;
+  title: string;
   note: string;
   tags: string[];
   collectionId?: string;
+  setTitle: (value: string) => void;
   setNote: (value: string) => void;
   setTags: (value: string[]) => void;
   setCollectionId: (value?: string) => void;
@@ -41,32 +43,39 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
 ) {
   const { debounceMs = 300, onSaved, onSaveError } = options;
   const itemState = useKeepItem<TMeta>(item);
-  const { error, isMutating, moveToCollection, updateNote, updateTags } = itemState;
+  const { error, isMutating, moveToCollection, refreshMetadata, updateNote, updateTags } = itemState;
   const baseline = itemState.item ?? item;
+  const initialTitle = getMetaTitle(baseline.meta) ?? "";
+  const [title, setTitle] = useState(initialTitle);
   const [note, setNote] = useState(baseline.note ?? "");
   const [tags, setTags] = useState(baseline.tags ?? []);
   const [collectionId, setCollectionId] = useState(baseline.collectionId);
   const [saveStatus, setSaveStatus] = useState<KeepQuickEditorState<TMeta>["saveStatus"]>("idle");
   const [saveError, setSaveError] = useState<unknown | null>(null);
   const baselineRef = useRef({
+    title: initialTitle,
     note: baseline.note ?? "",
     tags: baseline.tags ?? [],
     collectionId: baseline.collectionId,
   });
-  const draftRef = useRef({ note, tags, collectionId });
+  const draftRef = useRef({ title, note, tags, collectionId });
   const flushRequestedRef = useRef(false);
   const flushPromiseRef = useRef<Promise<void> | null>(null);
-  draftRef.current = { note, tags, collectionId };
+  draftRef.current = { title, note, tags, collectionId };
   useEffect(() => {
+    const nextTitle = getMetaTitle(baseline.meta) ?? "";
     if (
+      draftRef.current.title === baselineRef.current.title &&
       draftRef.current.note === baselineRef.current.note &&
       sameTags(draftRef.current.tags, baselineRef.current.tags) &&
       draftRef.current.collectionId === baselineRef.current.collectionId
     ) {
+      setTitle(nextTitle);
       setNote(baseline.note ?? "");
       setTags(baseline.tags ?? []);
       setCollectionId(baseline.collectionId);
       baselineRef.current = {
+        title: nextTitle,
         note: baseline.note ?? "",
         tags: baseline.tags ?? [],
         collectionId: baseline.collectionId,
@@ -74,6 +83,7 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
     }
   }, [baseline]);
   const isDirty =
+    title !== baselineRef.current.title ||
     note !== baselineRef.current.note ||
     !sameTags(tags, baselineRef.current.tags) ||
     collectionId !== baselineRef.current.collectionId;
@@ -94,7 +104,11 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
 
         setSaveError(null);
         setSaveStatus("saving");
+        const nextTitle = draft.title.trim() || previous.title;
         try {
+          if (nextTitle !== previous.title && baseline.meta && typeof baseline.meta === "object") {
+            await refreshMetadata((current) => ({ ...current.meta, title: nextTitle }) as TMeta);
+          }
           if (draft.note !== previous.note) await updateNote(draft.note.trim() || undefined);
           if (!sameTags(draft.tags, previous.tags)) await updateTags(draft.tags);
           if (draft.collectionId !== previous.collectionId) await moveToCollection(draft.collectionId);
@@ -105,11 +119,16 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
           throw error;
         }
 
-        baselineRef.current = draft;
+        baselineRef.current = { ...draft, title: nextTitle };
         saved = true;
         const { collectionId: _oldCollectionId, ...withoutCollection } = baseline;
+        const nextMeta =
+          nextTitle !== previous.title && baseline.meta && typeof baseline.meta === "object"
+            ? ({ ...baseline.meta, title: nextTitle } as TMeta)
+            : baseline.meta;
         onSaved?.({
           ...withoutCollection,
+          meta: nextMeta,
           note: draft.note.trim() || undefined,
           tags: draft.tags,
           ...(draft.collectionId ? { collectionId: draft.collectionId } : {}),
@@ -124,7 +143,7 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
     });
     flushPromiseRef.current = promise;
     return promise;
-  }, [baseline, moveToCollection, onSaveError, onSaved, updateNote, updateTags]);
+  }, [baseline, moveToCollection, onSaveError, onSaved, refreshMetadata, updateNote, updateTags]);
   useEffect(() => {
     if (!isDirty || debounceMs <= 0 || saveStatus === "error") return;
     const timer = window.setTimeout(() => void flush().catch(() => undefined), debounceMs);
@@ -133,9 +152,15 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
   return {
     state: {
       item,
+      title,
       note,
       tags,
       collectionId,
+      setTitle: (value) => {
+        setSaveError(null);
+        setSaveStatus("dirty");
+        setTitle(value);
+      },
       setNote: (value) => {
         setSaveError(null);
         setSaveStatus("dirty");
@@ -160,7 +185,7 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
   };
 }
 
-export type KeepQuickEditorFeature = "note" | "tags" | "collection";
+export type KeepQuickEditorFeature = "title" | "note" | "tags" | "collection";
 
 export type KeepQuickEditorProps<TMeta = Record<string, unknown>> = Omit<
   FormHTMLAttributes<HTMLFormElement>,
@@ -202,6 +227,7 @@ type KeepQuickEditorViewProps<TMeta> = Omit<
 };
 
 const DEFAULT_FEATURES: Record<KeepQuickEditorFeature, boolean> = {
+  title: false,
   note: true,
   tags: true,
   collection: true,
@@ -223,6 +249,8 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   const enabled = { ...DEFAULT_FEATURES, ...features };
   const collections = useKeepCollections<TMeta>({ targetType: state.item.targetType, orderBy: "name" });
   const rootRef = useRef<HTMLFormElement>(null);
+  const titleLabel = useUiLabel("title");
+  const showTitleLabel = useUiLabelVisibility("title");
   const noteLabel = useUiLabel("note");
   const showNoteLabel = useUiLabelVisibility("note");
   const tagsLabel = useUiLabel("tags");
@@ -291,6 +319,16 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
                   value={state.note}
                   aria-label={showNoteLabel ? undefined : noteLabel}
                   onChange={(event) => state.setNote(event.currentTarget.value)}
+                />
+              </label>
+            ) : null}
+            {enabled.title ? (
+              <label data-keep-field="title">
+                {showTitleLabel ? <span data-keep-field-icon>{titleLabel}</span> : null}
+                <input
+                  value={state.title}
+                  aria-label={showTitleLabel ? undefined : titleLabel}
+                  onChange={(event) => state.setTitle(event.currentTarget.value)}
                 />
               </label>
             ) : null}
@@ -376,10 +414,15 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
 }
 
 function sameDraft(
-  left: { note: string; tags: string[]; collectionId?: string },
-  right: { note: string; tags: string[]; collectionId?: string },
+  left: { title: string; note: string; tags: string[]; collectionId?: string },
+  right: { title: string; note: string; tags: string[]; collectionId?: string },
 ): boolean {
-  return left.note === right.note && sameTags(left.tags, right.tags) && left.collectionId === right.collectionId;
+  return (
+    left.title === right.title &&
+    left.note === right.note &&
+    sameTags(left.tags, right.tags) &&
+    left.collectionId === right.collectionId
+  );
 }
 
 function sameTags(left: string[], right: string[]): boolean {
