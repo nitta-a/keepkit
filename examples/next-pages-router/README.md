@@ -20,9 +20,9 @@ The Pages Router provider is a client boundary in `_app.tsx`. In the App Router,
 
 The upstream sync endpoint should return `RemoteSyncResult` (`synced` or `conflict`) and the list endpoint should return `KeepItem[]`. Implement authorization and ownership checks on every request.
 
-## Jest and jsdom
+## Vitest and jsdom
 
-`jest.config.cjs` uses `next/jest` and `jest-environment-jsdom`; `jest.setup.ts` installs Testing Library matchers. The test renders the provider with `initialItems`, clicks an accessible button, waits for the async state transition, and inspects the injected storage adapter. For hydration tests, render the same `initialItems` on the server and client, then assert the post-hydration adapter state after `waitFor`.
+`vitest.config.mts` configures jsdom and React; `vitest.setup.ts` installs Testing Library matchers and cleans up after each test. The test renders the provider with `initialItems`, clicks an accessible button, waits for the async state transition, and inspects the injected storage adapter. For hydration tests, render the same `initialItems` on the server and client, then assert the post-hydration adapter state after `waitFor`.
 
 ```bash
 pnpm install

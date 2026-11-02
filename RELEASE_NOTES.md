@@ -1,5 +1,17 @@
 # Release notes
 
+## [0.28.15] - 2026-11-02
+
+### 日本語
+
+- Next.js Pages Routerの例をVitestへ移行し、HTTPハンドラーとSSRの統合テストを追加しました。
+- ViteとVitestを更新しました。
+
+### English
+
+- Migrated the Next.js Pages Router example to Vitest and added integration tests for its HTTP handler and SSR data loading.
+- Updated Vite and Vitest.
+
 ## [0.28.14] - 2026-11-01
 
 ### 日本語

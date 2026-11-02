@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "test": "jest --runInBand",
+    "test": "vitest run",
+    "test:integration": "vitest run __tests__/*.integration.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -17,12 +18,13 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
-    "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "jest": "^30.0.0",
-    "jest-environment-jsdom": "^30.0.0",
-    "typescript": "^6.0.0"
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
+    "typescript": "^6.0.0",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   }
 }

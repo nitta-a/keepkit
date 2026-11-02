@@ -1,6 +1,7 @@
 import { KeepButton, KeepProvider } from "@keepkit/core/react";
 import { LocalStorageAdapter } from "@keepkit/core/storage";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test } from "vitest";
 
 test("hydrates from the same initial snapshot and synchronizes a Pages Router button", async () => {
   const storage = new LocalStorageAdapter({ key: "test:keep-items", storage: window.localStorage });
@@ -17,5 +18,5 @@ test("hydrates from the same initial snapshot and synchronizes a Pages Router bu
   const button = await screen.findByRole("button", { name: "Save article" });
   fireEvent.click(button);
   await waitFor(() => expect(button).toHaveAccessibleName("Remove article"));
-  expect((await storage.getAll()).map((item) => item.id)).toEqual(["article-123"]);
+  await waitFor(async () => expect((await storage.getAll()).map((item) => item.id)).toEqual(["article-123"]));
 });
