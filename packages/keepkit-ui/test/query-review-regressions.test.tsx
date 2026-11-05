@@ -30,6 +30,21 @@ function visibleTitles(): string[] {
   return screen.queryAllByRole("heading", { level: 3 }).map((heading) => heading.textContent ?? "");
 }
 
+test.each(["archived", "all"] as const)("clearing an empty search keeps the %s archive scope", async (scope) => {
+  const { storage } = createStorage([item("Archived item", 0, { archived: true }), item("Active item", 1)]);
+  render(
+    <KeepProvider storage={storage}>
+      <KeepCollection archiveScope={scope} />
+    </KeepProvider>,
+  );
+  await screen.findByRole("heading", { name: "Archived item" });
+  fireEvent.change(screen.getByRole("searchbox"), { target: { value: "missing" } });
+  const clear = await screen.findByRole("button", { name: "Clear filters" });
+  fireEvent.click(clear);
+  expect(await screen.findByRole("heading", { name: "Archived item" })).not.toBeNull();
+  expect(screen.queryByRole("heading", { name: "Active item" }) !== null).toBe(scope === "all");
+});
+
 test("reorders filtered page slots once and restores just those slots with undo", async () => {
   const source = [
     item("A", 0, { tags: ["shown"] }),
@@ -198,8 +213,10 @@ test.each([
       />
     </KeepProvider>,
   );
-  await waitFor(() => expect(visibleTitles()).toEqual(expectedTitles));
-  expect(screen.getByRole("button", { name: "Page 2" }).getAttribute("aria-current")).toBe("page");
+  await waitFor(() => {
+    expect(visibleTitles()).toEqual(expectedTitles);
+    expect(screen.getByRole("button", { name: "Page 2" }).getAttribute("aria-current")).toBe("page");
+  });
   expect(onRevealResult).toHaveBeenCalledExactlyOnceWith({ requestId: 1, itemId, status: "visible" });
 });
 

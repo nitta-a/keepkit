@@ -6,7 +6,15 @@ import {
   LocalStorageAdapter,
   LocalStorageRecoveryJournal,
 } from "@keepkit/core/storage";
-import { KeepBulkActions, KeepFallbackRecovery, KeepItemCard, KeepUiProvider, KeepUndo } from "@keepkit/ui";
+import {
+  KeepArchiveUndo,
+  KeepBulkActions,
+  KeepFallbackRecovery,
+  KeepItemCard,
+  KeepPruneStaleButton,
+  KeepUiProvider,
+  KeepUndo,
+} from "@keepkit/ui";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -20,6 +28,8 @@ export type FixtureFaults = {
 };
 const scopeId = new URLSearchParams(location.search).get("scope") ?? "reader";
 const showRecovery = new URLSearchParams(location.search).has("recovery");
+const showScopeTest = new URLSearchParams(location.search).has("scope-test");
+const showCleanupTest = new URLSearchParams(location.search).has("cleanup-test");
 const scope = { userId: scopeId };
 const baseKey = "keepkit:browser-fixture";
 const faultsKey = `keepkit:browser-faults:${scopeId}`;
@@ -124,6 +134,12 @@ const storage = createBrowserStorageAdapter<FixtureMeta>({
   indexedDB: faultIndexedDB,
   storage: faultStorage,
 });
+const otherStorage = createBrowserStorageAdapter<FixtureMeta>({
+  key: baseKey,
+  scope: { userId: "other" },
+  indexedDB: faultIndexedDB,
+  storage: faultStorage,
+});
 const primary = new IndexedDBAdapter<FixtureMeta>();
 let refreshProvider: (() => Promise<void>) | undefined;
 let observer: { controller: Recovery; unsubscribe: () => void; notifications: number } | undefined;
@@ -181,6 +197,15 @@ export const fixtureApi = {
   },
   async save(id: string, title?: string) {
     await storage.set(item(id, title));
+  },
+  async saveOtherArchived(id: string, title: string) {
+    await otherStorage.set({ ...item(id, title), archived: true });
+  },
+  async readOther() {
+    return otherStorage.getAll();
+  },
+  async saveStale(id: string, title: string) {
+    await storage.set({ ...item(id, title), status: "expired" });
   },
   async saveNonJson(id: string, kind: "bigint" | "cycle") {
     const meta: FixtureMeta = { title: kind };
@@ -272,7 +297,7 @@ declare global {
 }
 window.keepkitFixture = fixtureApi;
 
-function FixtureUi() {
+function FixtureUi({ switchStorage }: { switchStorage: () => void }) {
   const { items, refresh, isLoading } = useKeepContext<FixtureMeta>();
   const [opened, setOpened] = useState(0);
   const [selectedIds, setSelectedIds] = useState(["alpha", "beta"]);
@@ -295,6 +320,7 @@ function FixtureUi() {
             href="#opened"
             trackOpen
             showPinButton
+            showArchiveButton={showScopeTest}
             onOpen={() => setOpened((count) => count + 1)}
           >
             <KeepItemCard.Link>
@@ -312,6 +338,15 @@ function FixtureUi() {
         onSelectedIdsChange={setSelectedIds}
       />
       <KeepUndo />
+      {showScopeTest ? (
+        <>
+          <KeepArchiveUndo />
+          <button type="button" onClick={switchStorage}>
+            Switch storage
+          </button>
+        </>
+      ) : null}
+      {showCleanupTest ? <KeepPruneStaleButton /> : null}
       {showRecovery && storage.recovery ? <KeepFallbackRecovery recovery={storage.recovery} /> : null}
     </main>
   );
@@ -319,10 +354,14 @@ function FixtureUi() {
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing fixture root.");
-createRoot(root).render(
-  <KeepUiProvider locale="en">
-    <KeepProvider storage={storage}>
-      <FixtureUi />
-    </KeepProvider>
-  </KeepUiProvider>,
-);
+function FixtureRoot() {
+  const [activeStorage, setActiveStorage] = useState(storage);
+  return (
+    <KeepUiProvider locale="en">
+      <KeepProvider storage={activeStorage}>
+        <FixtureUi switchStorage={() => setActiveStorage(otherStorage)} />
+      </KeepProvider>
+    </KeepUiProvider>
+  );
+}
+createRoot(root).render(<FixtureRoot />);

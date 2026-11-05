@@ -268,6 +268,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   const undoRef = useRef<
     { items: KeepItem<TMeta>[]; expiresAt: number; timer?: ReturnType<typeof setTimeout> } | undefined
   >(undefined);
+  const undoGenerationRef = useRef(0);
   const autoRevalidationRef = useRef<KeepAutoRevalidationOptions<TMeta> | undefined>(autoRevalidation);
   autoRevalidationRef.current = autoRevalidation;
   const didMountRevalidateRef = useRef(false);
@@ -408,6 +409,17 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     void refresh();
   }, [refresh]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A storage change invalidates pending undo.
+  useEffect(
+    () => () => {
+      undoGenerationRef.current += 1;
+      if (undoRef.current?.timer) clearTimeout(undoRef.current.timer);
+      undoRef.current = undefined;
+      store.setState({ undo: EMPTY_UNDO_STATE, lastChange: undefined });
+    },
+    [storage, store],
+  );
+
   useEffect(() => {
     if (!storage.subscribe) return;
     return storage.subscribe(() => void refresh());
@@ -418,6 +430,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
     return storage.subscribeScope(() => {
       undoRef.current?.timer && clearTimeout(undoRef.current.timer);
       undoRef.current = undefined;
+      undoGenerationRef.current += 1;
       itemsRef.current = [];
       store.setState({
         items: [],
@@ -426,6 +439,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         isLoading: true,
         error: null,
         undo: EMPTY_UNDO_STATE,
+        lastChange: undefined,
       });
       void refresh();
     });
@@ -929,6 +943,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
 
   const rememberUndo = useCallback(
     (removedItems: KeepItem<TMeta>[]) => {
+      undoGenerationRef.current += 1;
       undoRef.current?.timer && clearTimeout(undoRef.current.timer);
       const startedAt = Date.now();
       const expiresAt = startedAt + Math.max(0, undoTimeoutMs);
@@ -972,22 +987,38 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       return;
     }
     if (pending.timer) clearTimeout(pending.timer);
+    const generation = undoGenerationRef.current;
+    const previousUndo = store.getSnapshot().undo;
     undoRef.current = undefined;
     store.setState({ undo: { canUndo: false, ids: [] } });
-    await runMutation("undo", undefined, (previous) => {
-      const restored = new Map(pending.items.map((item) => [item.id, item]));
-      const next = [...previous.filter((item) => !restored.has(item.id)), ...pending.items].sort(
-        (a, b) => b.updatedAt - a.updatedAt,
-      );
-      return {
-        next,
-        persist: async () => {
-          await persistKeepItems(storage, pending.items);
-        },
-        onSuccess: [() => handlersRef.current.onUndo?.(pending.items)],
-        pluginContext: { action: "undo", items: pending.items },
-      };
-    });
+    try {
+      await runMutation("undo", undefined, (previous) => {
+        const restored = new Map(pending.items.map((item) => [item.id, item]));
+        const next = [...previous.filter((item) => !restored.has(item.id)), ...pending.items].sort(
+          (a, b) => b.updatedAt - a.updatedAt,
+        );
+        return {
+          next,
+          persist: async () => {
+            await persistKeepItems(storage, pending.items);
+          },
+          onSuccess: [() => handlersRef.current.onUndo?.(pending.items)],
+          pluginContext: { action: "undo", items: pending.items },
+        };
+      });
+    } catch (error) {
+      const remaining = pending.expiresAt - Date.now();
+      if (remaining > 0 && generation === undoGenerationRef.current && !undoRef.current && previousUndo) {
+        pending.timer = setTimeout(() => {
+          if (undoRef.current !== pending) return;
+          undoRef.current = undefined;
+          store.setState({ undo: { canUndo: false, ids: [] } });
+        }, remaining);
+        undoRef.current = pending;
+        store.setState({ undo: previousUndo });
+      }
+      throw error;
+    }
   }, [runMutation, storage, store]);
 
   useEffect(() => {

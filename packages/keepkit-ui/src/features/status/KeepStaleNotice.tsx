@@ -1,9 +1,9 @@
 "use client";
 
 import type { KeepItem, KeepItemStatus } from "@keepkit/core/core";
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
+import { type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode, useState } from "react";
 import { getErrorMessage } from "../../foundation/shared";
-import { useUiLabelVisibility } from "../../foundation/ui-context";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { KeepItemStatusBadge } from "../item/KeepItemStatusBadge";
 import { useKeepPruneStale, useKeepStaleNotice } from "./hooks/useKeepStaleNotice";
 
@@ -78,20 +78,34 @@ export function KeepPruneStaleButton<TMeta = Record<string, unknown>>({
 }: KeepPruneStaleButtonProps) {
   const view = useKeepPruneStale<TMeta>({ statuses, onPruned });
   const showLabel = useUiLabelVisibility("pruneStale");
+  const errorLabel = useUiLabel("error");
+  const [error, setError] = useState<unknown>();
+
+  async function prune() {
+    setError(undefined);
+    try {
+      await view.prune();
+    } catch (cause) {
+      setError(cause);
+    }
+  }
 
   return (
-    <button
-      {...props}
-      type="button"
-      className={props.className}
-      data-keepkit="prune-stale"
-      data-keep-action="prune-stale"
-      data-state={view.staleIds.length > 0 ? "available" : "empty"}
-      disabled={view.staleIds.length === 0 || view.isMutating || disabled}
-      aria-label={showLabel ? undefined : view.label}
-      onClick={() => void view.prune()}
-    >
-      {showLabel ? (children ?? label ?? `${view.label} (${view.staleIds.length})`) : null}
-    </button>
+    <>
+      <button
+        {...props}
+        type="button"
+        className={props.className}
+        data-keepkit="prune-stale"
+        data-keep-action="prune-stale"
+        data-state={view.staleIds.length > 0 ? "available" : "empty"}
+        disabled={view.staleIds.length === 0 || view.isMutating || disabled}
+        aria-label={showLabel ? undefined : view.label}
+        onClick={() => void prune()}
+      >
+        {showLabel ? (children ?? label ?? `${view.label} (${view.staleIds.length})`) : null}
+      </button>
+      {error ? <p role="alert">{getErrorMessage(error, errorLabel)}</p> : null}
+    </>
   );
 }

@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.16
+Release: v0.28.17
 
 ## 日本語
 
@@ -106,6 +106,21 @@ Next.js Pages Routerでは`createNextPagesRouterAdapter(router)`を`urlAdapter`�
 `presentation="reading"`はタイトル、URLの保存元、コレクション名、メモ、タグ、保存・訪問情報を表示します。画像は`getImageProps`で指定した場合だけ表示します。保存トグルは既定で非表示、編集・メモ・訪問情報は表示され、既存の表示フラグで上書きできます。`href`と`trackOpen`は明示指定です。編集は300msの自動保存と「完了」を使い、失敗時は下書きを残します。
 
 `bulkActionsVariant="inline"`は記事行で選択します。全選択は現在ページだけで、検索・フィルター・ページ・表示先を変えると選択を解除します。失敗した一括操作は選択を保持します。既定の`separate`は従来の選択用一覧を維持します。
+検索結果が0件のときの「フィルターをクリア」は、アーカイブの表示範囲を維持します。トーストのUndoが失敗した場合はエラーと再試行操作を表示します。カード削除・利用不能項目削除の通知は、Undo期限が切れた場合や別の削除が行われた場合に、古い通知から復元できません。
+
+`KeepArchiveUndo`を同じProvider内に配置すると、直前にアーカイブした1件を復元できます。復元に失敗した場合はエラーを表示し、再試行できます。一括アーカイブは対象外です。`collapsibleFilters`を`KeepCollection`に渡すとフィルターを開閉でき、閉じても条件は維持されます。Saved Viewsは別に表示されます。
+保存先やスコープを切り替えると、以前の保存先のアーカイブUndoは解除されます。削除の`KeepUndo`と利用不能項目の一括削除は、保存に失敗した場合にエラーを表示し、操作を再試行できます。削除Undoの再試行は元の有効期限内に限ります。
+
+```tsx
+import { KeepArchiveUndo, KeepCollection, KeepProvider } from "@keepkit/ui";
+
+<KeepProvider storage={storage}>
+  <KeepCollection collapsibleFilters features={{ archive: true, tagFilter: true }} />
+  <KeepArchiveUndo />
+</KeepProvider>;
+```
+
+`KeepBackup`のMergeはバックアップの項目を既存データに統合し、Replaceは現在のデータを置き換えます。Replace選択時はその旨を表示し、`confirmReplace`を指定すると実行前に確認します。保存場所や同期設定はホストアプリ側で説明してください。
 
 独自の行には`KeepListSelection`（`selectedIds: readonly string[]`、`onSelectedIdsChange`、任意の`disabled`）を`KeepList.selection`に渡せます。`KeepList`と`KeepCollection`の`renderItem(item, state, selection?)`の第三引数は`KeepItemSelection`（`checked`、`onCheckedChange`、任意の`disabled`）で、`KeepItemCheckbox`にそのまま渡せます。従来の二引数コールバックも使用できます。
 
@@ -308,6 +323,21 @@ Default `linkTarget="card"` links ordinary media and static content, placing tag
 `presentation="reading"` shows the title, URL source, collection name, note, tags, and save/open information. Images appear only when supplied through `getImageProps`. It hides the save toggle and shows editing, notes, and activity by default; existing visibility flags override these defaults. Supply `href` and `trackOpen` explicitly. Editing uses 300ms autosave and Done, retaining the draft on failure.
 
 `bulkActionsVariant="inline"` selects items on their article rows. Select-all targets only the current page; changes to search, filters, page, or view clear selection. Failed bulk operations retain selection. The default `separate` preserves the existing selection list.
+Clearing filters from an empty search keeps the current archive scope. A failed toast Undo displays the error and a retry action. Card and stale-item removal notifications cannot undo a newer removal or restore an item after their Undo deadline.
+
+Place `KeepArchiveUndo` inside the same provider to restore the most recently archived item. A failed restore displays an error and can be retried. Batch archiving is not included. Pass `collapsibleFilters` to `KeepCollection` to hide or show filters without clearing their values; Saved Views remain separate.
+Changing storage or scope clears the previous archive Undo. `KeepUndo` and stale-item bulk removal display persistence errors so users can retry; removal Undo is limited to its original deadline.
+
+```tsx
+import { KeepArchiveUndo, KeepCollection, KeepProvider } from "@keepkit/ui";
+
+<KeepProvider storage={storage}>
+  <KeepCollection collapsibleFilters features={{ archive: true, tagFilter: true }} />
+  <KeepArchiveUndo />
+</KeepProvider>;
+```
+
+`KeepBackup` merges backup items into existing data in Merge mode; Replace mode replaces the current data. A warning is shown when Replace is selected, and `confirmReplace` requests confirmation before importing. Describe the storage location and sync configuration in the host application.
 
 For custom rows, pass `KeepListSelection` (`selectedIds: readonly string[]`, `onSelectedIdsChange`, optional `disabled`) to `KeepList.selection`. The third argument of `KeepList` and `KeepCollection`'s `renderItem(item, state, selection?)` is `KeepItemSelection` (`checked`, `onCheckedChange`, optional `disabled`), ready to spread onto `KeepItemCheckbox`. Existing two-argument callbacks still work.
 

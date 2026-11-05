@@ -152,6 +152,19 @@
   font: inherit;
 }
 
+@media (max-width: 32rem) {
+  :where(.keep-theme, [data-keep-theme])
+    [data-keepkit]
+    :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+  :where(.keep-theme, [data-keep-theme]) :is(input[data-keepkit], select[data-keepkit], textarea[data-keepkit]) {
+    font-size: max(1rem, 16px);
+  }
+  :where(.keep-theme, [data-keep-theme]) [data-keepkit] button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 :where(.keep-theme, [data-keep-theme]).keep-theme--ocean {
   --keep-background: #f5fbff;
   --keep-foreground: #082f49;

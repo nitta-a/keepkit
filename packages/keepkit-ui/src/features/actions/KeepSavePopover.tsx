@@ -155,14 +155,17 @@ function KeepSavePopoverPanel<TMeta>({
   const closeLabel = useUiLabel("close");
   const theme = useKeepTheme();
   const [position, setPosition] = useState({ left: 8, top: 8, width: 320 });
+  const [isMobile, setIsMobile] = useState(false);
   useLayoutEffect(() => {
     const place = () => {
+      const mobile = window.matchMedia?.("(max-width: 32rem)").matches ?? window.innerWidth <= 512;
+      setIsMobile(mobile);
       const trigger = triggerRef.current?.getBoundingClientRect();
       const panel = panelRef.current;
       if (!trigger || !panel) return;
       const width = Math.min(Math.max(trigger.width, 320), window.innerWidth - 16);
       const left = Math.max(8, Math.min(trigger.left, window.innerWidth - width - 8));
-      panel.style.width = `${width}px`;
+      panel.style.width = mobile ? "100%" : `${width}px`;
       const height = panel.getBoundingClientRect().height;
       const below = trigger.bottom + 8;
       const top = Math.max(
@@ -225,12 +228,12 @@ function KeepSavePopoverPanel<TMeta>({
         style={{
           position: "fixed",
           boxSizing: "border-box",
-          left: position.left,
-          top: position.top,
-          width: position.width,
-          right: "auto",
-          bottom: "auto",
-          maxHeight: "calc(100dvh - 16px)",
+          left: isMobile ? 0 : position.left,
+          top: isMobile ? "auto" : position.top,
+          width: isMobile ? "100%" : position.width,
+          right: isMobile ? 0 : "auto",
+          bottom: isMobile ? 0 : "auto",
+          maxHeight: isMobile ? "min(85dvh, 40rem)" : "calc(100dvh - 16px)",
           overflowY: "auto",
         }}
         id={id}

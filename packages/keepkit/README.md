@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.16
+Release: v0.28.17
 
 ## 日本語
 
@@ -76,6 +76,8 @@ hooksはProvider内のコンポーネントで呼び出します。
 複数コレクションへの所属はアイテムと別に保存され、所属を外しても共有アイテムやメモは残ります。
 
 `before`プラグインや永続化の失敗は保存操作を拒否します。保存成功後のコールバック、`after`プラグイン、`onChange`の例外は`onError(error, { action, id, phase: "notification" })`で報告し、保存済み状態とUndoを維持します。通知例外でも保存操作のPromiseは成功し、後続通知は継続します。
+削除のUndoで保存が失敗した場合は、元のUndo期限内なら再試行できます。別の削除や保存スコープの変更が先に発生した場合は、古いUndoで新しい状態を上書きしません。
+保存先または保存スコープを切り替えると、以前の`lastChange`とUndoはクリアされます。
 
 ### 保存・同期・バックアップ
 
@@ -198,6 +200,8 @@ Lists return unarchived items by default. Use `archiveScope: "all"` for both or 
 Memberships are stored separately; removing one leaves the shared item and note intact.
 
 Failures in `before` plugins or persistence reject the mutation. Errors from post-save callbacks, `after` plugins, and `onChange` are reported through `onError(error, { action, id, phase: "notification" })`, preserving committed state and Undo. The mutation resolves successfully and later notifications still run.
+If persisting a removal undo fails, it can be retried until its original deadline. An older undo does not replace a newer removal or survive a storage-scope change.
+Changing storage or storage scope clears the previous `lastChange` and Undo state.
 
 ### Storage, sync, and backups
 

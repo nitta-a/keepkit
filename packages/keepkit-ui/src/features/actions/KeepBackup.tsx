@@ -1,7 +1,7 @@
 "use client";
 
 import type { ImportItemsResult } from "@keepkit/core/core";
-import type { HTMLAttributes } from "react";
+import { type HTMLAttributes, useEffect, useId, useRef } from "react";
 import { getErrorMessage } from "../../foundation/shared";
 import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepBackup } from "./hooks/useKeepBackup";
@@ -41,6 +41,18 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
   const showExportMarkdownLabel = useUiLabelVisibility("exportMarkdown");
   const showImportModeLabel = useUiLabelVisibility("importMode");
   const showImportLabel = useUiLabelVisibility("importData");
+  const replaceDescriptionId = useId();
+  const importButton = useRef<HTMLButtonElement>(null);
+  const confirmButton = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  const wasMutating = useRef(false);
+  const isOpen = view.replaceConfirmation !== null;
+  useEffect(() => {
+    if (isOpen && (!wasOpen.current || (wasMutating.current && !view.isMutating))) confirmButton.current?.focus();
+    if (!isOpen && wasOpen.current && importButton.current?.isConnected) importButton.current.focus();
+    wasOpen.current = isOpen;
+    wasMutating.current = view.isMutating;
+  }, [isOpen, view.isMutating]);
 
   return (
     <section
@@ -75,13 +87,16 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
           data-keep-action="select-import-mode"
           value={view.mode}
           aria-label={showImportModeLabel ? undefined : view.labels.importMode}
+          aria-describedby={view.mode === "replace" ? replaceDescriptionId : undefined}
           onChange={(event) => view.setMode(event.currentTarget.value as "merge" | "replace")}
         >
           <option value="merge">{view.labels.merge}</option>
           <option value="replace">{view.labels.replace}</option>
         </select>
       </label>
+      {view.mode === "replace" ? <p id={replaceDescriptionId}>{view.labels.confirmReplaceDescription}</p> : null}
       <button
+        ref={importButton}
         type="button"
         data-keep-action="import-backup"
         onClick={view.openFilePicker}
@@ -117,6 +132,7 @@ export function KeepBackup<TMeta = Record<string, unknown>>({
             {view.labels.confirmReplaceDescription}
           </p>
           <button
+            ref={confirmButton}
             type="button"
             data-keep-action="confirm-replace-backup"
             disabled={view.isMutating}

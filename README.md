@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.16
+Release: v0.28.17
 
 ## 日本語
 
@@ -81,6 +81,9 @@ export function App() {
 
 `createKeepKit<TMeta>()`で、保存するメタデータの型をProvider・コンポーネント・hooksで共有できます。
 一覧は検索・ソート・ページングと、読み込み中・空・エラーの表示を備えています。
+`KeepArchiveUndo`を同じProvider内に配置すると、直前にアーカイブした項目を復元できます。`collapsibleFilters`はフィルターを開閉し、閉じても適用中の条件を保持します。
+検索結果が0件のときにフィルターをクリアしても、アーカイブの表示範囲は維持されます。削除のUndoが保存に失敗した場合は、元の期限内なら再試行できます。
+アーカイブのUndoは保存先やスコープを切り替えると解除されます。削除Undoと利用不能項目の一括削除は、失敗時にエラーを表示します。
 
 ### パッケージと使い分け
 
@@ -229,6 +232,9 @@ export function App() {
 
 `createKeepKit<TMeta>()` shares your metadata type across the provider, components, and hooks.
 The collection includes search, sorting, pagination, and loading, empty, and error states.
+Place `KeepArchiveUndo` inside the same provider to restore the most recently archived item. `collapsibleFilters` lets users hide filter controls without clearing their active values.
+Clearing filters from an empty search preserves the archive scope. If persisting a removal Undo fails, it can be retried until the original deadline.
+Archive Undo is cleared when storage or scope changes. Failed removal Undo and stale-item cleanup display errors.
 
 ### Packages
 

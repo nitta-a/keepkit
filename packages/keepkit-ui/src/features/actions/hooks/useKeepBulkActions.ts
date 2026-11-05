@@ -1,7 +1,7 @@
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import { useKeepCollections, useKeepList, useKeepStore } from "@keepkit/core/react";
 import { useEffect, useRef, useState } from "react";
-import { normalizeUiTags } from "../../../foundation/shared";
+import { copyQueryValue, equalQueryValue, normalizeUiTags } from "../../../foundation/shared";
 import { useUiLabel } from "../../../foundation/ui-context";
 import type { KeepBulkActionsState, KeepSelectionScope } from "../KeepBulkActions";
 
@@ -228,30 +228,4 @@ export function useKeepBulkActions<TMeta>(options: KeepBulkActionsOptions<TMeta>
       allItems: useUiLabel("allItems"),
     },
   };
-}
-
-function copyQueryValue(value: unknown): unknown {
-  if (value instanceof Date) return new Date(value.getTime());
-  if (Array.isArray(value)) return value.map(copyQueryValue);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, copyQueryValue(entry)]));
-  }
-  return value;
-}
-
-function equalQueryValue(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true;
-  if (left instanceof Date || right instanceof Date) {
-    return left instanceof Date && right instanceof Date && Object.is(left.getTime(), right.getTime());
-  }
-  if (!left || !right || typeof left !== "object" || typeof right !== "object") return false;
-  const leftEntries = Object.entries(left);
-  const rightEntries = Object.entries(right);
-  return (
-    leftEntries.length === rightEntries.length &&
-    leftEntries.every(
-      ([key, value]) =>
-        Object.getOwnPropertyDescriptor(right, key) !== undefined && equalQueryValue(value, Reflect.get(right, key)),
-    )
-  );
 }

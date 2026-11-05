@@ -1,6 +1,6 @@
 import type { KeepListQuery } from "@keepkit/core/core";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { getErrorMessage } from "../../foundation/shared";
+import { copyQueryValue, equalQueryValue, getErrorMessage } from "../../foundation/shared";
 import { useUiLabel } from "../../foundation/ui-context";
 import { useKeepBulkActions } from "../actions/hooks/useKeepBulkActions";
 import { KeepRemovalConfirmation } from "../actions/KeepRemovalConfirmation";
@@ -18,10 +18,10 @@ export function KeepInlineSelection<TMeta>({
 }) {
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const previousQuery = useRef(query);
+  const previousQuery = useRef(copyQueryValue(query));
   useEffect(() => {
-    if (previousQuery.current === query) return;
-    previousQuery.current = query;
+    if (equalQueryValue(previousQuery.current, query)) return;
+    previousQuery.current = copyQueryValue(query);
     setSelectedIds([]);
   }, [query]);
   const { state } = useKeepBulkActions<TMeta>({
@@ -78,7 +78,7 @@ export function KeepInlineSelection<TMeta>({
                 onChange={state.toggleAll}
                 disabled={state.isMutating || !state.items.length}
               />
-              {pageLabel}
+              {selectLabel} — {pageLabel}
             </label>
             <span role="status">
               {state.selectedCount} {countLabel}

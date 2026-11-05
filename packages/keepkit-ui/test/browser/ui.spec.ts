@@ -101,6 +101,24 @@ test("a failed confirmed removal keeps the approval available for retry and Undo
     .toEqual(["alpha", "beta"]);
 });
 
+test("failed removal Undo reports the error and can be retried", async ({ page }) => {
+  await page.getByRole("button", { name: "Delete selected", exact: true }).click();
+  await page.getByRole("dialog", { name: "Confirm removal" }).getByRole("button", { name: "Delete selected" }).click();
+  const undo = page.getByRole("button", { name: "Undo", exact: true });
+  await expect(undo).toBeVisible();
+  await page.evaluate(() => window.keepkitFixture.setFaults({ primary: true, journal: true }));
+  await undo.click();
+  await expect(page.locator('[data-keepkit="undo"] [role="alert"]')).toBeVisible();
+  expect(ids(await page.evaluate(() => window.keepkitFixture.readPrimary()))).toEqual([]);
+  await page.evaluate(() => window.keepkitFixture.setFaults({ primary: false, journal: false }));
+  await undo.click();
+  await expect
+    .poll(() =>
+      page.evaluate(async () => (await window.keepkitFixture.readPrimary()).items.map((item) => item.id).sort()),
+    )
+    .toEqual(["alpha", "beta"]);
+});
+
 test("recovery comparison and review are read-only and keyboard approval applies the selected branch", async ({
   page,
 }) => {

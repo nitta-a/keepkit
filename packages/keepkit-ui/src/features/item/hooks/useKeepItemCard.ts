@@ -1,7 +1,7 @@
 import type { KeepItem } from "@keepkit/core/core";
-import { useKeepItem } from "@keepkit/core/react";
+import { useKeepItem, useKeepStore } from "@keepkit/core/react";
 import type { ReactNode } from "react";
-import { getMetaTitle } from "../../../foundation/shared";
+import { getMetaTitle, UndoUnavailableError } from "../../../foundation/shared";
 import { useKeepUiFeedback, useUiLabel } from "../../../foundation/ui-context";
 import type { KeepImageProps, KeepItemCardState } from "../KeepItemCard";
 
@@ -30,10 +30,12 @@ export function useKeepItemCard<TMeta>(options: KeepItemCardOptions<TMeta>) {
     onRemoved,
   } = options;
   const itemState = useKeepItem<TMeta>(item);
+  const { store } = useKeepStore<TMeta>();
   const emitFeedback = useKeepUiFeedback<TMeta>();
   const removedMessage = useUiLabel("removedMessage");
   const restoredMessage = useUiLabel("restoredMessage");
   const undoLabel = useUiLabel("undo");
+  const errorLabel = useUiLabel("error");
   const resolvedTitle =
     typeof title === "function" ? title(item) : (title ?? getTitle?.(item) ?? getMetaTitle(item.meta) ?? item.id);
   const imageProps = getImageProps?.(item, resolvedTitle);
@@ -46,6 +48,7 @@ export function useKeepItemCard<TMeta>(options: KeepItemCardOptions<TMeta>) {
     const wasSaved = itemState.isSaved;
     try {
       await itemState.removeWithUndo();
+      const undoState = store.getSnapshot().undo;
       onRemoved?.(item);
       if (!wasSaved) return;
       emitFeedback({
@@ -54,6 +57,13 @@ export function useKeepItemCard<TMeta>(options: KeepItemCardOptions<TMeta>) {
         message: removedMessage,
         undoLabel,
         undo: async () => {
+          if (
+            !undoState?.canUndo ||
+            store.getSnapshot().undo !== undoState ||
+            (undoState.expiresAt ?? 0) <= Date.now()
+          ) {
+            throw new UndoUnavailableError(errorLabel);
+          }
           await itemState.undo();
           emitFeedback({ type: "item-restored", item, items: [item], message: restoredMessage });
         },

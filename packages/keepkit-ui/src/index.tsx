@@ -38,6 +38,7 @@ import {
   type KeepPinButtonProps,
   type KeepPinButtonState,
 } from "./features/actions/KeepArchiveButton";
+import { KeepArchiveUndo } from "./features/actions/KeepArchiveUndo";
 import { KeepBackup, type KeepBackupProps } from "./features/actions/KeepBackup";
 import {
   KeepBulkActions,
@@ -492,6 +493,7 @@ export {
   KeepAnnouncer,
   KeepArchiveButton,
   KeepArchiveScopeSelect,
+  KeepArchiveUndo,
   KeepBackup,
   KeepBulkActions,
   KeepButton,

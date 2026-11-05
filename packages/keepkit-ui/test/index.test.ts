@@ -11,6 +11,7 @@ import {
   KeepAnnouncements,
   KeepAnnouncer,
   KeepArchiveButton,
+  KeepArchiveUndo,
   KeepBackup,
   KeepBulkActions,
   KeepButton,
@@ -58,6 +59,7 @@ import { keepKitTheme } from "../dist/tailwind.js";
 test("publishes the complete UI component set", () => {
   assert.equal(typeof KeepButton, "function");
   assert.equal(typeof KeepArchiveButton, "function");
+  assert.equal(typeof KeepArchiveUndo, "function");
   assert.equal(typeof KeepPinButton, "function");
   assert.equal(typeof KeepCollectionSelect, "function");
   assert.equal(typeof KeepCollectionFilter, "function");

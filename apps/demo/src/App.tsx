@@ -1,5 +1,6 @@
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import {
+  KeepArchiveUndo,
   KeepBackup,
   KeepButton,
   KeepCollection,
@@ -92,11 +93,11 @@ const viewLabels: Record<LibraryView, string> = {
   settings: "Storage and settings",
 };
 const viewDescriptions: Record<LibraryView, string> = {
-  all: "A little less searching. A little more finding what matters.",
-  inbox: "New links land here. Give them a collection when you're ready.",
+  all: "All your saved links, except those in Archive.",
+  inbox: "Links without a collection. Add one when you're ready.",
   pinned: "Your go-to references, always close at hand.",
-  unread: "Make time for the things you saved. Opening a link moves it out of this view.",
-  archive: "Finished for now, kept for whenever you need them again.",
+  unread: "Links you haven't opened since saving them.",
+  archive: "Links put away from your usual list. Restore them whenever you need.",
   collections: "Make room for your projects, plans, and passing interests.",
   settings: "Your library belongs to this browser. Keep a backup to take it with you.",
 };
@@ -116,6 +117,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
   } = useAppView();
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [pendingReveal, setPendingReveal] = useState<{ request: KeepCollectionRevealRequest; local: boolean }>();
+  const [saveNotice, setSaveNotice] = useState("");
   const externalRevealId = useRef<number | undefined>(undefined);
   const revealSequence = useRef(0);
   const addButton = useRef<HTMLButtonElement>(null);
@@ -147,6 +149,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
   );
 
   function navigate(next: LibraryView, collectionId?: string) {
+    setSaveNotice("");
     setView(next);
     setSelectedCollection(collectionId);
     setIsNavigationOpen(false);
@@ -171,6 +174,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
   function revealSaved(itemId: string) {
     const target = items.find((item) => item.id === itemId);
     navigate(target?.archived ? "archive" : "all");
+    setSaveNotice(target ? "Link updated. Find it below." : "Link saved. Find it below; you can organize it later.");
     closeCapture();
     revealSequence.current += 1;
     setPendingReveal({ request: { requestId: -revealSequence.current, itemId }, local: true });
@@ -334,6 +338,8 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
         {error ? (
           <p role="alert">{error instanceof Error ? error.message : "Your library could not be updated."}</p>
         ) : null}
+        {saveNotice ? <p role="status">{saveNotice}</p> : null}
+        <KeepArchiveUndo<DemoMeta> />
 
         {isLibrary ? (
           <>
@@ -358,7 +364,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
                 pageSize={12}
                 query={query}
                 collectionLabels={collectionLabels}
-                features={{ tagFilter: true, bulkActions: true, savedViews: areFiltersOpen }}
+                features={{ tagFilter: true, bulkActions: true, savedViews: true }}
                 {...(view === "archive" ? { activeFilters: null } : {})}
                 {...(currentReveal ? { revealRequest: currentReveal, onRevealResult: finishReveal } : {})}
                 slots={{
@@ -368,7 +374,6 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
                         className="secondary-button"
                         type="button"
                         aria-expanded={areFiltersOpen}
-                        aria-controls="collection-filters"
                         onClick={() => setAreFiltersOpen(!areFiltersOpen)}
                       >
                         <Icon name="filter" />

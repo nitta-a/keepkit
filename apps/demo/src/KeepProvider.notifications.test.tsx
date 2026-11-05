@@ -26,6 +26,79 @@ async function renderProvider(props: KeepProviderProps<Meta>) {
   return hook;
 }
 
+test("keeps removal undo available after a failed restore and permits retry", async () => {
+  const { storage, items } = createStorage([first]);
+  const { result } = await renderProvider({ storage });
+  await act(async () => result.current.removeItemWithUndo(first.id));
+  vi.mocked(storage.set).mockRejectedValueOnce(new Error("Restore failed"));
+  await act(async () => {
+    await expect(result.current.undoLastRemoval()).rejects.toThrow("Restore failed");
+  });
+  expect(result.current.undo.canUndo).toBe(true);
+  expect(items.has(first.id)).toBe(false);
+  await act(async () => result.current.undoLastRemoval());
+  expect(items.has(first.id)).toBe(true);
+  expect(result.current.undo.canUndo).toBe(false);
+});
+
+test("does not restore an old undo after switching storage during a failed write", async () => {
+  const firstStorage = createStorage([first]);
+  const secondStorage = createStorage([second]);
+  let activeStorage = firstStorage.storage;
+  let rejectWrite: ((error: Error) => void) | undefined;
+  firstStorage.storage.set = () =>
+    new Promise((_resolve, reject) => {
+      rejectWrite = reject;
+    });
+  const { result, rerender } = renderHook(() => useKeepContext<Meta>(), {
+    wrapper: ({ children }) => <KeepProvider storage={activeStorage}>{children}</KeepProvider>,
+  });
+  await waitFor(() => expect(result.current.isHydrated).toBe(true));
+  await act(async () => result.current.removeItemWithUndo(first.id));
+  let undo: Promise<void> = Promise.resolve();
+  act(() => {
+    undo = result.current.undoLastRemoval();
+  });
+  await waitFor(() => expect(rejectWrite).toBeDefined());
+  activeStorage = secondStorage.storage;
+  rerender();
+  await act(async () => {
+    rejectWrite?.(new Error("Restore failed"));
+    await expect(undo).rejects.toThrow("Restore failed");
+  });
+  await waitFor(() => expect(result.current.items.map((item) => item.id)).toEqual([second.id]));
+  expect(result.current.undo.canUndo).toBe(false);
+});
+
+test("does not extend the undo deadline when a restore fails after it expires", async () => {
+  const { storage } = createStorage([first]);
+  const { result } = await renderProvider({ storage, undoTimeoutMs: 1000 });
+  let rejectWrite: ((error: Error) => void) | undefined;
+  storage.set = () =>
+    new Promise((_resolve, reject) => {
+      rejectWrite = reject;
+    });
+  vi.useFakeTimers();
+  try {
+    await act(async () => result.current.removeItemWithUndo(first.id));
+    let undo: Promise<void> = Promise.resolve();
+    await act(async () => {
+      undo = result.current.undoLastRemoval();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(rejectWrite).toBeDefined();
+    await act(async () => {
+      vi.advanceTimersByTime(1001);
+      rejectWrite?.(new Error("Restore failed"));
+      await expect(undo).rejects.toThrow("Restore failed");
+    });
+    expect(result.current.undo.canUndo).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test.each(["save", "after", "after-rejection", "change", "change-rejection"])(
   "keeps committed state after a %s notification fails and continues later notifications",
   async (mode) => {

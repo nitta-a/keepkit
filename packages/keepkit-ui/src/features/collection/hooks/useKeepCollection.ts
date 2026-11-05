@@ -231,7 +231,7 @@ export function useKeepCollection<TMeta>({
       setActiveTags((current) => current.filter((tag) => tag !== tagToRemove));
       setPage(1);
     },
-    clearFilters: () => {
+    clearFilters: (preserveArchiveScope = false) => {
       setQueryOverride({});
       setSearchValue("");
       setActiveTags([]);
@@ -239,7 +239,7 @@ export function useKeepCollection<TMeta>({
       setActiveActivity(undefined);
       setActiveOrganization(undefined);
       setActiveSavedBetween(undefined);
-      setActiveArchiveScope("active");
+      if (!preserveArchiveScope) setActiveArchiveScope("active");
       setPage(1);
     },
     resetFilters: () => applyQuery({ ...query, archiveScope: initialArchiveScope }),

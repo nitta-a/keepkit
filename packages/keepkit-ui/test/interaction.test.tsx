@@ -8,7 +8,7 @@ import type {
   SyncCapableStorageAdapter,
 } from "@keepkit/core/core";
 import { useKeepContext } from "@keepkit/core/react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { createRef, useState } from "react";
 import { expect, test, vi } from "vitest";
 import {
@@ -1020,6 +1020,72 @@ test("adapts removal feedback to a toast action", async () => {
   );
 });
 
+test("reports a failed toast undo and exposes a retry action", async () => {
+  const showToast = vi.fn();
+  const undo = vi.fn().mockRejectedValueOnce(new Error("Restore failed")).mockResolvedValueOnce(undefined);
+  const { result } = renderHook(() => useKeepToastFeedback<Meta>(showToast));
+  result.current({ type: "item-removed", item, message: "Removed", undoLabel: "Undo", undo });
+  showToast.mock.calls[0][1].action.onClick();
+  await waitFor(() => expect(showToast).toHaveBeenCalledWith("Restore failed", expect.anything()));
+  showToast.mock.calls[1][1].action.onClick();
+  await waitFor(() => expect(undo).toHaveBeenCalledTimes(2));
+});
+
+test("retries a failed card removal undo through the toast and storage", async () => {
+  const storage = createStorage([item]);
+  const persist = storage.set;
+  storage.set = vi.fn().mockRejectedValueOnce(new Error("Restore failed")).mockImplementation(persist);
+  const showToast = vi.fn();
+  function Example() {
+    const onFeedback = useKeepToastFeedback<Meta>(showToast);
+    return (
+      <KeepUiProvider<Meta> onFeedback={onFeedback}>
+        <KeepProvider<Meta> storage={storage}>
+          <KeepItemCard item={item} showSaveButton={false} />
+        </KeepProvider>
+      </KeepUiProvider>
+    );
+  }
+  render(<Example />);
+  fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+  await waitFor(() => expect(showToast).toHaveBeenCalledWith("Item removed.", expect.anything()));
+  showToast.mock.calls[0][1].action.onClick();
+  await waitFor(() => expect(showToast).toHaveBeenCalledWith("Restore failed", expect.anything()));
+  expect(await storage.getAll()).toEqual([]);
+  showToast.mock.calls[1][1].action.onClick();
+  await waitFor(async () => expect((await storage.getAll()).map((entry) => entry.id)).toEqual([item.id]));
+  await waitFor(() => expect(showToast).toHaveBeenCalledWith("Item restored."));
+});
+
+test("an old removal notification cannot undo a newer removal", async () => {
+  const onFeedback = vi.fn();
+  const secondItem = { ...item, id: "second", meta: { title: "Second" } };
+  const storage = createStorage([item, secondItem]);
+  render(
+    <KeepUiProvider<Meta> onFeedback={onFeedback}>
+      <KeepProvider<Meta> storage={storage}>
+        <KeepItemCard item={item} showSaveButton={false} />
+        <KeepItemCard item={secondItem} showSaveButton={false} />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+  const buttons = await screen.findAllByRole("button", { name: "Remove" });
+  fireEvent.click(buttons[0]);
+  await waitFor(() => expect(onFeedback).toHaveBeenCalledTimes(1));
+  fireEvent.click(buttons[1]);
+  await waitFor(() => expect(onFeedback).toHaveBeenCalledTimes(2));
+  const oldEvent = onFeedback.mock.calls[0][0];
+  await expect(oldEvent.undo()).rejects.toThrow();
+  expect(await storage.getAll()).toEqual([]);
+  const showToast = vi.fn();
+  const toast = renderHook(() => useKeepToastFeedback<Meta>(showToast));
+  toast.result.current(oldEvent);
+  showToast.mock.calls[0][1].action.onClick();
+  await waitFor(() => expect(showToast).toHaveBeenLastCalledWith("Something went wrong."));
+  await onFeedback.mock.calls[1][0].undo();
+  expect((await storage.getAll()).map((entry) => entry.id)).toEqual([secondItem.id]);
+});
+
 test("keeps compound card parts complete and accessible", async () => {
   render(
     <KeepProvider<Meta> storage={createStorage([item])}>
@@ -1860,6 +1926,30 @@ test("offers localized stale-item recovery actions and bulk cleanup", async () =
   );
 });
 
+test("shows a failed stale cleanup and retries without losing saved items", async () => {
+  const stale = { ...item, status: "expired" as const };
+  const storage = createStorage([stale]);
+  const remove = storage.remove;
+  storage.remove = vi.fn().mockRejectedValueOnce(new Error("Cleanup failed")).mockImplementation(remove);
+  const feedback = vi.fn();
+  render(
+    <KeepUiProvider<Meta> onFeedback={feedback}>
+      <KeepProvider storage={storage}>
+        <KeepPruneStaleButton />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+  const button = await screen.findByRole("button", { name: "Remove unavailable items (1)" });
+  fireEvent.click(button);
+  expect((await screen.findByRole("alert")).textContent).toContain("Cleanup failed");
+  expect(await storage.getAll()).toHaveLength(1);
+  expect(feedback).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  await waitFor(async () => expect(await storage.getAll()).toHaveLength(0));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(feedback).toHaveBeenCalledWith(expect.objectContaining({ type: "stale-pruned" }));
+});
+
 test("surfaces sync conflicts and delegates server resolution from the recovery dialog", async () => {
   const onFeedback = vi.fn();
   const notifications = new Set<() => void>();
@@ -2120,17 +2210,22 @@ test("exports and imports JSON backups through the standard UI", async () => {
   expect((await screen.findByRole("status")).textContent).toContain("1 items imported");
 
   fireEvent.change(screen.getByRole("combobox", { name: "Import mode" }), { target: { value: "replace" } });
+  expect(screen.getByRole("combobox", { name: "Import mode" }).getAttribute("aria-describedby")).toBeTruthy();
+  expect(screen.getByText("Replace your current library with this backup?")).not.toBeNull();
   fireEvent.change(input, { target: { files: [new File([data], "backup.json", { type: "application/json" })] } });
   const dialog = await screen.findByRole("dialog", { name: "Confirm replace" });
+  await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Replace" })));
   expect(dialog.textContent).toContain("1 item — Replace your current library with this backup?");
   expect((await storage.getAll()).map((entry) => entry.id)).toEqual(["ui-interaction-item", "imported"]);
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.keyDown(dialog, { key: "Escape" });
   expect(screen.queryByRole("dialog", { name: "Confirm replace" })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Import JSON" }));
 
   fireEvent.change(input, { target: { files: [new File([data], "backup.json", { type: "application/json" })] } });
   await screen.findByRole("dialog", { name: "Confirm replace" });
   fireEvent.click(screen.getByRole("button", { name: "Replace" }));
   await waitFor(async () => expect((await storage.getAll()).map((entry) => entry.id)).toEqual(["imported"]));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Import JSON" })));
 });
 
 test("exposes the undo action without changing its accessible label", async () => {

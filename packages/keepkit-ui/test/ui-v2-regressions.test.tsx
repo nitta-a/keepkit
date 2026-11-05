@@ -312,7 +312,9 @@ test.each(["inline", "separate"] as const)(
     await screen.findByText("First article");
     if (variant === "inline") fireEvent.click(screen.getByRole("button", { name: "保存アイテムを選択" }));
     fireEvent.click(
-      screen.getByRole("checkbox", { name: variant === "inline" ? "表示中のページ" : "保存アイテムを選択" }),
+      screen.getByRole("checkbox", {
+        name: variant === "inline" ? "保存アイテムを選択 — 表示中のページ" : "保存アイテムを選択",
+      }),
     );
     if (variant === "inline") fireEvent.click(screen.getByText("その他"));
     fireEvent.click(screen.getByRole("button", { name: "選択項目を削除" }));

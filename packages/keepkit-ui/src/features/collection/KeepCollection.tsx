@@ -60,6 +60,8 @@ export type KeepCollectionProps<TMeta = Record<string, unknown>> = Omit<HTMLAttr
   toolbarVariant?: KeepCollectionToolbarVariant;
   /** Groups host actions, query controls, and filters into labelled regions. */
   toolbarLayout?: KeepCollectionToolbarLayout;
+  /** Makes the filter controls collapsible while keeping their active values. */
+  collapsibleFilters?: boolean;
   slots?: KeepCollectionSlots<TMeta>;
   urlSync?: boolean | KeepUrlSyncOptions;
   urlAdapter?: KeepUrlAdapter;
@@ -111,6 +113,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   layout = "list",
   toolbarVariant = "plain",
   toolbarLayout = "flat",
+  collapsibleFilters = false,
   urlSync = false,
   urlAdapter,
   archiveScope,
@@ -193,7 +196,9 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
       itemCardProps?.showNote ?? features?.note ?? (itemCardProps?.presentation === "reading" || view.enabled.note),
   };
   const toolbarId = useId();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const structuredToolbar =
+    collapsibleFilters ||
     toolbarLayout === "grouped" ||
     toolbarVariant === "panel" ||
     creatable ||
@@ -287,7 +292,23 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
     <div data-keepkit="collection-toolbar" data-variant={toolbarVariant} data-layout={toolbarLayout}>
       {renderToolbarGroup("toolbarStart", toolbarStartContent, toolbarStartLabel)}
       {renderToolbarGroup("query", queryControls, toolbarQueryLabel)}
-      {renderToolbarGroup("filters", filterControls, toolbarFiltersLabel)}
+      {hasFilterControls && collapsibleFilters ? (
+        <>
+          <button
+            type="button"
+            aria-expanded={filtersOpen}
+            aria-controls={`${toolbarId}-filter-controls`}
+            onClick={() => setFiltersOpen(!filtersOpen)}
+          >
+            {toolbarFiltersLabel}
+          </button>
+          <div id={`${toolbarId}-filter-controls`} hidden={!filtersOpen}>
+            {renderToolbarGroup("filters", filterControls, toolbarFiltersLabel)}
+          </div>
+        </>
+      ) : (
+        renderToolbarGroup("filters", filterControls, toolbarFiltersLabel)
+      )}
       {renderToolbarGroup("toolbarEnd", toolbarEndContent, toolbarEndLabel)}
     </div>
   );
@@ -303,7 +324,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
         loading={loading}
         renderLoading={renderLoading}
         loadingCount={loadingCount}
-        onClearFilters={view.clearFilters}
+        onClearFilters={() => view.clearFilters(true)}
         reorderable={reorderable}
         onReorder={reorderable ? handleReorder : undefined}
         empty={view.list.totalCount === 0 && view.allState.totalCount > 0 ? undefined : empty}
@@ -364,7 +385,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
             view.setArchiveScope(next);
             onArchiveScopeChange?.(next);
           }}
-          onClear={view.clearFilters}
+          onClear={() => view.clearFilters()}
           onReset={view.resetFilters}
           canReset={view.canReset}
         />

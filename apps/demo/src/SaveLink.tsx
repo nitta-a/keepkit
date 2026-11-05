@@ -211,74 +211,81 @@ export function SaveLink({ onSaved, onCancel }: { onSaved?: (itemId: string) => 
           placeholder="https://example.com/article"
           onChange={(event) => setUrl(event.currentTarget.value)}
         />
-        <label htmlFor={`${id}-title`}>Title (optional)</label>
-        <input
-          ref={titleInput}
-          id={`${id}-title`}
-          value={title}
-          placeholder="A name you will recognize later"
-          onChange={(event) => setTitle(event.currentTarget.value)}
-        />
-        <label htmlFor={`${id}-note`}>Note (optional)</label>
-        <textarea
-          id={`${id}-note`}
-          value={note ?? existing?.note ?? ""}
-          placeholder="Why are you keeping this?"
-          onChange={(event) => setNote(event.currentTarget.value)}
-          rows={3}
-        />
-        <label htmlFor={`${id}-tags`}>Tags (optional)</label>
-        <input
-          id={`${id}-tags`}
-          value={currentTagsValue}
-          placeholder="Reference, Read later"
-          onChange={(event) => setTagsInput(event.currentTarget.value)}
-        />
-        {suggestedTags.length > 0 ? (
-          <div className="tag-suggestions">
-            {suggestedTags.map((tag) => (
-              <button key={tag} type="button" onClick={() => setTagsInput([...activeTags, tag].join(", "))}>
-                + {tag}
-              </button>
+        <p>Only a URL is required. You can add a title or note later.</p>
+        <details>
+          <summary>Add details</summary>
+          <label htmlFor={`${id}-title`}>Title (optional)</label>
+          <input
+            ref={titleInput}
+            id={`${id}-title`}
+            value={title}
+            placeholder="A name you will recognize later"
+            onChange={(event) => setTitle(event.currentTarget.value)}
+          />
+          <label htmlFor={`${id}-note`}>Note (optional)</label>
+          <textarea
+            id={`${id}-note`}
+            value={note ?? existing?.note ?? ""}
+            placeholder="Why are you keeping this?"
+            onChange={(event) => setNote(event.currentTarget.value)}
+            rows={3}
+          />
+          <label htmlFor={`${id}-tags`}>Tags (optional)</label>
+          <input
+            id={`${id}-tags`}
+            value={currentTagsValue}
+            placeholder="Reference, Read later"
+            onChange={(event) => setTagsInput(event.currentTarget.value)}
+          />
+          {suggestedTags.length > 0 ? (
+            <div className="tag-suggestions">
+              {suggestedTags.map((tag) => (
+                <button key={tag} type="button" onClick={() => setTagsInput([...activeTags, tag].join(", "))}>
+                  + {tag}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <label htmlFor={`${id}-collection`}>Collection (optional)</label>
+          <select
+            id={`${id}-collection`}
+            value={isCreatingCollection ? "__new__" : (collectionId ?? existing?.collectionId ?? "")}
+            onChange={(event) => {
+              const next = event.currentTarget.value;
+              if (next === "__new__") {
+                setIsCreatingCollection(true);
+                return;
+              }
+              setIsCreatingCollection(false);
+              setNewCollectionName("");
+              setCollectionId(next);
+            }}
+          >
+            <option value="">Inbox</option>
+            {collections.map((collection) => (
+              <option key={collection.id} value={collection.id}>
+                {collection.name}
+              </option>
             ))}
-          </div>
-        ) : null}
-        <label htmlFor={`${id}-collection`}>Collection (optional)</label>
-        <select
-          id={`${id}-collection`}
-          value={isCreatingCollection ? "__new__" : (collectionId ?? existing?.collectionId ?? "")}
-          onChange={(event) => {
-            const next = event.currentTarget.value;
-            if (next === "__new__") {
-              setIsCreatingCollection(true);
-              return;
-            }
-            setIsCreatingCollection(false);
-            setNewCollectionName("");
-            setCollectionId(next);
-          }}
-        >
-          <option value="">Inbox</option>
-          {collections.map((collection) => (
-            <option key={collection.id} value={collection.id}>
-              {collection.name}
-            </option>
-          ))}
-          <option value="__new__">+ Create collection…</option>
-        </select>
-        {isCreatingCollection ? (
-          <div>
-            <label htmlFor={`${id}-new-collection`}>New collection name</label>
-            <input
-              id={`${id}-new-collection`}
-              value={newCollectionName}
-              placeholder="e.g. Reading list"
-              onChange={(event) => setNewCollectionName(event.currentTarget.value)}
-            />
-          </div>
-        ) : null}
+            <option value="__new__">+ Create collection…</option>
+          </select>
+          {isCreatingCollection ? (
+            <div>
+              <label htmlFor={`${id}-new-collection`}>New collection name</label>
+              <input
+                id={`${id}-new-collection`}
+                value={newCollectionName}
+                placeholder="e.g. Reading list"
+                onChange={(event) => setNewCollectionName(event.currentTarget.value)}
+              />
+            </div>
+          ) : null}
+        </details>
         {existing ? (
-          <p>This link is already saved. Saving updates it and keeps any fields you leave unchanged.</p>
+          <p>
+            This link is already saved. Saving updates the existing link, without creating a duplicate; unchanged
+            details are kept.
+          </p>
         ) : null}
       </fieldset>
       <div className="save-link-actions">

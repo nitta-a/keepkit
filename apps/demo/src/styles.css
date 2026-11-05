@@ -902,6 +902,17 @@ button:disabled {
   }
 }
 @media (max-width: 540px) {
+  .app-shell {
+    --keep-button-size: 44px;
+  }
+  .app-shell :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+  .app-shell .demo-collection :is([data-keepkit="search-input"], [data-keepkit="sort-select"]) {
+    font-size: max(1rem, 16px);
+  }
+  .app-shell :is(.primary-button, .secondary-button, .icon-button, .nav-button, .text-button):not([data-keepkit]) {
+    min-height: 44px;
+    min-width: 44px;
+  }
   .workspace {
     padding: 0 18px 40px;
   }
@@ -1079,7 +1090,6 @@ button:disabled {
     margin-bottom: 0;
     font-size: 26px;
   }
-  .page-description,
   .page-heading kbd {
     display: none;
   }

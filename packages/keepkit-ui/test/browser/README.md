@@ -11,6 +11,7 @@ Playwright starts a dedicated Vite fixture on port 4189. Each test has an isolat
 IndexedDB, localStorage, storage events, BroadcastChannel and Web Locks. The fixture injects availability and quota
 errors at backend boundaries while preserving the browser's actual persistence implementation. Session storage keeps
 fault controls across reloads; concurrent tabs share the persistence backend and journal.
+Mobile demo tests use port 4280; iPhone WebKit does not load the demo reliably on port 4190.
 
 On macOS, Firefox's `MOZ_APP_DATA` and `MOZ_LOCAL_APP_DATA` point to fresh temporary directories so tests do not use
 the installed Firefox application's protected data directory. Browser profiles remain Playwright-managed.
@@ -18,6 +19,8 @@ the installed Firefox application's protected data directory. Browser profiles r
 The suite covers durable snapshots, failed projections, operation replay after reload, scope isolation, concurrent tabs,
 missing Web Locks, checkpoint retries, approved repair recovery and retained backups. UI cases exercise compound links,
 open recording, removal confirmation, keyboard focus, retry, Undo and explicit recovery approval.
+The scoped-storage scenario switches providers without remounting, checks overlapping item IDs, and verifies that an old
+archive Undo cannot affect the new storage. Stale-item cleanup also covers a failed write followed by retry.
 
 CI runs Chromium, Firefox and WebKit independently of the unit-test job. Failure reports, screenshots and traces are
 retained in the `browser-failure-report` artifact. Local results use `playwright-report/` and `test-results/`.

@@ -58,9 +58,36 @@ async function renderForm(storage: StorageAdapter<DemoMeta>, onSaved = vi.fn(), 
 }
 
 function enterLink(url = "https://example.com/guide", title = "A useful guide") {
+  const details = screen.getByText("Add details").closest("details");
+  if (details && !details.open) fireEvent.click(screen.getByText("Add details"));
   fireEvent.change(screen.getByRole("textbox", { name: "Title (optional)" }), { target: { value: title } });
   fireEvent.change(screen.getByRole("textbox", { name: "URL" }), { target: { value: url } });
 }
+
+test("saves only a URL and preserves details when collapsed", async () => {
+  const { storage, getItems } = createStorage();
+  await renderForm(storage);
+  expect(screen.getByText("Add details").closest("details")).not.toHaveAttribute("open");
+  fireEvent.change(screen.getByRole("textbox", { name: "URL" }), { target: { value: "https://example.com/first" } });
+  fireEvent.click(screen.getByText("Add details"));
+  fireEvent.change(screen.getByRole("textbox", { name: "Note (optional)" }), { target: { value: "Remember this" } });
+  fireEvent.click(screen.getByText("Add details"));
+  fireEvent.click(screen.getByText("Add details"));
+  expect(screen.getByRole("textbox", { name: "Note (optional)" })).toHaveValue("Remember this");
+  fireEvent.click(screen.getByText("Add details"));
+  fireEvent.click(screen.getByRole("button", { name: "Save link" }));
+  await screen.findByRole("status");
+  expect(getItems()[0]).toMatchObject({ note: "Remember this", meta: { url: "https://example.com/first" } });
+});
+
+test("saves a URL without opening details", async () => {
+  const { storage, getItems } = createStorage();
+  await renderForm(storage);
+  fireEvent.change(screen.getByRole("textbox", { name: "URL" }), { target: { value: "https://example.com/first" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save link" }));
+  await screen.findByRole("status");
+  expect(getItems()[0]).toMatchObject({ meta: { title: "example.com", url: "https://example.com/first" } });
+});
 
 test("saves a canonical link with a note and an existing collection", async () => {
   const { storage, getItems } = createStorage();

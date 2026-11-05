@@ -1,8 +1,10 @@
 import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useKeepContext } from "@keepkit/core/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { expect, test, vi } from "vitest";
 import {
+  KeepArchiveUndo,
   KeepCollection,
   KeepCollectionManager,
   KeepItemCard,
@@ -10,6 +12,7 @@ import {
   KeepList,
   KeepProvider,
   KeepQuickEditor,
+  KeepUiProvider,
   KeepUndo,
 } from "../src/index";
 
@@ -59,6 +62,271 @@ function storage(initial = [first, second]) {
   };
   return { adapter, items: () => items, collections: () => collections };
 }
+
+test("archive undo restores an item and permits retry after a failed write", async () => {
+  const { adapter, items } = storage([first]);
+  const persist = adapter.set;
+  render(
+    <KeepProvider storage={adapter}>
+      <KeepCollection features={{ archive: true }} />
+      <KeepArchiveUndo />
+    </KeepProvider>,
+  );
+  await screen.findByText(first.meta.title);
+  fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+  const undo = await screen.findByRole("button", { name: "Undo" });
+  expect(items()[0]?.archived).toBe(true);
+  expect(undo.closest('[role="status"]')?.textContent).toContain(first.meta.title);
+  adapter.set = async () => {
+    throw new Error("Write failed");
+  };
+  fireEvent.click(undo);
+  expect((await screen.findAllByRole("alert")).some((element) => element.textContent?.includes("Write failed"))).toBe(
+    true,
+  );
+  expect(items()[0]?.archived).toBe(true);
+  adapter.set = persist;
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await waitFor(() => expect(items()[0]?.archived).toBe(false));
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+});
+
+test("archive undo does not cross to another storage with the same item id", async () => {
+  const firstStorage = storage([first]);
+  const other = { ...first, archived: true, meta: { title: "Other account" } };
+  const secondStorage = storage([other]);
+  function ScopeTitle() {
+    const { items } = useKeepContext<Meta>();
+    return <output data-testid="scope-title">{items[0]?.meta.title}</output>;
+  }
+  const tree = (adapter: StorageAdapter<Meta>) => (
+    <KeepProvider storage={adapter}>
+      <ScopeTitle />
+      <KeepCollection features={{ archive: true }} />
+      <KeepArchiveUndo />
+    </KeepProvider>
+  );
+  const view = render(tree(firstStorage.adapter));
+  await screen.findByRole("heading", { name: first.meta.title });
+  fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+  await screen.findByRole("button", { name: "Undo" });
+  view.rerender(tree(secondStorage.adapter));
+  await waitFor(() => expect(screen.getByTestId("scope-title").textContent).toBe("Other account"));
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  expect(secondStorage.items()[0]?.archived).toBe(true);
+});
+
+test("archive undo is cleared when the storage scope changes", async () => {
+  let source: KeepItem<Meta>[] = [first];
+  let scopeListener: () => void = () => {};
+  const adapter: StorageAdapter<Meta> & { subscribeScope: (listener: () => void) => () => void } = {
+    getAll: async () => [...source],
+    set: async (value) => {
+      source = [value];
+    },
+    remove: async () => {},
+    clear: async () => {},
+    subscribeScope: (listener) => {
+      scopeListener = listener;
+      return () => {};
+    },
+  };
+  function ScopeTitle() {
+    const { items } = useKeepContext<Meta>();
+    return <output data-testid="scope-title">{items[0]?.meta.title}</output>;
+  }
+  render(
+    <KeepProvider storage={adapter}>
+      <ScopeTitle />
+      <KeepCollection features={{ archive: true }} />
+      <KeepArchiveUndo />
+    </KeepProvider>,
+  );
+  await screen.findByRole("heading", { name: first.meta.title });
+  fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+  await screen.findByRole("button", { name: "Undo" });
+  source = [{ ...first, archived: true, meta: { title: "Other scope" } }];
+  act(() => scopeListener());
+  await waitFor(() => expect(screen.getByTestId("scope-title").textContent).toBe("Other scope"));
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  expect(source[0]?.archived).toBe(true);
+});
+
+test("removal Undo reports the restored item after another item changes and allows retry", async () => {
+  const saved = storage([first, second]);
+  const feedback = vi.fn();
+  function Controls() {
+    const context = useKeepContext<Meta>();
+    return (
+      <>
+        <span>{context.isHydrated ? "ready" : "loading"}</span>
+        <button type="button" onClick={() => void context.removeItemWithUndo(first.id)}>
+          Remove first
+        </button>
+        <button type="button" onClick={() => void context.updateNote(second.id, "changed")}>
+          Edit second
+        </button>
+        <KeepUndo />
+      </>
+    );
+  }
+  render(
+    <KeepUiProvider<Meta> onFeedback={feedback}>
+      <KeepProvider storage={saved.adapter}>
+        <Controls />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+  await screen.findByText("ready");
+  fireEvent.click(screen.getByRole("button", { name: "Remove first" }));
+  await screen.findByRole("button", { name: "Undo" });
+  fireEvent.click(screen.getByRole("button", { name: "Edit second" }));
+  await waitFor(() => expect(saved.items().find((entry) => entry.id === second.id)?.note).toBe("changed"));
+  const persist = saved.adapter.set;
+  saved.adapter.set = async () => {
+    throw new Error("Undo write failed");
+  };
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("Undo write failed");
+  expect(saved.items().map((entry) => entry.id)).toEqual([second.id]);
+  saved.adapter.set = persist;
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await waitFor(() =>
+    expect(feedback).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "item-restored", item: expect.objectContaining({ id: first.id }) }),
+    ),
+  );
+  expect(
+    saved
+      .items()
+      .map((entry) => entry.id)
+      .sort(),
+  ).toEqual([first.id, second.id]);
+});
+
+test("batch removal Undo reports exactly the restored items after another item changes", async () => {
+  const third = { ...first, id: "third", meta: { title: "Third article" } };
+  const saved = storage([first, second, third]);
+  const feedback = vi.fn();
+  function Controls() {
+    const context = useKeepContext<Meta>();
+    return (
+      <>
+        <span>{context.isHydrated ? "ready" : "loading"}</span>
+        <button type="button" onClick={() => void context.removeItemsWithUndo([first.id, second.id])}>
+          Remove two
+        </button>
+        <button type="button" onClick={() => void context.updateNote(third.id, "changed")}>
+          Edit third
+        </button>
+        <KeepUndo />
+      </>
+    );
+  }
+  render(
+    <KeepUiProvider<Meta> onFeedback={feedback}>
+      <KeepProvider storage={saved.adapter}>
+        <Controls />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+  await screen.findByText("ready");
+  fireEvent.click(screen.getByRole("button", { name: "Remove two" }));
+  await screen.findByRole("button", { name: "Undo" });
+  fireEvent.click(screen.getByRole("button", { name: "Edit third" }));
+  await waitFor(() => expect(saved.items().find((entry) => entry.id === third.id)?.note).toBe("changed"));
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await waitFor(() => expect(feedback).toHaveBeenCalledWith(expect.objectContaining({ type: "item-restored" })));
+  const event = feedback.mock.calls.find(([value]) => value.type === "item-restored")?.[0];
+  expect(event?.items.map((entry: KeepItem<Meta>) => entry.id).sort()).toEqual([first.id, second.id]);
+  expect(
+    saved
+      .items()
+      .map((entry) => entry.id)
+      .sort(),
+  ).toEqual([first.id, second.id, third.id]);
+  expect(saved.items().find((entry) => entry.id === third.id)?.note).toBe("changed");
+});
+
+test("disables repeated removal Undo while a restore is saving", async () => {
+  const saved = storage([first]);
+  const persist = saved.adapter.set;
+  let finish: (() => void) | undefined;
+  const write = vi.fn(async (item: KeepItem<Meta>) => {
+    await new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    await persist(item);
+  });
+  saved.adapter.set = write;
+  function Controls() {
+    const context = useKeepContext<Meta>();
+    return (
+      <>
+        <span>{context.isHydrated ? "ready" : "loading"}</span>
+        <button type="button" onClick={() => void context.removeItemWithUndo(first.id)}>
+          Remove first
+        </button>
+        <KeepUndo />
+      </>
+    );
+  }
+  render(
+    <KeepProvider storage={saved.adapter}>
+      <Controls />
+    </KeepProvider>,
+  );
+  await screen.findByText("ready");
+  fireEvent.click(screen.getByRole("button", { name: "Remove first" }));
+  const undo = await screen.findByRole("button", { name: "Undo" });
+  fireEvent.click(undo);
+  await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+  expect(screen.getByRole("button", { name: "Undo" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(write).toHaveBeenCalledTimes(1);
+  await act(async () => finish?.());
+  await waitFor(() => expect(saved.items().map((entry) => entry.id)).toEqual([first.id]));
+});
+
+test("collapsible filters retain their selection and leave the active filter removable", async () => {
+  const { adapter } = storage([{ ...first, tags: ["research"] }, second]);
+  render(
+    <KeepProvider storage={adapter}>
+      <KeepCollection collapsibleFilters features={{ tagFilter: true, savedViews: true }} />
+    </KeepProvider>,
+  );
+  await screen.findByText(first.meta.title);
+  const toggle = screen.getByRole("button", { name: "Filters" });
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(toggle);
+  fireEvent.click(
+    within(screen.getByRole("group", { name: "Filter saved items by tag" })).getByRole("button", { name: /research/ }),
+  );
+  await waitFor(() => expect(screen.queryByText(second.meta.title)).toBeNull());
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(screen.getByRole("navigation", { name: "Saved Views" })).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "research Remove" }));
+  expect(await screen.findByText(second.meta.title)).not.toBeNull();
+});
+
+test("inline selection survives an equivalent query from a parent rerender", async () => {
+  const { adapter } = storage([first, second]);
+  const renderCollection = (pinnedFirst: boolean) => (
+    <KeepProvider storage={adapter}>
+      <KeepCollection bulkActionsVariant="inline" features={{ bulkActions: true }} query={{ pinnedFirst }} />
+    </KeepProvider>
+  );
+  const view = render(renderCollection(false));
+  await screen.findByText(first.meta.title);
+  fireEvent.click(screen.getByRole("button", { name: "Select saved items" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: first.meta.title }));
+  expect(checked(screen.getByRole("checkbox", { name: first.meta.title }))).toBe(true);
+  view.rerender(renderCollection(false));
+  expect(checked(screen.getByRole("checkbox", { name: first.meta.title }))).toBe(true);
+  view.rerender(renderCollection(true));
+  await waitFor(() => expect(checked(screen.getByRole("checkbox", { name: first.meta.title }))).toBe(false));
+});
 
 test("reading cards use explicit links, notes and registered names without stealing initial focus", async () => {
   const saved = { ...first, collectionId: "reading" };
@@ -189,7 +457,7 @@ test("inline selection stays in the visible rows, resets on search and page chan
   const checkbox = screen.getByRole("checkbox", { name: first.meta.title });
   expect(checkbox.closest("li")?.querySelector('[data-keepkit="card"]')).toBeTruthy();
   expect(container.querySelector('[data-keepkit="bulk-actions"]')).toBeNull();
-  fireEvent.click(screen.getByRole("checkbox", { name: "Current page" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Select saved items — Current page" }));
   expect(screen.getByRole("status").textContent).toBe("1 selected");
   fireEvent.click(screen.getByRole("button", { name: "Next page" }));
   await waitFor(() => expect(screen.getByRole("status").textContent).toBe("0 selected"));

@@ -1122,13 +1122,10 @@
   }
   :where(.keep-theme, [data-keep-theme]) [data-keep-popover-panel="true"] {
     position: fixed;
-    inset-block: auto 0;
-    inset-inline: 0;
-    width: 100%;
-    max-height: min(85vh, 40rem);
     overflow-y: auto;
     border-radius: calc(var(--keep-radius) + 0.5rem) calc(var(--keep-radius) + 0.5rem) 0 0;
     padding: calc(var(--keep-card-padding) * 1.25);
+    padding-bottom: max(calc(var(--keep-card-padding) * 1.25), env(safe-area-inset-bottom));
   }
   :where(.keep-theme, [data-keep-theme]) [data-keep-card-part="actions"] {
     grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));

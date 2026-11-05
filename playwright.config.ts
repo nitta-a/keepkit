@@ -32,13 +32,34 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"], launchOptions: firefoxLaunchOptions() } },
-    { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    { name: "chromium", testIgnore: "demo-mobile.spec.ts", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "firefox",
+      testIgnore: "demo-mobile.spec.ts",
+      use: { ...devices["Desktop Firefox"], launchOptions: firefoxLaunchOptions() },
+    },
+    { name: "webkit", testIgnore: "demo-mobile.spec.ts", use: { ...devices["Desktop Safari"] } },
+    {
+      name: "pixel-7",
+      testMatch: "demo-mobile.spec.ts",
+      use: { ...devices["Pixel 7"], baseURL: "http://127.0.0.1:4280" },
+    },
+    {
+      name: "iphone-13",
+      testMatch: "demo-mobile.spec.ts",
+      use: { ...devices["iPhone 13"], baseURL: "http://127.0.0.1:4280" },
+    },
   ],
-  webServer: {
-    command: "pnpm --filter @keepkit/ui exec vite test/browser/fixture --host 127.0.0.1 --port 4189 --strictPort",
-    url: "http://127.0.0.1:4189",
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: "pnpm --filter @keepkit/ui exec vite test/browser/fixture --host 127.0.0.1 --port 4189 --strictPort",
+      url: "http://127.0.0.1:4189",
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: "pnpm --filter @keepkit/demo dev --host 127.0.0.1 --port 4280 --strictPort",
+      url: "http://127.0.0.1:4280",
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 });

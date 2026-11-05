@@ -24,6 +24,11 @@ for (const size of [
     expect(box.y).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+    if (size.width === 375) {
+      expect(box.x).toBe(0);
+      expect(box.width).toBe(size.width);
+      expect(box.y + box.height).toBe(size.height);
+    }
     await expect(dialog.getByRole("textbox", { name: "Note" })).toBeFocused();
   });
 }

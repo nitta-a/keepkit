@@ -1,9 +1,10 @@
-import { useKeepContext } from "@keepkit/core/react";
+import { useKeepContext, useKeepStore } from "@keepkit/core/react";
 import { useEffect, useState } from "react";
 import { useKeepUiFeedback, useUiLabel } from "../../../foundation/ui-context";
 
 export function useKeepUndo() {
   const context = useKeepContext();
+  const { store } = useKeepStore();
   const emitFeedback = useKeepUiFeedback();
   const restoredMessage = useUiLabel("restoredMessage");
   const { canUndo, startedAt, expiresAt } = context.undo;
@@ -27,9 +28,12 @@ export function useKeepUndo() {
     remainingSeconds,
     progress,
     undo: async () => {
-      const items = context.lastChange?.items ?? (context.lastChange?.item ? [context.lastChange.item] : []);
+      const before = store.getSnapshot().lastChange;
+      const ids = context.undo.ids;
       await context.undoLastRemoval();
-      if (items.length > 0) {
+      const change = store.getSnapshot().lastChange;
+      const items = change?.action === "undo" && change !== before ? (change.items ?? []) : [];
+      if (items.length > 0 && items.length === ids.length && items.every((item) => ids.includes(item.id))) {
         emitFeedback({ type: "item-restored", item: items[0], items, message: restoredMessage });
       }
     },
