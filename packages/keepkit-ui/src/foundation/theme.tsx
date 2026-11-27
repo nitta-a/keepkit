@@ -6,7 +6,11 @@ import {
   isValidElement,
   type ReactElement,
   type ReactNode,
+  type RefObject,
   useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
 } from "react";
 import { createSlot } from "./shared";
 
@@ -24,7 +28,7 @@ export const keepThemeNames = [
 ] as const;
 
 export type KeepThemeName = (typeof keepThemeNames)[number];
-export type KeepThemeMode = "light" | "dark" | "system";
+export type KeepThemeMode = "light" | "dark" | "system" | "inherit";
 export type KeepThemeDensity = "compact" | "comfortable" | "spacious";
 export type KeepThemeRadius = "none" | "small" | "medium" | "large" | "full";
 
@@ -44,6 +48,7 @@ export type KeepThemeProviderProps = {
   [key: `data-${string}`]: string | undefined;
   theme?: KeepThemeName;
   mode?: KeepThemeMode;
+  hostColorFormat?: "color" | "hsl-channels";
   density?: KeepThemeDensity;
   radius?: KeepThemeRadius;
   accentColor?: "blue" | "green" | "violet" | "orange" | "rose" | (string & {});
@@ -56,9 +61,19 @@ export type KeepThemeProviderProps = {
 
 export type KeepThemeContextValue = Pick<
   KeepThemeProviderProps,
-  "theme" | "mode" | "density" | "radius" | "accentColor" | "highContrast" | "reducedMotion" | "variables" | "style"
+  | "theme"
+  | "mode"
+  | "hostColorFormat"
+  | "density"
+  | "radius"
+  | "accentColor"
+  | "highContrast"
+  | "reducedMotion"
+  | "variables"
+  | "style"
 >;
 const KeepThemeContext = createContext<KeepThemeContextValue>({});
+const ThemeElementContext = createContext<RefObject<HTMLElement | null> | null>(null);
 export function useKeepTheme(): KeepThemeContextValue {
   return useContext(KeepThemeContext);
 }
@@ -67,7 +82,8 @@ export function useKeepTheme(): KeepThemeContextValue {
 export function KeepThemeProvider({
   children,
   theme = "default",
-  mode = "system",
+  mode = "inherit",
+  hostColorFormat = "color",
   density = "comfortable",
   radius = "medium",
   accentColor,
@@ -79,6 +95,7 @@ export function KeepThemeProvider({
   asChild = false,
   ...props
 }: KeepThemeProviderProps) {
+  const elementRef = useRef<HTMLDivElement>(null);
   const themeClassName = [
     "keep-theme",
     `keep-theme--${theme}`,
@@ -91,16 +108,18 @@ export function KeepThemeProvider({
     .join(" ");
   const themeStyle = {
     ...style,
-    ...(accentColor && !highContrast ? { "--keep-accent": accentColor, "--keep-primary": accentColor } : {}),
+    ...(accentColor && !highContrast ? { "--keep-primary": accentColor } : {}),
     ...variables,
   } as CSSProperties & KeepThemeVariables;
   const rootProps = {
     ...props,
+    ref: elementRef,
     className: themeClassName,
     style: themeStyle,
     "data-keep-theme": theme,
     "data-theme": theme,
     "data-mode": mode,
+    "data-host-color-format": hostColorFormat,
     "data-density": density,
     "data-radius": radius,
     "data-accent-color": accentColor,
@@ -119,9 +138,62 @@ export function KeepThemeProvider({
   );
   return (
     <KeepThemeContext.Provider
-      value={{ theme, mode, density, radius, accentColor, highContrast, reducedMotion, variables, style }}
+      value={{
+        theme,
+        mode,
+        hostColorFormat,
+        density,
+        radius,
+        accentColor,
+        highContrast,
+        reducedMotion,
+        variables,
+        style,
+      }}
     >
-      {content}
+      <ThemeElementContext.Provider value={elementRef}>{content}</ThemeElementContext.Provider>
     </KeepThemeContext.Provider>
+  );
+}
+
+/** A portal outside the host subtree cannot inherit its resolved CSS variables. */
+export function KeepPortalTheme({
+  children,
+  sourceRef,
+}: {
+  children: ReactNode;
+  sourceRef?: RefObject<HTMLElement | null>;
+}) {
+  const theme = useKeepTheme();
+  const themeRef = useContext(ThemeElementContext);
+  const [tokens, setTokens] = useState<KeepThemeVariables>();
+  useLayoutEffect(() => {
+    const source = sourceRef?.current ?? themeRef?.current;
+    if (!source) return;
+    const sync = () => {
+      const computed = getComputedStyle(source);
+      const resolved: KeepThemeVariables = {};
+      for (let index = 0; index < computed.length; index++) {
+        const name = computed.item(index);
+        if (name.startsWith("--keep-")) resolved[name as `--keep-${string}`] = computed.getPropertyValue(name);
+      }
+      setTokens(resolved);
+    };
+    sync();
+    const observer = new MutationObserver(sync);
+    for (let element: Element | null = source; element; element = element.parentElement) {
+      observer.observe(element, { attributes: true });
+    }
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    media?.addEventListener?.("change", sync);
+    return () => {
+      media?.removeEventListener?.("change", sync);
+      observer.disconnect();
+    };
+  }, [sourceRef, themeRef]);
+  return (
+    <KeepThemeProvider {...theme} variables={{ ...theme.variables, ...tokens }}>
+      {children}
+    </KeepThemeProvider>
   );
 }

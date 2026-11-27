@@ -10,9 +10,7 @@ import type {
 } from "@keepkit/core/core";
 import {
   type CreateKeepKitOptions as CoreCreateKeepKitOptions,
-  KeepProvider as CoreKeepProvider,
   createKeepKit as createCoreKeepKit,
-  type KeepProviderProps,
   type KeepShortcutOptions,
   type UseKeepCollectionsResult,
   type UseKeepNavigatorOptions,
@@ -100,7 +98,6 @@ import {
   useKeepToastFeedback,
 } from "./features/feedback/useKeepToastFeedback";
 import {
-  type KeepActivityKind,
   type KeepImageProps,
   KeepItemCard,
   type KeepItemCardActionSlotProps,
@@ -114,20 +111,18 @@ import {
   type KeepItemCardProps,
   type KeepItemCardRemoveProps,
   type KeepItemCardSaveProps,
-  KeepItemCardSkeleton,
-  type KeepItemCardSkeletonProps,
   type KeepItemCardState,
   type KeepItemCardTagsProps,
   type KeepItemCardTitleProps,
   type KeepItemCardVariant,
-  KeepLastActivity,
-  type KeepLastActivityProps,
 } from "./features/item/KeepItemCard";
+import { KeepItemCardSkeleton, type KeepItemCardSkeletonProps } from "./features/item/KeepItemCardSkeleton";
 import {
   type KeepDisplayStatus,
   KeepItemStatusBadge,
   type KeepItemStatusBadgeProps,
 } from "./features/item/KeepItemStatusBadge";
+import { type KeepActivityKind, KeepLastActivity, type KeepLastActivityProps } from "./features/item/KeepLastActivity";
 import { KeepFloatingTour, type KeepFloatingTourProps } from "./features/navigation/KeepFloatingTour";
 import { KeepShortcutHint, type KeepShortcutHintProps } from "./features/navigation/KeepShortcutHint";
 import { KeepNavigator, KeepTourBar, type KeepTourBarProps } from "./features/navigation/KeepTourBar";
@@ -195,7 +190,6 @@ import {
   type KeepStatusState,
   type KeepStatusValue,
 } from "./features/status/status";
-import { KeepSyncFeedbackObserver } from "./features/sync/KeepSyncFeedbackObserver";
 import { KeepSyncRecoveryDialog, type KeepSyncRecoveryDialogProps } from "./features/sync/KeepSyncRecoveryDialog";
 import { KeepSyncStatusBanner, type KeepSyncStatusBannerProps } from "./features/sync/KeepSyncStatusBanner";
 import {
@@ -209,6 +203,7 @@ import {
   type KeepWorkspaceState,
   type KeepWorkspaceSurface,
 } from "./features/workspace/KeepWorkspace";
+import { KeepKitProvider, type KeepKitProviderProps } from "./foundation/KeepKitProvider";
 import {
   type KeepThemeDensity,
   type KeepThemeMode,
@@ -234,69 +229,6 @@ import {
   useKeepUiLabels,
   useUiLabelVisibility,
 } from "./foundation/ui-context";
-
-export type { KeepTourShortcutsOptions } from "./features/navigation/hooks/useKeepTourShortcuts";
-export { useKeepTourShortcuts } from "./features/navigation/hooks/useKeepTourShortcuts";
-
-export type KeepKitProviderProps<TMeta = Record<string, unknown>> = Omit<KeepProviderProps<TMeta>, "children"> &
-  Omit<KeepUiProviderProps<TMeta>, "children"> &
-  Omit<KeepThemeProviderProps, "children"> & {
-    children?: ReactNode;
-    tour?: Omit<KeepTourProviderProps<TMeta>, "children">;
-  };
-
-/** Combines the core store, UI labels, and the global live announcer. */
-export function KeepKitProvider<TMeta = Record<string, unknown>>({
-  labels,
-  labelOptions,
-  locale,
-  labelResolver,
-  onFeedback,
-  theme,
-  mode,
-  density,
-  radius,
-  accentColor,
-  highContrast,
-  reducedMotion,
-  variables,
-  className: themeClassName,
-  style: themeStyle,
-  asChild: themeAsChild,
-  tour,
-  children,
-  ...providerProps
-}: KeepKitProviderProps<TMeta>) {
-  return (
-    <KeepUiProvider<TMeta>
-      labels={labels}
-      labelOptions={labelOptions}
-      locale={locale}
-      labelResolver={labelResolver}
-      onFeedback={onFeedback}
-    >
-      <KeepThemeProvider
-        theme={theme}
-        mode={mode}
-        density={density}
-        radius={radius}
-        accentColor={accentColor}
-        highContrast={highContrast}
-        reducedMotion={reducedMotion}
-        variables={variables}
-        className={themeClassName}
-        style={themeStyle}
-        asChild={themeAsChild}
-      >
-        <CoreKeepProvider<TMeta> {...providerProps}>
-          <KeepSyncFeedbackObserver />
-          <KeepTourProvider<TMeta> {...tour}>{children}</KeepTourProvider>
-          <KeepAnnouncements />
-        </CoreKeepProvider>
-      </KeepThemeProvider>
-    </KeepUiProvider>
-  );
-}
 
 export type {
   AuthenticatedSyncAuthContext,
@@ -344,6 +276,9 @@ export {
 } from "@keepkit/core/storage";
 export type { KeepSelectionScope } from "./features/actions/KeepBulkActions";
 export { isAllSelected, toggleSelectAll } from "./features/actions/KeepBulkActions";
+export type { KeepSavePopoverPanelContext } from "./features/actions/KeepSavePopover";
+export type { KeepTourShortcutsOptions } from "./features/navigation/hooks/useKeepTourShortcuts";
+export { useKeepTourShortcuts } from "./features/navigation/hooks/useKeepTourShortcuts";
 export type { KeepEmptyStateVariant } from "./features/status/KeepEmptyState";
 export type { KeepHighlightProps, RenderProp } from "./foundation/shared";
 export {
@@ -354,6 +289,7 @@ export {
   KeepHighlight,
   mergeProps,
 } from "./foundation/shared";
+export type { KeepUiIcons } from "./foundation/ui-context";
 export type {
   KeepActiveFiltersSummaryProps,
   KeepActiveFiltersSummaryState,
@@ -510,6 +446,8 @@ export {
   KeepItemCardSkeleton,
   KeepItemCheckbox,
   KeepItemStatusBadge,
+  KeepKitProvider,
+  type KeepKitProviderProps,
   KeepLastActivity,
   KeepLayout,
   KeepList,
@@ -554,6 +492,7 @@ export type CreateKeepKitOptions<TMeta = Record<string, unknown>> = CoreCreateKe
   Omit<KeepUiProviderProps<TMeta>, "children"> & {
     theme?: KeepThemeName;
     mode?: KeepThemeMode;
+    hostColorFormat?: KeepThemeProviderProps["hostColorFormat"];
     density?: KeepThemeDensity;
     radius?: KeepThemeRadius;
     accentColor?: KeepThemeProviderProps["accentColor"];
@@ -595,6 +534,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
   options: CreateKeepKitOptions<TMeta> = {},
 ): KeepKit<TMeta> {
   const {
+    icons,
     labels,
     labelOptions,
     locale,
@@ -602,6 +542,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     onFeedback,
     theme,
     mode,
+    hostColorFormat,
     density,
     radius,
     accentColor,
@@ -620,6 +561,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
     Provider: (props) => (
       <KeepKitProvider<TMeta>
         {...coreOptions}
+        icons={icons}
         labels={labels}
         labelOptions={labelOptions}
         locale={locale}
@@ -627,6 +569,7 @@ export function createKeepKit<TMeta = Record<string, unknown>>(
         onFeedback={onFeedback}
         theme={theme}
         mode={mode}
+        hostColorFormat={hostColorFormat}
         density={density}
         radius={radius}
         accentColor={accentColor}

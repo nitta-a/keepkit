@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { bundleUiConsumer } from "../../../scripts/bundle-ui-consumer.mts";
 import {
   collectExportFiles,
   createConsumer,
@@ -16,7 +17,7 @@ import {
 
 const uiExports = ["KeepButton", "KeepCollection", "KeepItemCard", "KeepKitProvider", "createKeepKit"];
 
-/** The public JavaScript surface consumers rely on. Every exported JS entry point must be listed here. */
+/** Non-component entry points. Each Keep* component in the UI root must also have its own path. */
 const expectedEntryPoints: Record<string, string[]> = {
   "@keepkit/core/core": [
     "KeepSyncAuthError",
@@ -70,6 +71,7 @@ describe("published packages in consumer projects", () => {
   let packed = new Map<string, PackedPackage>();
   let reactApp = "";
   let nodeService = "";
+  let components: string[] = [];
 
   before(async () => {
     // Resolved module URLs are canonical, so compare them against a canonical workspace path (macOS /var -> /private/var).
@@ -79,6 +81,9 @@ describe("published packages in consumer projects", () => {
     packed = await packPublishablePackages(tarballs);
     const packages = [...packed.values()];
     reactApp = await createConsumer(workspace, "react-app", { packages, links: reactLinks });
+    const root = await probe(reactApp, { imports: ["@keepkit/ui"] });
+    components = root.imported[0]?.exports?.filter((name) => /^Keep[A-Z]/.test(name)) ?? [];
+    assert.ok(components.includes("KeepButton"), "UI root failed to load its components");
     nodeService = await createConsumer(workspace, "node-service", {
       packages: [getPacked("@keepkit/core")],
       links: [],
@@ -128,22 +133,57 @@ describe("published packages in consumer projects", () => {
   });
 
   test("every JavaScript entry point loads with its documented exports", async () => {
+    const componentEntries = Object.fromEntries(components.map((name) => [componentSpecifier(name), [name]]));
+    const expected = { ...expectedEntryPoints, ...componentEntries };
     const jsSpecifiers = [...packed.values()].flatMap(({ name, manifest }) =>
       Object.entries(manifest.exports ?? {})
         .filter(([, target]) => collectExportFiles(target).some((file) => file.endsWith(".js")))
         .map(([key]) => toSpecifier(name, key)),
     );
-    assert.deepEqual(jsSpecifiers.sort(), Object.keys(expectedEntryPoints).sort(), "exports map changed");
+    assert.deepEqual(jsSpecifiers.sort(), Object.keys(expected).sort(), "exports map changed");
 
     const { imported } = await probe(reactApp, { imports: jsSpecifiers });
     for (const { specifier, exports, error } of imported) {
       assert.equal(error, undefined, `${specifier} failed to load`);
-      const missing = (expectedEntryPoints[specifier] ?? []).filter((name) => !exports?.includes(name));
+      if (specifier in componentEntries) assert.deepEqual(exports, componentEntries[specifier], specifier);
+      const missing = expected[specifier].filter((name) => !exports?.includes(name));
       assert.deepEqual(missing, [], `${specifier} is missing exports`);
     }
     const uiRoot = imported.find(({ specifier }) => specifier === "@keepkit/ui");
     const uiReact = imported.find(({ specifier }) => specifier === "@keepkit/ui/react");
     assert.deepEqual(uiReact?.exports, uiRoot?.exports, "@keepkit/ui/react must alias the package root");
+  });
+
+  test("component client entries bundle independently of the root and button excludes unrelated features", async () => {
+    const manifest = getPacked("@keepkit/ui").manifest;
+    const packageRoot = join(reactApp, "node_modules", "@keepkit", "ui");
+    for (const name of components) {
+      const specifier = componentSpecifier(name);
+      const target = manifest.exports?.[specifier.replace("@keepkit/ui", ".")];
+      assert.ok(target && typeof target === "object");
+      assert.equal(typeof target.types, "string");
+      assert.ok(typeof target.import === "string");
+      assert.match(await readFile(join(packageRoot, target.import), "utf8"), /^["']use client["'];/, specifier);
+
+      const { metafile } = await bundleUiConsumer(reactApp, specifier, name);
+      const inputs = Object.keys(metafile.inputs);
+      assert.ok(!inputs.some((input) => input.endsWith("@keepkit/ui/dist/index.js")), specifier);
+      if (name !== "KeepButton" && name !== "KeepItemCardSkeleton" && name !== "KeepLastActivity") continue;
+
+      // Shared chunk names are hashed. Inspect their published maps to identify the actual source modules.
+      const sources: string[] = [];
+      for (const input of inputs.filter((path) => path.endsWith(".js"))) {
+        const map: { sources: string[] } = JSON.parse(await readFile(join(reactApp, `${input}.map`), "utf8"));
+        sources.push(...map.sources);
+      }
+      const module = name === "KeepButton" ? "actions/KeepButton" : `item/${name}`;
+      assert.ok(sources.some((path) => path.endsWith(`/features/${module}.tsx`)));
+      assert.ok(!sources.some((path) => path.endsWith("/features/item/KeepItemCard.tsx")), specifier);
+      assert.deepEqual(
+        sources.filter((path) => /\/features\/(collection|workspace|sync|editor)\//.test(path)),
+        [],
+      );
+    }
   });
 
   test("build internals and the core package root stay private", async () => {
@@ -196,6 +236,7 @@ describe("published packages in consumer projects", () => {
     assert.equal(count(core, 'aria-pressed="true"'), 1, core);
     assert.equal(count(core, 'aria-pressed="false"'), 1, core);
     assert.match(ui, /aria-pressed="true"/, "a core KeepButton must read the UI provider's store");
+    assert.match(ui, /Packed label/, "subpath components must read the same UI label context");
     assert.match(ui, /data-keepkit="collection"/);
     assert.equal(stderr, "", "server rendering must not log warnings");
   });
@@ -230,4 +271,12 @@ async function readCssImportGraph(entry: string, visited = new Set<string>()): P
 
 function count(text: string, fragment: string): number {
   return text.split(fragment).length - 1;
+}
+
+function componentSpecifier(name: string): string {
+  const slug = name
+    .slice(4)
+    .replace(/([a-z])([A-Z])/g, "$1-$2")
+    .toLowerCase();
+  return `@keepkit/ui/${slug}`;
 }

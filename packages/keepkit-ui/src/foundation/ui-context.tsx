@@ -1,9 +1,10 @@
 "use client";
 
-import type { KeepItem } from "@keepkit/core/core";
+import type { KeepItem, KeepItemStatus } from "@keepkit/core/core";
 import { createContext, type ReactNode, useCallback, useContext, useMemo } from "react";
 import { getKeepLocaleLabels, KEEP_LOCALE_LABELS, normalizeKeepLocale } from "../locales";
 import type { KeepUiLabelKey, KeepUiLabelOptionsMap, KeepUiLabels, KeepUiLocaleLabels } from "../locales/types";
+import type { KeepButtonIcon, KeepButtonIcons } from "./shared";
 
 export type { KeepUiLocale } from "../locales";
 export type {
@@ -14,7 +15,14 @@ export type {
   KeepUiLocaleLabels,
 } from "../locales/types";
 
+/** Optional decorative replacements. Unspecified slots keep their built-in visuals. */
+export type KeepUiIcons = KeepButtonIcons & {
+  collection?: KeepButtonIcon;
+  status?: Partial<Record<KeepItemStatus | "restricted", KeepButtonIcon>>;
+};
+
 export type KeepUiLabelContext = {
+  icons?: KeepUiIcons;
   locale?: string;
   labels: Readonly<Record<KeepUiLabelKey, string>>;
   labelVisibility?: Readonly<Partial<Record<KeepUiLabelKey, boolean>>>;
@@ -52,6 +60,7 @@ const KeepUiLabelsContext = createContext<KeepUiLabelContext>({
 });
 
 export type KeepUiProviderProps<TMeta = Record<string, unknown>> = {
+  icons?: KeepUiIcons;
   labels?: KeepUiLabels;
   labelOptions?: KeepUiLabelOptionsMap;
   locale?: string;
@@ -60,8 +69,9 @@ export type KeepUiProviderProps<TMeta = Record<string, unknown>> = {
   children?: ReactNode;
 };
 
-/** Provides one complete locale-aware label source to every UI primitive. */
+/** Provides localized labels, decorative icons, and feedback to UI primitives. */
 export function KeepUiProvider<TMeta = Record<string, unknown>>({
+  icons,
   labels,
   labelOptions,
   locale,
@@ -87,6 +97,7 @@ export function KeepUiProvider<TMeta = Record<string, unknown>>({
       labelVisibility[key] = labelOptions?.[key]?.visible !== false;
     }
     return {
+      icons,
       locale: locale ?? resolvedLocale,
       labels: resolved,
       labelVisibility,
@@ -95,12 +106,16 @@ export function KeepUiProvider<TMeta = Record<string, unknown>>({
       labelResolver,
       emitFeedback,
     };
-  }, [emitFeedback, labelOptions, labelResolver, labels, locale]);
+  }, [emitFeedback, icons, labelOptions, labelResolver, labels, locale]);
   return <KeepUiLabelsContext.Provider value={value}>{children}</KeepUiLabelsContext.Provider>;
 }
 
 export function useKeepUiLabels(): KeepUiLabelContext {
   return useContext(KeepUiLabelsContext);
+}
+
+export function useKeepUiIcons(): KeepUiIcons | undefined {
+  return useKeepUiLabels().icons;
 }
 
 export function useUiLabel(key: KeepUiLabelKey, override?: string): string {

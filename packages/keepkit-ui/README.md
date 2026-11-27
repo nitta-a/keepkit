@@ -2,12 +2,22 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.17
+Release: v0.28.18
 
 ## 日本語
 
 KeepKitのReact向けUIパッケージです。`@keepkit/core`を含み、保存ボタンと一覧を共通のProviderで利用できます。
 CSSは任意で、標準テーマでも独自のスタイルでも使えます。React 18以降に対応します。
+
+一覧を使わずに保存ボタンだけを追加する場合は、部品の入口を直接importできます。CSSも必要なものだけを読み込みます。コンポーネントは通常どおり同じProviderの中に置いてください。
+
+```tsx
+import { KeepButton } from "@keepkit/ui/button";
+import "@keepkit/ui/styles/base.css";
+import "@keepkit/ui/styles/button.css";
+```
+
+[全公開UI部品の入口とgzipサイズ](#component-bundle-sizes)は、部品を1つ使う場合に転送するUIのJS量を比較するための表です。npmで展開したパッケージ全体の容量とは異なります。
 
 ### はじめる
 
@@ -124,6 +134,14 @@ import { KeepArchiveUndo, KeepCollection, KeepProvider } from "@keepkit/ui";
 
 独自の行には`KeepListSelection`（`selectedIds: readonly string[]`、`onSelectedIdsChange`、任意の`disabled`）を`KeepList.selection`に渡せます。`KeepList`と`KeepCollection`の`renderItem(item, state, selection?)`の第三引数は`KeepItemSelection`（`checked`、`onCheckedChange`、任意の`disabled`）で、`KeepItemCheckbox`にそのまま渡せます。従来の二引数コールバックも使用できます。
 
+**行を差し替えたときの契約**（[実装例 / examples](#custom-row-examples)）：
+
+- 通常の一覧では、`renderItem` が `ul` の直接の子を返すため、`<li key={item.id}>` を用意します。組み込みの並べ替えが有効な場合に限り、外側の `li` とドラッグハンドルはKeepKitが描画するので、中身だけを返します。
+- 矢印キー・Home・Endで移動させるには、各行に1つ `data-keepkit="card"` を付け、ホスト部品から実DOMへ渡します。`tabIndex` は一覧が管理します。キー操作はカード自身にフォーカスがあるときだけ有効で、内部の入力欄からは移動しません。カード上の `aria-hidden="true"` または `data-roving-disabled="true"` は対象外です。
+- 標準カードへのフラグメントリンクも維持する場合は `id={'saved-item-' + encodeURIComponent(item.id)}` を指定します。このIDは矢印キー移動には不要です。
+- 状態表示や操作は自動では追加されません。`KeepItemStatusBadge` と `KeepItemCheckbox` は単体利用可、`KeepItemCard.Remove` と `KeepItemCard.Link` はカード内専用です。単体の `KeepButton` は保存と解除を切り替えるトグルです。状態バッジはリンクを無効化しないため、独自行では利用不能な項目をリンクにしないでください。
+- 標準の `KeepItemCard` でも開封記録は任意です（`href` と `trackOpen`）。独自リンクでは開いたときだけ `useKeepItem(item).recordOpen()` を呼びます。マウント・フォーカス・選択・解除では呼ばず、`trackOpen` と併用しません。
+
 `KeepBulkActions`と`KeepCollection`の`confirmRemoval`は既定falseです。`confirmRemoval`を渡すと削除前に件数と確定・取消を表示します。確認開始時の全選択ID（ページ外も含む）を固定し、選択・scope・検索条件の変更で取り消します。失敗時は再試行でき、成功後は既存のUndoで復元できます。render-propsには`removalConfirmation`、`requestRemoval()`、`confirmRemoval()`、`cancelRemoval()`を公開します。
 
 ```tsx
@@ -168,6 +186,10 @@ function RecoveryScreen() {
 `KeepSavePopover`の編集パネルは、最も近い開いている`dialog`内、または`document.body`に表示されます。独自モーダルでは`portalContainer`にモーダルのコンテンツ要素を指定してください。
 `KeepItemCard`の`Link` / `Media` / `Content` / `Title` / `Tags` / `Actions`でカードの一部だけを組み替えることもできます。
 
+`KeepUiProvider`、`KeepKitProvider`、`createKeepKit` の `icons` で、保存（`save`）、保存済み（`saved`）、解除（`remove`）、処理中（`loading`）、失敗（`error`）、コレクション（`collection`）、状態別バッジ（`status`）をまとめて指定できます。ボタンに指定したアイコンが優先され、指定のない状態は従来の表示に戻ります。保存済みトグルには解除操作のアイコンを優先します。アイコンは装飾用で、ラベルと読み上げ名は別に維持されます。
+
+標準パネルは `32rem` 以下で画面下端に表示されます。自分のDrawerやDialogを使う場合は [ホストパネルの例](#host-panel-example) のように `renderPanel` で `content` を一度だけ配置します。コレクション選択に加えて作成も必要なら `allowCreateCollection` を指定します。Escape・背景クリック・閉じる操作はすべて `requestClose()` に渡し、ホスト側で先にアンマウントしないでください。保存失敗時は開いたまま下書きを残します。ホストはフォーカスの制御と `triggerRef` への復帰を担当します。
+
 ### サイトのナビゲーションから一覧を開く
 
 共通レイアウトにProviderを一つ置き、ヘッダーやモバイルナビゲーションから保存一覧のURLへリンクします。保存通知からも同じURLに移動できます。ルーティングには利用側のRouterを使用してください。
@@ -198,8 +220,10 @@ function Site() {
 @import "@keepkit/ui/tailwind.css";
 ```
 
-Providerの`theme="ocean"`や`mode="light" | "dark" | "system"`、`density`、`radius`で見た目を調整できます。
-`--keep-*`変数で上書きでき、Tailwind連携ではホストの色変数を継承します。
+標準CSSでもTailwind連携でも、既定では `--color-primary` など**完成した色**だけを取り込みます。
+shadcn v3のように `--primary: 348 84% 44%` と定義する場合は `<KeepKitProvider hostColorFormat="hsl-channels">` を指定します。この形式のときだけ `hsl(var(--primary))` として読み、未定義の色はKeepKitの配色に戻ります。アプリの `--primary` を書き換える必要はありません。
+
+モードの既定は `inherit`：テーマ要素か祖先に `.dark` があればダーク、なければ端末設定にかかわらずライトです。ダーク未対応のアプリで明示的に固定するなら `mode="light"`、端末設定に追従するなら `mode="system"` を指定します。これはKeepKitの既定色を切り替えるもので、ホストが渡す色自体を反転する指定ではありません。`theme="ocean"` などのプリセット、`density`、`radius`、`variables` も使えます。主色を変える場合はテーマ要素の `--keep-primary` を指定すると、アクセントとそれを使う混色・影にも反映されます。
 
 操作はキーボード・ARIAラベル・状態通知に対応します。`data-state`、`data-loading`、`data-disabled`は独自CSSでも利用できます。
 カード一覧は矢印キー・Home・Endで移動でき、`trackOpen`を指定したカードでのみ開封を記録します。
@@ -227,6 +251,8 @@ React UI for KeepKit, including `@keepkit/core`, with a shared provider for save
 CSS is optional: use the supplied theme or your own styles. Requires React 18 or later.
 
 ### Getting started
+
+If you only use a button, import `KeepButton` from `@keepkit/ui/button` and optionally `@keepkit/ui/styles/base.css` plus `@keepkit/ui/styles/button.css`. Use the same provider as for root imports. The [full component import and size table](#component-bundle-sizes) measures the gzip-compressed UI JavaScript for single-component consumers, **not** the npm unpacked size.
 
 ```bash
 pnpm add @keepkit/ui
@@ -341,6 +367,45 @@ import { KeepArchiveUndo, KeepCollection, KeepProvider } from "@keepkit/ui";
 
 For custom rows, pass `KeepListSelection` (`selectedIds: readonly string[]`, `onSelectedIdsChange`, optional `disabled`) to `KeepList.selection`. The third argument of `KeepList` and `KeepCollection`'s `renderItem(item, state, selection?)` is `KeepItemSelection` (`checked`, `onCheckedChange`, optional `disabled`), ready to spread onto `KeepItemCheckbox`. Existing two-argument callbacks still work.
 
+#### Custom row examples
+
+Return a keyed `li` for the normal list. When built-in reordering is active, KeepKit supplies the `li` and drag handle; return just the row contents. The simplest way to retain card behavior is to compose its parts:
+
+```tsx
+<KeepList<ArticleMeta> renderItem={(item, _state, selection) => (
+  <li key={item.id}>
+    <KeepItemCard item={item} href={item.meta.url} trackOpen>
+      <KeepItemCard.Link>{item.meta.title}</KeepItemCard.Link>
+      <KeepItemStatusBadge status={item.status} />
+      {selection && <KeepItemCheckbox item={item} {...selection} />}
+      <KeepItemCard.Remove />
+    </KeepItemCard>
+  </li>
+)} />
+```
+
+For a host-owned row, forward `data-keepkit="card"` to **one DOM element per row**. The list manages its `tabIndex`; arrows, Home and End move focus only when the card itself is focused, not from a nested input. `aria-hidden="true"` or `data-roving-disabled="true"` on the card excludes it. Neither badges nor open tracking are injected:
+
+```tsx
+function ArticleRow({ item }: { item: KeepItem<ArticleMeta> }) {
+  const { recordOpen } = useKeepItem(item);
+  const available = item.status === undefined || item.status === "available";
+  return (
+    <li data-keepkit="card" id={`saved-item-${encodeURIComponent(item.id)}`}>
+      {available ? (
+        <a href={item.meta.url} onClick={() => void recordOpen().catch(reportError)}>{item.meta.title}</a>
+      ) : <span>{item.meta.title}</span>}
+      <KeepItemStatusBadge status={item.status} />
+      <KeepButton item={item} />
+    </li>
+  );
+}
+
+<KeepCollection<ArticleMeta> renderItem={(item) => <ArticleRow key={item.id} item={item} />} />
+```
+
+The example's `id` preserves standard card fragment links; roving focus does not require it. `KeepItemStatusBadge` and `KeepItemCheckbox` work outside a card; `KeepItemCard.Link` and `.Remove` require a card ancestor. `KeepButton` is a standalone save/remove toggle, not a remove-only action. A badge does not disable a host link. Only record an actual open: `trackOpen` defaults to `false`, and combining it with a manual `recordOpen()` would record twice. Mounting, moving focus, selecting or removing should not count as opening.
+
 `KeepBulkActions` and `KeepCollection` default `confirmRemoval` to false. Enable it to show the count and confirm/cancel controls before removal. Confirmation freezes all selected IDs, including selections outside the page, and cancels when selection, scope, or query changes. Failures can be retried; successful removal retains existing Undo. Render props expose `removalConfirmation`, `requestRemoval()`, `confirmRemoval()`, and `cancelRemoval()`.
 
 ```tsx
@@ -406,6 +471,42 @@ To use an existing drawer, place `keep.Collection` inside it under the same prov
 
 `KeepSavePopover` renders its editor in the nearest open native `dialog`, or in `document.body` otherwise. For a custom modal with a focus trap, pass its content element as `portalContainer` so the editor remains inside the modal.
 
+Set `icons` on `KeepUiProvider`, `KeepKitProvider` or `createKeepKit` to share decorative icons. Set only the slots you need:
+
+```tsx
+<KeepUiProvider icons={{ save: Bookmark, saved: BookmarkFilled, collection: Folder, status: { expired: Clock } }}>
+  {children}
+</KeepUiProvider>
+```
+
+`remove`, `loading` and `error` are also supported. A saved toggle prefers local `remove`, local `saved`, provider `remove`, then provider `saved`. Missing slots retain built-in visuals. `status` accepts an individual item status or a normalized fallback such as `restricted`. Accessible action and status names remain separate from the icons.
+
+#### Host panel example
+
+The standard panel docks to the bottom at `32rem` and narrower. To use your own sheet or dialog instead, render the editor `content` once in a **controlled** host shell. `Drawer` / `DrawerContent` below are host components; adapt their focus and dismissal APIs to your library:
+
+```tsx
+<KeepSavePopover
+  item={article}
+  allowCreateCollection
+  editorProps={{ features: { title: false, note: false, tags: false, collection: true } }}
+  renderPanel={({ panelId, dialogLabel, content, requestClose, triggerRef }) => (
+    <Drawer open onOpenChange={(open) => { if (!open) void requestClose(); }}>
+      <DrawerContent
+        id={panelId}
+        aria-label={dialogLabel}
+        onCloseAutoFocus={(event) => { event.preventDefault(); triggerRef.current?.focus(); }}
+      >
+        {content}
+        <button type="button" onClick={() => void requestClose()}>Done</button>
+      </DrawerContent>
+    </Drawer>
+  )}
+/>
+```
+
+Only a successful save from this trigger opens the shell automatically. `allowCreateCollection` adds a creation form beside the editor and selects the new collection. The host owns positioning, initial focus, trapping and restoration. Route Escape, outside dismissal and Done through `requestClose()` rather than unmounting immediately: it waits for pending edits and returns `false` on failure, leaving the draft and error visible.
+
 ### Theme and accessibility
 
 Import `@keepkit/ui/theme.css` for the standard theme. For Tailwind CSS v4 or shadcn, add these global CSS imports:
@@ -415,8 +516,9 @@ Import `@keepkit/ui/theme.css` for the standard theme. For Tailwind CSS v4 or sh
 @import "@keepkit/ui/tailwind.css";
 ```
 
-Configure the provider with `theme="ocean"`, `mode="light" | "dark" | "system"`, `density`, and `radius`.
-Override `--keep-*` variables as needed; the Tailwind integration inherits host color variables.
+With either stylesheet, the default bridge reads **complete colors** such as `--color-primary`. For shadcn v3 channel lists such as `--primary: 348 84% 44%`, use `<KeepKitProvider hostColorFormat="hsl-channels">`. Only this format wraps the values in `hsl(...)`; missing tokens use KeepKit's palette. The host's `--primary` need not change.
+
+The default mode is `inherit`: the theme element or an ancestor with `.dark` selects dark; otherwise KeepKit stays light regardless of OS settings. Set `mode="light"` explicitly in a light-only app, or `mode="system"` for OS-driven colors. Modes select KeepKit's fallback palette; they don't invert colors supplied by the host. Use presets such as `theme="ocean"`, `density`, `radius`, or `variables` as before. Override `--keep-primary` on the theme element to update the accent and the mixes and shadows that depend on it.
 
 Controls support keyboard interaction, ARIA labels, and live announcements. Use `data-state`, `data-loading`, and `data-disabled` in custom CSS.
 Card lists support arrow keys, Home, and End. Cards record opens only when `trackOpen` is enabled.
@@ -428,3 +530,92 @@ Backups include saved items, collection definitions, and memberships; history, v
 **Replace imports overwrite existing data and do not roll back.**
 
 See the [Core README](../keepkit/README.md) for persistence contracts and the [repository README](../../README.md) for demos and Next.js examples.
+
+## Component bundle sizes
+
+各行は、該当部品1つだけをimportしたときのUIのJS転送量です。ビルド済みパッケージの公開入口をesbuildでバンドル・ツリーシェイク・minifyし（ブラウザ用ES2020 ESM）、Nodeのgzipレベル9で測定しています。必要な共有コード・言語辞書を含み、React・React DOM・`@keepkit/core`・型宣言・ソースマップは除外します。Coreの部品を再公開する入口は再エクスポート分のみです。各行の合計はアプリのサイズではありません。CSSは任意で、ローカルの `@import` を含めた値を別表にしています。Tailwindはホスト側で処理する前の値です。
+
+Each row represents one isolated consumer import from the **built package**, tree-shaken and minified with esbuild (browser ES2020 ESM), then compressed with Node gzip level 9. Shared UI code and built-in locale dictionaries are included. React (including JSX runtime), React DOM, `@keepkit/core`, source maps and declarations are excluded. Core component entries measure only the re-export. Do not add the rows: multiple components share code. Optional CSS is measured separately, including local `@import` rules and before host Tailwind processing.
+
+Regenerate from the repository root / リポジトリのルートで再生成:
+
+```sh
+pnpm --filter @keepkit/ui... build
+pnpm ui:sizes --write
+```
+
+<!-- sizes:start -->
+
+| Component / コンポーネント | Import / インポート | gzip (bytes) |
+| --- | --- | ---: |
+| `KeepActiveFiltersSummary` | `@keepkit/ui/active-filters-summary` | 33944 |
+| `KeepAnnouncements` | `@keepkit/ui/announcements` | 30923 |
+| `KeepAnnouncer` | `@keepkit/ui/announcer` | 30930 |
+| `KeepArchiveButton` | `@keepkit/ui/archive-button` | 30979 |
+| `KeepArchiveScopeSelect` | `@keepkit/ui/archive-scope-select` | 30870 |
+| `KeepArchiveUndo` | `@keepkit/ui/archive-undo` | 31248 |
+| `KeepBackup` | `@keepkit/ui/backup` | 32582 |
+| `KeepBulkActions` | `@keepkit/ui/bulk-actions` | 34181 |
+| `KeepButton` | `@keepkit/ui/button` | 31921 |
+| `KeepCollection` | `@keepkit/ui/collection` | 56819 |
+| `KeepCollectionCreate` | `@keepkit/ui/collection-create` | 31532 |
+| `KeepCollectionFilter` | `@keepkit/ui/collection-filter` | 31285 |
+| `KeepCollectionManager` | `@keepkit/ui/collection-manager` | 33212 |
+| `KeepCollectionSelect` | `@keepkit/ui/collection-select` | 30956 |
+| `KeepEmptyState` | `@keepkit/ui/empty-state` | 31584 |
+| `KeepErrorBoundary` | `@keepkit/ui/error-boundary` | 88 |
+| `KeepFallbackRecovery` | `@keepkit/ui/fallback-recovery` | 32697 |
+| `KeepFloatingTour` | `@keepkit/ui/floating-tour` | 35031 |
+| `KeepHighlight` | `@keepkit/ui/highlight` | 493 |
+| `KeepInbox` | `@keepkit/ui/inbox` | 56911 |
+| `KeepItemCard` | `@keepkit/ui/item-card` | 40441 |
+| `KeepItemCardSkeleton` | `@keepkit/ui/item-card-skeleton` | 239 |
+| `KeepItemCheckbox` | `@keepkit/ui/item-checkbox` | 366 |
+| `KeepItemStatusBadge` | `@keepkit/ui/item-status-badge` | 31466 |
+| `KeepKitProvider` | `@keepkit/ui/kit-provider` | 34021 |
+| `KeepLastActivity` | `@keepkit/ui/last-activity` | 31073 |
+| `KeepLayout` | `@keepkit/ui/layout` | 833 |
+| `KeepList` | `@keepkit/ui/list` | 43934 |
+| `KeepNavigator` | `@keepkit/ui/navigator` | 33084 |
+| `KeepNoteEditor` | `@keepkit/ui/note-editor` | 32683 |
+| `KeepPagination` | `@keepkit/ui/pagination` | 31244 |
+| `KeepPinButton` | `@keepkit/ui/pin-button` | 30983 |
+| `KeepProvider` | `@keepkit/ui/provider` | 83 |
+| `KeepPruneStaleButton` | `@keepkit/ui/prune-stale-button` | 31723 |
+| `KeepQuickEditor` | `@keepkit/ui/quick-editor` | 33447 |
+| `KeepRediscovery` | `@keepkit/ui/rediscovery` | 44100 |
+| `KeepRediscoveryPanel` | `@keepkit/ui/rediscovery-panel` | 44230 |
+| `KeepReorderableList` | `@keepkit/ui/reorderable-list` | 31756 |
+| `KeepSavePopover` | `@keepkit/ui/save-popover` | 38184 |
+| `KeepSaveViewButton` | `@keepkit/ui/save-view-button` | 31691 |
+| `KeepSavedViews` | `@keepkit/ui/saved-views` | 31875 |
+| `KeepSearchInput` | `@keepkit/ui/search-input` | 30978 |
+| `KeepShortcutHint` | `@keepkit/ui/shortcut-hint` | 339 |
+| `KeepSortSelect` | `@keepkit/ui/sort-select` | 31065 |
+| `KeepStaleNotice` | `@keepkit/ui/stale-notice` | 32393 |
+| `KeepStatus` | `@keepkit/ui/status` | 31801 |
+| `KeepSyncRecoveryDialog` | `@keepkit/ui/sync-recovery-dialog` | 33770 |
+| `KeepSyncStatusBanner` | `@keepkit/ui/sync-status-banner` | 31288 |
+| `KeepTagEditor` | `@keepkit/ui/tag-editor` | 31776 |
+| `KeepTagFilter` | `@keepkit/ui/tag-filter` | 32306 |
+| `KeepThemeProvider` | `@keepkit/ui/theme-provider` | 1126 |
+| `KeepTourBar` | `@keepkit/ui/tour-bar` | 33074 |
+| `KeepTourProvider` | `@keepkit/ui/tour-provider` | 1123 |
+| `KeepUiProvider` | `@keepkit/ui/ui-provider` | 30926 |
+| `KeepUndo` | `@keepkit/ui/undo` | 31663 |
+| `KeepWorkspace` | `@keepkit/ui/workspace` | 61505 |
+
+### CSS
+
+| Stylesheet / スタイルシート | gzip (bytes) |
+| --- | ---: |
+| `@keepkit/ui/styles/base.css` | 4076 |
+| `@keepkit/ui/styles/button.css` | 675 |
+| `@keepkit/ui/styles/collection.css` | 4541 |
+| `@keepkit/ui/styles/status.css` | 566 |
+| `@keepkit/ui/styles/sync.css` | 1319 |
+| `@keepkit/ui/styles/workspace.css` | 355 |
+| `@keepkit/ui/tailwind.css` | 9691 |
+| `@keepkit/ui/theme.css` | 9462 |
+
+<!-- sizes:end -->

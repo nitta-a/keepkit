@@ -1,7 +1,10 @@
 import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
-import { KeepFloatingTour, KeepKitProvider, KeepSavePopover, useKeepTour } from "../../../src/index";
-import "../../../src/theme.css";
 import { createRoot } from "react-dom/client";
+import { KeepFloatingTour, KeepKitProvider, KeepSavePopover, KeepThemeProvider, useKeepTour } from "../../../src/index";
+
+const params = new URLSearchParams(window.location.search);
+if (params.has("tailwind")) await import("../../../src/tailwind.css");
+else await import("../../../src/theme.css");
 
 type Meta = { title: string };
 let items: KeepItem<Meta>[] = [];
@@ -32,7 +35,27 @@ function Tour() {
   );
 }
 createRoot(root).render(
-  <KeepKitProvider storage={storage}>
+  <KeepKitProvider
+    storage={storage}
+    mode={params.has("system") ? "system" : params.has("light") ? "light" : undefined}
+    hostColorFormat={params.has("hsl") ? "hsl-channels" : undefined}
+    theme={params.has("ocean") ? "ocean" : undefined}
+    highContrast={params.has("contrast")}
+  >
+    {params.has("nested") ? (
+      <KeepThemeProvider
+        asChild
+        mode="dark"
+        theme="forest"
+        accentColor="green"
+        variables={{ "--keep-primary": "#f00" }}
+        data-testid="nested"
+      >
+        <section>
+          <span style={{ color: "var(--keep-card-foreground)", backgroundColor: "var(--keep-accent)" }}>Preview</span>
+        </section>
+      </KeepThemeProvider>
+    ) : null}
     <Tour />
     <KeepFloatingTour<Meta> />
     <button type="button" data-testid="host-button" style={{ height: 24, padding: 0, border: 0 }}>

@@ -2,6 +2,7 @@
 
 import type { KeepItemStatus } from "@keepkit/core/core";
 import type { HTMLAttributes, ReactNode } from "react";
+import { renderKeepIcon } from "../../foundation/icon";
 import { useKeepItemStatusBadge } from "./hooks/useKeepItemStatusBadge";
 
 export type KeepItemStatusBadgeProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> & {
@@ -24,8 +25,8 @@ export function KeepItemStatusBadge({ status = "available", label, className, ..
       data-status={status}
       data-item-status={view.resolvedStatus}
     >
-      <StatusIcon name={view.icon} />
-      <span data-status-label="true">{label ?? view.statusLabel}</span>
+      {renderKeepIcon(view.customIcon) ?? <StatusIcon name={view.icon} />}
+      {view.showLabel ? <span data-status-label="true">{label ?? view.statusLabel}</span> : null}
     </span>
   );
 }

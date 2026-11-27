@@ -11,7 +11,8 @@ import {
   resolveContent,
 } from "../../foundation/shared";
 import { KeepItemCheckbox } from "../actions/KeepItemCheckbox";
-import { KeepItemCard, type KeepItemCardProps, KeepItemCardSkeleton } from "../item/KeepItemCard";
+import { KeepItemCard, type KeepItemCardProps } from "../item/KeepItemCard";
+import { KeepItemCardSkeleton } from "../item/KeepItemCardSkeleton";
 import { KeepEmptyState } from "../status/KeepEmptyState";
 import { useKeepListView } from "./hooks/useKeepListView";
 import { useRovingTabIndex } from "./hooks/useRovingTabIndex";

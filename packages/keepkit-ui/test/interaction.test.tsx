@@ -647,6 +647,22 @@ test("scopes theme options and supports icon-only save buttons", async () => {
   expect(button.textContent).toBe("");
 });
 
+test("the factory provider forwards host icons and theme configuration", async () => {
+  const kit = createKeepKit<Meta>({
+    storage: createStorage(),
+    hostColorFormat: "hsl-channels",
+    icons: { save: <span data-testid="host-save" /> },
+  });
+  render(
+    <kit.Provider>
+      <kit.Button item={item} />
+    </kit.Provider>,
+  );
+  const icon = await screen.findByTestId("host-save");
+  expect(icon.closest("[data-keep-theme]")?.getAttribute("data-host-color-format")).toBe("hsl-channels");
+  expect(icon.closest("[data-keep-theme]")?.getAttribute("data-mode")).toBe("inherit");
+});
+
 test("publishes all layout presets through stable data attributes", async () => {
   render(
     <>
@@ -1314,8 +1330,6 @@ test("keeps the Tailwind v4 bridge scoped and composable", async () => {
   const cssText = await readFile(new URL(path, import.meta.url), "utf8");
 
   expect(cssText).toContain('@import "./theme.css" layer(components);');
-  expect(cssText).toContain("--keep-border: var(--color-border, #d7dee8);");
-  expect(cssText).toContain("--keep-primary: var(--color-primary, #2563eb);");
   expect(cssText).toContain("--color-keep-background: var(--keep-background);");
   expect(cssText).not.toContain("--color-background: var(--keep-background)");
   expect(cssText).toContain("@custom-variant dark");

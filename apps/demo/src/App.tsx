@@ -1,25 +1,27 @@
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
+import { useKeepCollections, useKeepList } from "@keepkit/core/react";
+import { KeepArchiveUndo } from "@keepkit/ui/archive-undo";
+import { KeepBackup } from "@keepkit/ui/backup";
 import {
-  KeepArchiveUndo,
-  KeepBackup,
-  KeepButton,
   KeepCollection,
-  KeepCollectionManager,
   type KeepCollectionRevealRequest,
   type KeepCollectionRevealResult,
-  KeepEmptyState,
-  KeepRediscoveryPanel,
-  KeepUndo,
-  useKeepCollections,
-  useKeepList,
-} from "@keepkit/ui";
-import { useEffect, useMemo, useRef, useState } from "react";
+} from "@keepkit/ui/collection";
+import { KeepCollectionManager } from "@keepkit/ui/collection-manager";
+import { KeepEmptyState } from "@keepkit/ui/empty-state";
+import { KeepRediscoveryPanel } from "@keepkit/ui/rediscovery-panel";
+import { KeepSavePopover } from "@keepkit/ui/save-popover";
+import { KeepUndo } from "@keepkit/ui/undo";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "./Icon";
 import type { DemoMeta } from "./main";
+import { SavedResourceDialog } from "./SavedResourceDialog";
 import { SaveLink } from "./SaveLink";
 import { type LibraryView, useAppView } from "./useAppView";
 
 type Content = KeepItem<DemoMeta> & { kindLabel: string };
 type AppProps = {
+  themeControl?: ReactNode;
   revealRequest?: KeepCollectionRevealRequest;
   onRevealResult?: (result: KeepCollectionRevealResult) => void;
 };
@@ -102,7 +104,7 @@ const viewDescriptions: Record<LibraryView, string> = {
   settings: "Your library belongs to this browser. Keep a backup to take it with you.",
 };
 
-export function App({ revealRequest, onRevealResult }: AppProps) {
+export function App({ revealRequest, onRevealResult, themeControl }: AppProps) {
   const {
     isOnline,
     shortcutLabel,
@@ -433,7 +435,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
                     <p className="eyebrow">TRY IT OUT</p>
                     <h2 id="content-heading">A few things worth keeping</h2>
                   </div>
-                  <span className="section-note">Example resources · save one to get started</span>
+                  <span className="section-note">Save a resource, then choose or create a collection.</span>
                 </div>
                 <div className="content-grid">
                   {content.map((entry) => (
@@ -452,16 +454,22 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
                         <a className="resource-link" href={entry.meta.url} target="_blank" rel="noreferrer">
                           Open resource ↗
                         </a>
-                        <KeepButton
-                          className="favorite-button"
+                        <KeepSavePopover<DemoMeta>
+                          buttonProps={{
+                            className: "favorite-button",
+                            savedLabel: "Saved",
+                            unsavedLabel: "Save for later",
+                          }}
                           item={{
                             id: entry.id,
                             meta: entry.meta,
                             tags: [entry.kindLabel],
                             ...(entry.targetType ? { targetType: entry.targetType } : {}),
                           }}
-                          savedLabel="Saved ✓"
-                          unsavedLabel="Save for later"
+                          dialogLabel="Organize saved resource"
+                          allowCreateCollection
+                          editorProps={{ features: { note: false, tags: false }, showSaveButton: false }}
+                          renderPanel={(panel) => <SavedResourceDialog {...panel} />}
                         />
                       </div>
                     </article>
@@ -488,6 +496,7 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
           </section>
         ) : (
           <section className="settings-panel">
+            {themeControl}
             <h2>Storage and backup</h2>
             <p>This demo stores items in this browser. No account or remote service is connected.</p>
             <p>
@@ -499,38 +508,5 @@ export function App({ revealRequest, onRevealResult }: AppProps) {
         )}
       </main>
     </div>
-  );
-}
-
-type IconName = LibraryView | "bookmark" | "plus" | "filter" | "list";
-function Icon({ name }: { name: IconName }) {
-  const paths: Record<IconName, string> = {
-    bookmark: "M6 3h12v18l-6-4-6 4V3Z",
-    all: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
-    inbox: "M4 4h16l2 13v3H2v-3L4 4Z M2 15h6l2 3h4l2-3h6",
-    pinned: "m9 3 6 0 0 5 4 4v2H5v-2l4-4V3Z M12 14v7",
-    unread: "M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3V4Z M12 6v16",
-    archive: "M3 3h18v4H3z M5 7v14h14V7 M9 11h6",
-    collections: "M3 6h7l2 2h9v12H3V6Z",
-    settings:
-      "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2",
-    plus: "M12 5v14 M5 12h14",
-    filter: "M4 6h16 M7 12h10 M10 18h4",
-    list: "M8 5h13 M8 12h13 M8 19h13 M3 5h1 M3 12h1 M3 19h1",
-  };
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d={paths[name]} />
-    </svg>
   );
 }

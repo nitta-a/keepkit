@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useRef } from "react";
-import { useUiLabel } from "../../foundation/ui-context";
+import { useKeepIcon } from "../../foundation/icon";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import type { KeepBulkActionsState } from "./KeepBulkActions";
 
 export function KeepRemovalConfirmation<TMeta>({
@@ -13,6 +14,8 @@ export function KeepRemovalConfirmation<TMeta>({
   const question = useUiLabel("confirmRemovalDescription");
   const selected = useUiLabel("selectedCount");
   const remove = useUiLabel("deleteSelected");
+  const showRemoveLabel = useUiLabelVisibility("deleteSelected");
+  const removeIcon = useKeepIcon("remove");
   const cancel = useUiLabel("cancel");
   const confirmRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
@@ -45,9 +48,11 @@ export function KeepRemovalConfirmation<TMeta>({
         ref={confirmRef}
         type="button"
         disabled={state.isMutating}
+        aria-label={showRemoveLabel ? undefined : remove}
         onClick={() => void state.confirmRemoval().catch(() => undefined)}
       >
-        {remove}
+        {removeIcon}
+        {showRemoveLabel ? remove : null}
       </button>
       <button type="button" disabled={state.isMutating} onClick={state.cancelRemoval}>
         {cancel}

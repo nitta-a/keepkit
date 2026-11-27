@@ -1,7 +1,8 @@
 import type { KeepListQuery } from "@keepkit/core/core";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useKeepIcon } from "../../foundation/icon";
 import { copyQueryValue, equalQueryValue, getErrorMessage } from "../../foundation/shared";
-import { useUiLabel } from "../../foundation/ui-context";
+import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepBulkActions } from "../actions/hooks/useKeepBulkActions";
 import { KeepRemovalConfirmation } from "../actions/KeepRemovalConfirmation";
 import type { KeepListSelection } from "./KeepList";
@@ -51,6 +52,8 @@ export function KeepInlineSelection<TMeta>({
   const addTagsLabel = useUiLabel("addTags");
   const removeTagsLabel = useUiLabel("removeTags");
   const removeLabel = useUiLabel("deleteSelected");
+  const showRemoveLabel = useUiLabelVisibility("deleteSelected");
+  const removeIcon = useKeepIcon("remove");
   const moreLabel = useUiLabel("moreActions");
   const errorLabel = useUiLabel("error");
   const run = (operation: () => Promise<void>) => void operation().catch(() => undefined);
@@ -129,8 +132,14 @@ export function KeepInlineSelection<TMeta>({
                 <button type="button" onClick={() => run(state.unpin)}>
                   {unpinLabel}
                 </button>
-                <button ref={removalTrigger} type="button" onClick={() => run(state.remove)}>
-                  {removeLabel}
+                <button
+                  ref={removalTrigger}
+                  type="button"
+                  aria-label={showRemoveLabel ? undefined : removeLabel}
+                  onClick={() => run(state.remove)}
+                >
+                  {removeIcon}
+                  {showRemoveLabel ? removeLabel : null}
                 </button>
               </div>
             </details>

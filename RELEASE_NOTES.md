@@ -1,5 +1,10 @@
 # Release notes
 
+## [0.28.18] - 2026-11-28
+
+- UIの既定テーマはホストの `.dark` に従います。完成色とshadcn v3のHSL数値列を区別し、主色と影を同じ配色に揃えました。Providerの共通アイコンと、保存後にホストのDrawerを使う `renderPanel` も利用できます。[移行ガイド](./MIGRATION.md)と[部品別のgzipサイズ](./packages/keepkit-ui/README.md#component-bundle-sizes)を参照してください。
+- The UI now follows the host's `.dark` class by default and distinguishes complete colors from shadcn v3 HSL channels. Provider icons and the save popover's `renderPanel` let hosts share icons and supply their own drawer. See the [migration guide](./MIGRATION.md) and [per-component gzip sizes](./packages/keepkit-ui/README.md#component-bundle-sizes).
+
 ## [0.28.16] - 2026-11-02
 
 ### 日本語

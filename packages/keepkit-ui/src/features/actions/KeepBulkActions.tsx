@@ -3,6 +3,7 @@
 import type { KeepItem, KeepListQuery } from "@keepkit/core/core";
 import type { KeepCollectionSummary } from "@keepkit/core/react";
 import { type HTMLAttributes, type ReactNode, useRef } from "react";
+import { useKeepIcon } from "../../foundation/icon";
 import { getErrorMessage, getMetaTitle, type RenderProp } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepBulkActions } from "./hooks/useKeepBulkActions";
@@ -92,6 +93,7 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
   const showSelectedCountLabel = useUiLabelVisibility("selectedCount");
   const showTagsLabel = useUiLabelVisibility("tagsToApply");
   const showDeleteLabel = useUiLabelVisibility("deleteSelected");
+  const removeIcon = useKeepIcon("remove");
   const showApplyTagsLabel = useUiLabelVisibility("applyTags");
   const showAddTagsLabel = useUiLabelVisibility("addTags");
   const showRemoveTagsLabel = useUiLabelVisibility("removeTags");
@@ -149,10 +151,12 @@ export function KeepBulkActions<TMeta = Record<string, unknown>>({
               ref={removalTrigger}
               type="button"
               data-keep-action="delete-selected"
+              data-has-custom-icon={removeIcon ? "true" : undefined}
               aria-label={showDeleteLabel ? undefined : labels.deleteSelected}
               onClick={() => void state.remove().catch(() => undefined)}
               disabled={state.selectedIds.length === 0 || state.isMutating}
             >
+              {removeIcon}
               {showDeleteLabel ? labels.deleteSelected : null}
             </button>
             <KeepRemovalConfirmation state={state} triggerRef={removalTrigger} />

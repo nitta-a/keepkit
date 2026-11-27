@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useKeepIcon } from "../../foundation/icon";
 import { getErrorMessage, getMetaTitle } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
@@ -46,47 +47,39 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
   const { error, isMutating, moveToCollection, refreshMetadata, updateNote, updateTags } = itemState;
   const baseline = itemState.item ?? item;
   const initialTitle = getMetaTitle(baseline.meta) ?? "";
-  const [title, setTitle] = useState(initialTitle);
-  const [note, setNote] = useState(baseline.note ?? "");
-  const [tags, setTags] = useState(baseline.tags ?? []);
-  const [collectionId, setCollectionId] = useState(baseline.collectionId);
-  const [saveStatus, setSaveStatus] = useState<KeepQuickEditorState<TMeta>["saveStatus"]>("idle");
-  const [saveError, setSaveError] = useState<unknown | null>(null);
-  const baselineRef = useRef({
+  const [draft, setDraft] = useState({
     title: initialTitle,
     note: baseline.note ?? "",
     tags: baseline.tags ?? [],
     collectionId: baseline.collectionId,
   });
-  const draftRef = useRef({ title, note, tags, collectionId });
+  const baselineRef = useRef(draft);
+  const draftRef = useRef(draft);
+  const { title, note, tags, collectionId } = draft;
+  const [saveStatus, setSaveStatus] = useState<KeepQuickEditorState<TMeta>["saveStatus"]>("idle");
+  const [saveError, setSaveError] = useState<unknown | null>(null);
   const flushRequestedRef = useRef(false);
   const flushPromiseRef = useRef<Promise<void> | null>(null);
-  draftRef.current = { title, note, tags, collectionId };
+  const updateDraft = (patch: Partial<typeof draft>) => {
+    draftRef.current = { ...draftRef.current, ...patch };
+    setDraft(draftRef.current);
+    setSaveError(null);
+    setSaveStatus("dirty");
+  };
   useEffect(() => {
-    const nextTitle = getMetaTitle(baseline.meta) ?? "";
-    if (
-      draftRef.current.title === baselineRef.current.title &&
-      draftRef.current.note === baselineRef.current.note &&
-      sameTags(draftRef.current.tags, baselineRef.current.tags) &&
-      draftRef.current.collectionId === baselineRef.current.collectionId
-    ) {
-      setTitle(nextTitle);
-      setNote(baseline.note ?? "");
-      setTags(baseline.tags ?? []);
-      setCollectionId(baseline.collectionId);
-      baselineRef.current = {
-        title: nextTitle,
+    if (sameDraft(draftRef.current, baselineRef.current)) {
+      const next = {
+        title: getMetaTitle(baseline.meta) ?? "",
         note: baseline.note ?? "",
         tags: baseline.tags ?? [],
         collectionId: baseline.collectionId,
       };
+      baselineRef.current = next;
+      draftRef.current = next;
+      setDraft(next);
     }
   }, [baseline]);
-  const isDirty =
-    title !== baselineRef.current.title ||
-    note !== baselineRef.current.note ||
-    !sameTags(tags, baselineRef.current.tags) ||
-    collectionId !== baselineRef.current.collectionId;
+  const isDirty = !sameDraft(draft, baselineRef.current);
   useEffect(() => {
     if (!isDirty && saveStatus === "dirty" && !flushPromiseRef.current) setSaveStatus("idle");
   }, [isDirty, saveStatus]);
@@ -120,6 +113,10 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
         }
 
         baselineRef.current = { ...draft, title: nextTitle };
+        if (draftRef.current.title === draft.title && draft.title !== nextTitle) {
+          draftRef.current = { ...draftRef.current, title: nextTitle };
+          setDraft(draftRef.current);
+        }
         saved = true;
         const { collectionId: _oldCollectionId, ...withoutCollection } = baseline;
         const nextMeta =
@@ -156,26 +153,10 @@ export function useKeepQuickEditor<TMeta = Record<string, unknown>>(
       note,
       tags,
       collectionId,
-      setTitle: (value) => {
-        setSaveError(null);
-        setSaveStatus("dirty");
-        setTitle(value);
-      },
-      setNote: (value) => {
-        setSaveError(null);
-        setSaveStatus("dirty");
-        setNote(value);
-      },
-      setTags: (value) => {
-        setSaveError(null);
-        setSaveStatus("dirty");
-        setTags(value);
-      },
-      setCollectionId: (value) => {
-        setSaveError(null);
-        setSaveStatus("dirty");
-        setCollectionId(value);
-      },
+      setTitle: (title) => updateDraft({ title }),
+      setNote: (note) => updateDraft({ note }),
+      setTags: (tags) => updateDraft({ tags }),
+      setCollectionId: (collectionId) => updateDraft({ collectionId }),
       isDirty,
       isSaving: isMutating || saveStatus === "saving",
       saveStatus,
@@ -224,6 +205,7 @@ type KeepQuickEditorViewProps<TMeta> = Omit<
 > & {
   state: KeepQuickEditorState<TMeta>;
   focusScopeRef?: RefObject<HTMLElement | null>;
+  hostHandlesEscape?: boolean;
 };
 
 const DEFAULT_FEATURES: Record<KeepQuickEditorFeature, boolean> = {
@@ -244,6 +226,7 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   onClose,
   closeLabel: customCloseLabel,
   focusScopeRef,
+  hostHandlesEscape = false,
   ...props
 }: KeepQuickEditorViewProps<TMeta>) {
   const enabled = { ...DEFAULT_FEATURES, ...features };
@@ -256,6 +239,7 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   const tagsLabel = useUiLabel("tags");
   const showTagsLabel = useUiLabelVisibility("tags");
   const collectionLabel = useUiLabel("collection");
+  const collectionIcon = useKeepIcon("collection");
   const showCollectionLabel = useUiLabelVisibility("collection");
   const uncategorizedLabel = useUiLabel("uncategorized");
   const saveLabel = useUiLabel("saveWithNote");
@@ -290,7 +274,7 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
   const onKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     props.onKeyDown?.(event);
     if (event.defaultPrevented) return;
-    if (event.key === "Escape") {
+    if (event.key === "Escape" && !hostHandlesEscape) {
       event.preventDefault();
       if (onClose) close();
       else void state.flush().catch(() => undefined);
@@ -348,7 +332,12 @@ export function KeepQuickEditorView<TMeta = Record<string, unknown>>({
             ) : null}
             {enabled.collection ? (
               <label data-keep-field="collection">
-                {showCollectionLabel ? <span data-keep-field-icon>{collectionLabel}</span> : null}
+                {showCollectionLabel ? (
+                  <span data-keep-field-icon data-has-custom-icon={collectionIcon ? "true" : undefined}>
+                    {collectionIcon}
+                    {collectionLabel}
+                  </span>
+                ) : null}
                 <select
                   value={state.collectionId ?? ""}
                   aria-label={showCollectionLabel ? undefined : collectionLabel}

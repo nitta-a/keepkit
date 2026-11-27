@@ -8,7 +8,8 @@ const lockDirectory = resolve(repositoryRoot, ".turbo", "keepkit-ui-build.lock")
 const lockOwnerPath = resolve(lockDirectory, "pid");
 const waitMilliseconds = 100;
 const uiPackageRoot = resolve(repositoryRoot, "packages", "keepkit-ui");
-const uiBuildOutputs = ["dist/index.js", "dist/index.d.ts", "dist/theme.css", "dist/styles/workspace.css"];
+const uiManifest = JSON.parse(await readFile(resolve(uiPackageRoot, "package.json"), "utf8"));
+const uiBuildOutputs = [...new Set(Object.values(uiManifest.exports).flatMap((target) => Object.values(target)))];
 const uiBuildInputs = ["package.json", "tsconfig.json", "tsup.config.ts", "scripts/copy-theme.mjs", "src"];
 
 async function isProcessRunning(pid) {

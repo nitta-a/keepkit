@@ -3,6 +3,7 @@
 import type { KeepItem } from "@keepkit/core/core";
 import { useKeepCollections, useKeepContext } from "@keepkit/core/react";
 import { type SelectHTMLAttributes, useState } from "react";
+import { useKeepIcon } from "../../foundation/icon";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepCollectionOption = { id?: string; label: string };
@@ -88,6 +89,7 @@ export function KeepCollectionFilter<TMeta = Record<string, unknown>>({
   const collections = useKeepCollections<TMeta>({ orderBy: "name" });
   const options = useCollectionOptions(collectionLabels, collections);
   const collectionLabel = useUiLabel("collection");
+  const collectionIcon = useKeepIcon("collection");
   const showCollectionLabel = useUiLabelVisibility("collection");
   const defaultAllLabel = useUiLabel("allCollections");
   const defaultUncategorizedLabel = useUiLabel("uncategorized");
@@ -101,7 +103,12 @@ export function KeepCollectionFilter<TMeta = Record<string, unknown>>({
   };
   return (
     <label data-keepkit="collection-filter">
-      {showCollectionLabel ? <span>{collectionLabel}</span> : null}
+      {showCollectionLabel ? (
+        <span>
+          {collectionIcon}
+          {collectionLabel}
+        </span>
+      ) : null}
       <select
         {...props}
         value={selected}

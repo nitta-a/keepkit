@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.17
+Release: v0.28.18
 
 ## 日本語
 
@@ -19,6 +19,7 @@ KeepKitは、Reactアプリに保存・コレクション機能を追加する�
 
 `apps/demo`の実画面です。サンプルを保存し、タグ・コレクション・ピン留めを設定しています。
 初期画面は「すべての保存」です。記事のタイトルから再訪し、検索・タグ・コレクションや、同じ行での選択操作で整理できます。
+「A few things worth keeping」でサンプルを保存すると、ホストの編集ダイアログ（スマートフォンでは下部シート）からコレクションを選択・作成できます。「Storage and settings」→「Preview site theme」で、同じ保存データのままサイトのライト／ダーク配色を試せます。
 未訪問は「まだ開いていないリンク」を表し、読了状態ではありません。
 
 ![保存済みリンクの一覧。検索、ソート、タグフィルター、コレクション、ピン留め、Inbox・未訪問・アーカイブのナビゲーション](docs/images/demo-library.jpg)
@@ -42,6 +43,8 @@ URLだけでリンクを保存できます。タイトル・メモ・保存先�
 ### はじめる
 
 React 18以降を使うアプリにインストールします。
+
+ホストの `.dark` に従うのが既定です。shadcn v3の数値形式の色には `hostColorFormat="hsl-channels"` を指定します。[UIガイド](./packages/keepkit-ui/README.md)にホストのDrawer・アイコン・独自行の例、[サイズ表](./packages/keepkit-ui/README.md#component-bundle-sizes)に部品別の入口とgzip実測値があります。
 
 ```bash
 pnpm add @keepkit/ui
@@ -172,6 +175,7 @@ KeepKit is an async, local-first toolkit for adding save and collection features
 
 These are actual screens from `apps/demo`, with sample items saved, tagged, assigned to collections, and pinned.
 The initial view is All saves. Revisit links through their titles, then organize them with search, tags, collections, and selection on the same rows. Unvisited means never opened, not unread.
+Save a sample under “A few things worth keeping” to choose or create a collection in the host dialog (a bottom sheet on phones). Under “Storage and settings”, use “Preview site theme” to switch the host palette without changing your saved items.
 
 ![Saved links with search, sorting, tag filters, collections, pinning, and navigation for Inbox, Unvisited, and Archive](docs/images/demo-library.jpg)
 
@@ -193,6 +197,8 @@ Data stays in the browser. Export a JSON backup and import it using Merge or Rep
 ### Getting started
 
 Install in an app using React 18 or later.
+
+The UI follows the host's `.dark` class by default. Use `hostColorFormat="hsl-channels"` for shadcn v3 color channels. The [UI guide](./packages/keepkit-ui/README.md) covers host drawers, icons and custom rows; the [size table](./packages/keepkit-ui/README.md#component-bundle-sizes) lists component imports and measured gzip sizes.
 
 ```bash
 pnpm add @keepkit/ui

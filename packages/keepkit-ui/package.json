@@ -1,6 +1,6 @@
 {
   "name": "@keepkit/ui",
-  "version": "0.28.17",
+  "version": "0.28.18",
   "description": "Headless, accessible React UI components for KeepKit.",
   "type": "module",
   "license": "MIT",
@@ -20,6 +20,230 @@
     "./react": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./active-filters-summary": {
+      "types": "./dist/entries/active-filters-summary.d.ts",
+      "import": "./dist/entries/active-filters-summary.js"
+    },
+    "./announcements": {
+      "types": "./dist/entries/announcements.d.ts",
+      "import": "./dist/entries/announcements.js"
+    },
+    "./announcer": {
+      "types": "./dist/entries/announcer.d.ts",
+      "import": "./dist/entries/announcer.js"
+    },
+    "./archive-button": {
+      "types": "./dist/entries/archive-button.d.ts",
+      "import": "./dist/entries/archive-button.js"
+    },
+    "./archive-scope-select": {
+      "types": "./dist/entries/archive-scope-select.d.ts",
+      "import": "./dist/entries/archive-scope-select.js"
+    },
+    "./archive-undo": {
+      "types": "./dist/entries/archive-undo.d.ts",
+      "import": "./dist/entries/archive-undo.js"
+    },
+    "./backup": {
+      "types": "./dist/entries/backup.d.ts",
+      "import": "./dist/entries/backup.js"
+    },
+    "./bulk-actions": {
+      "types": "./dist/entries/bulk-actions.d.ts",
+      "import": "./dist/entries/bulk-actions.js"
+    },
+    "./button": {
+      "types": "./dist/entries/button.d.ts",
+      "import": "./dist/entries/button.js"
+    },
+    "./collection": {
+      "types": "./dist/entries/collection.d.ts",
+      "import": "./dist/entries/collection.js"
+    },
+    "./collection-create": {
+      "types": "./dist/entries/collection-create.d.ts",
+      "import": "./dist/entries/collection-create.js"
+    },
+    "./collection-filter": {
+      "types": "./dist/entries/collection-filter.d.ts",
+      "import": "./dist/entries/collection-filter.js"
+    },
+    "./collection-manager": {
+      "types": "./dist/entries/collection-manager.d.ts",
+      "import": "./dist/entries/collection-manager.js"
+    },
+    "./collection-select": {
+      "types": "./dist/entries/collection-select.d.ts",
+      "import": "./dist/entries/collection-select.js"
+    },
+    "./empty-state": {
+      "types": "./dist/entries/empty-state.d.ts",
+      "import": "./dist/entries/empty-state.js"
+    },
+    "./error-boundary": {
+      "types": "./dist/entries/error-boundary.d.ts",
+      "import": "./dist/entries/error-boundary.js"
+    },
+    "./fallback-recovery": {
+      "types": "./dist/entries/fallback-recovery.d.ts",
+      "import": "./dist/entries/fallback-recovery.js"
+    },
+    "./floating-tour": {
+      "types": "./dist/entries/floating-tour.d.ts",
+      "import": "./dist/entries/floating-tour.js"
+    },
+    "./highlight": {
+      "types": "./dist/entries/highlight.d.ts",
+      "import": "./dist/entries/highlight.js"
+    },
+    "./inbox": {
+      "types": "./dist/entries/inbox.d.ts",
+      "import": "./dist/entries/inbox.js"
+    },
+    "./item-card": {
+      "types": "./dist/entries/item-card.d.ts",
+      "import": "./dist/entries/item-card.js"
+    },
+    "./item-card-skeleton": {
+      "types": "./dist/entries/item-card-skeleton.d.ts",
+      "import": "./dist/entries/item-card-skeleton.js"
+    },
+    "./item-checkbox": {
+      "types": "./dist/entries/item-checkbox.d.ts",
+      "import": "./dist/entries/item-checkbox.js"
+    },
+    "./item-status-badge": {
+      "types": "./dist/entries/item-status-badge.d.ts",
+      "import": "./dist/entries/item-status-badge.js"
+    },
+    "./kit-provider": {
+      "types": "./dist/entries/kit-provider.d.ts",
+      "import": "./dist/entries/kit-provider.js"
+    },
+    "./last-activity": {
+      "types": "./dist/entries/last-activity.d.ts",
+      "import": "./dist/entries/last-activity.js"
+    },
+    "./layout": {
+      "types": "./dist/entries/layout.d.ts",
+      "import": "./dist/entries/layout.js"
+    },
+    "./list": {
+      "types": "./dist/entries/list.d.ts",
+      "import": "./dist/entries/list.js"
+    },
+    "./navigator": {
+      "types": "./dist/entries/navigator.d.ts",
+      "import": "./dist/entries/navigator.js"
+    },
+    "./note-editor": {
+      "types": "./dist/entries/note-editor.d.ts",
+      "import": "./dist/entries/note-editor.js"
+    },
+    "./pagination": {
+      "types": "./dist/entries/pagination.d.ts",
+      "import": "./dist/entries/pagination.js"
+    },
+    "./pin-button": {
+      "types": "./dist/entries/pin-button.d.ts",
+      "import": "./dist/entries/pin-button.js"
+    },
+    "./provider": {
+      "types": "./dist/entries/provider.d.ts",
+      "import": "./dist/entries/provider.js"
+    },
+    "./prune-stale-button": {
+      "types": "./dist/entries/prune-stale-button.d.ts",
+      "import": "./dist/entries/prune-stale-button.js"
+    },
+    "./quick-editor": {
+      "types": "./dist/entries/quick-editor.d.ts",
+      "import": "./dist/entries/quick-editor.js"
+    },
+    "./rediscovery": {
+      "types": "./dist/entries/rediscovery.d.ts",
+      "import": "./dist/entries/rediscovery.js"
+    },
+    "./rediscovery-panel": {
+      "types": "./dist/entries/rediscovery-panel.d.ts",
+      "import": "./dist/entries/rediscovery-panel.js"
+    },
+    "./reorderable-list": {
+      "types": "./dist/entries/reorderable-list.d.ts",
+      "import": "./dist/entries/reorderable-list.js"
+    },
+    "./save-popover": {
+      "types": "./dist/entries/save-popover.d.ts",
+      "import": "./dist/entries/save-popover.js"
+    },
+    "./save-view-button": {
+      "types": "./dist/entries/save-view-button.d.ts",
+      "import": "./dist/entries/save-view-button.js"
+    },
+    "./saved-views": {
+      "types": "./dist/entries/saved-views.d.ts",
+      "import": "./dist/entries/saved-views.js"
+    },
+    "./search-input": {
+      "types": "./dist/entries/search-input.d.ts",
+      "import": "./dist/entries/search-input.js"
+    },
+    "./shortcut-hint": {
+      "types": "./dist/entries/shortcut-hint.d.ts",
+      "import": "./dist/entries/shortcut-hint.js"
+    },
+    "./sort-select": {
+      "types": "./dist/entries/sort-select.d.ts",
+      "import": "./dist/entries/sort-select.js"
+    },
+    "./stale-notice": {
+      "types": "./dist/entries/stale-notice.d.ts",
+      "import": "./dist/entries/stale-notice.js"
+    },
+    "./status": {
+      "types": "./dist/entries/status.d.ts",
+      "import": "./dist/entries/status.js"
+    },
+    "./sync-recovery-dialog": {
+      "types": "./dist/entries/sync-recovery-dialog.d.ts",
+      "import": "./dist/entries/sync-recovery-dialog.js"
+    },
+    "./sync-status-banner": {
+      "types": "./dist/entries/sync-status-banner.d.ts",
+      "import": "./dist/entries/sync-status-banner.js"
+    },
+    "./tag-editor": {
+      "types": "./dist/entries/tag-editor.d.ts",
+      "import": "./dist/entries/tag-editor.js"
+    },
+    "./tag-filter": {
+      "types": "./dist/entries/tag-filter.d.ts",
+      "import": "./dist/entries/tag-filter.js"
+    },
+    "./theme-provider": {
+      "types": "./dist/entries/theme-provider.d.ts",
+      "import": "./dist/entries/theme-provider.js"
+    },
+    "./tour-bar": {
+      "types": "./dist/entries/tour-bar.d.ts",
+      "import": "./dist/entries/tour-bar.js"
+    },
+    "./tour-provider": {
+      "types": "./dist/entries/tour-provider.d.ts",
+      "import": "./dist/entries/tour-provider.js"
+    },
+    "./ui-provider": {
+      "types": "./dist/entries/ui-provider.d.ts",
+      "import": "./dist/entries/ui-provider.js"
+    },
+    "./undo": {
+      "types": "./dist/entries/undo.d.ts",
+      "import": "./dist/entries/undo.js"
+    },
+    "./workspace": {
+      "types": "./dist/entries/workspace.d.ts",
+      "import": "./dist/entries/workspace.js"
     },
     "./theme.css": {
       "default": "./dist/theme.css"

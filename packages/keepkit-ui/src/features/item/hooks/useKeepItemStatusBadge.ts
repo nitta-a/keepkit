@@ -1,11 +1,16 @@
 import type { KeepItemStatus } from "@keepkit/core/core";
-import { type KeepUiLabelKey, useUiLabel } from "../../../foundation/ui-context";
+import { type KeepUiLabelKey, useKeepUiIcons, useUiLabel, useUiLabelVisibility } from "../../../foundation/ui-context";
 import type { KeepDisplayStatus } from "../KeepItemStatusBadge";
 
 export function useKeepItemStatusBadge(status: KeepItemStatus | "restricted") {
+  const icons = useKeepUiIcons();
+  const resolvedStatus = getDisplayStatus(status);
+  const labelKey = getStatusLabelKey(status);
   return {
-    resolvedStatus: getDisplayStatus(status),
-    statusLabel: useUiLabel(getStatusLabelKey(status)),
+    resolvedStatus,
+    statusLabel: useUiLabel(labelKey),
+    showLabel: useUiLabelVisibility(labelKey),
+    customIcon: icons?.status?.[status] ?? icons?.status?.[resolvedStatus],
     icon: getStatusIcon(status),
   };
 }

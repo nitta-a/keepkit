@@ -1,22 +1,34 @@
-import type { KeepButtonState } from "@keepkit/core/react";
 import { useKeepItem } from "@keepkit/core/react";
-import type { ReactNode } from "react";
 import type { KeepButtonIcons, KeepButtonLabels } from "../../../foundation/shared";
-import { useKeepUiFeedback, useUiLabel } from "../../../foundation/ui-context";
+import { useKeepUiFeedback, useKeepUiIcons, useUiLabel } from "../../../foundation/ui-context";
 
 type KeepButtonOptions<TMeta> = {
   item: Parameters<typeof useKeepItem<TMeta>>[0];
   labels: KeepButtonLabels | undefined;
   icons: KeepButtonIcons | undefined;
-  children: ReactNode | ((state: KeepButtonState<TMeta>) => ReactNode);
 };
 
-export function useKeepButton<TMeta>({ item, labels, icons, children }: KeepButtonOptions<TMeta>) {
+export function useKeepButton<TMeta>({ item, labels, icons }: KeepButtonOptions<TMeta>) {
+  const defaults = useKeepUiIcons();
+  const buttonState = useKeepItem<TMeta>(item);
+  const slot = buttonState.error
+    ? "error"
+    : buttonState.isMutating || buttonState.isLoading
+      ? "loading"
+      : buttonState.isSaved
+        ? "saved"
+        : "save";
+  const icon =
+    slot === "saved"
+      ? (icons?.remove ?? icons?.saved ?? defaults?.remove ?? defaults?.saved)
+      : (icons?.[slot] ?? defaults?.[slot]);
   return {
-    buttonState: useKeepItem<TMeta>(item),
+    buttonState,
+    icon,
+    slot,
     emitFeedback: useKeepUiFeedback<TMeta>(),
     customStateLabel:
-      labels?.loading !== undefined || labels?.error !== undefined || (icons !== undefined && children === undefined),
+      labels?.loading !== undefined || labels?.error !== undefined || icons !== undefined || icon != null,
     labels: {
       save: useUiLabel("save", typeof labels?.unsaved === "string" ? labels.unsaved : undefined),
       saved: useUiLabel("saved", typeof labels?.saved === "string" ? labels.saved : undefined),
@@ -27,5 +39,5 @@ export function useKeepButton<TMeta>({ item, labels, icons, children }: KeepButt
       restoredMessage: useUiLabel("restoredMessage"),
       undo: useUiLabel("undo"),
     },
-  };
+  } as const;
 }

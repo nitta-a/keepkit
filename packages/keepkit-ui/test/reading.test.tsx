@@ -1,14 +1,16 @@
 import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
-import { useKeepContext } from "@keepkit/core/react";
+import { useKeepContext, useKeepItem } from "@keepkit/core/react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { expect, test, vi } from "vitest";
 import {
   KeepArchiveUndo,
+  KeepButton,
   KeepCollection,
   KeepCollectionManager,
   KeepItemCard,
   KeepItemCheckbox,
+  KeepItemStatusBadge,
   KeepList,
   KeepProvider,
   KeepQuickEditor,
@@ -62,6 +64,52 @@ function storage(initial = [first, second]) {
   };
   return { adapter, items: () => items, collections: () => collections };
 }
+
+test("host rows retain keyboard navigation without recording focus or removal as an open", async () => {
+  const { adapter, items } = storage([first, { ...second, status: "expired" }]);
+  const writes = vi.spyOn(adapter, "set");
+  function ArticleRow({ item }: { item: KeepItem<Meta> }) {
+    const { recordOpen } = useKeepItem(item);
+    return (
+      <li data-keepkit="card">
+        {item.status === undefined || item.status === "available" ? (
+          <a href={`#${item.id}`} onClick={() => void recordOpen()}>
+            {item.meta.title}
+          </a>
+        ) : (
+          item.meta.title
+        )}
+        <KeepItemStatusBadge status={item.status} />
+        <KeepButton item={item} />
+      </li>
+    );
+  }
+  render(
+    <KeepProvider storage={adapter}>
+      <KeepList<Meta> renderItem={(item) => <ArticleRow key={item.id} item={item} />} />
+    </KeepProvider>,
+  );
+  const link = await screen.findByRole("link", { name: first.meta.title });
+  const [top, bottom] = screen.getAllByRole("listitem");
+  if (!top || !bottom) throw new Error("Expected two rows");
+  await waitFor(() => expect([top.tabIndex, bottom.tabIndex]).toEqual([0, -1]));
+  top.focus();
+  fireEvent.keyDown(top, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(bottom);
+  link.focus();
+  fireEvent.keyDown(link, { key: "Home" });
+  expect(document.activeElement).toBe(link);
+  expect(screen.queryByRole("link", { name: second.meta.title })).toBeNull();
+  expect(screen.getByRole("img", { name: "Expired" })).toBeDefined();
+  expect(writes).not.toHaveBeenCalled();
+  fireEvent.click(link);
+  await waitFor(() => expect(items().find((item) => item.id === first.id)?.lastOpenedAt).toEqual(expect.any(Number)));
+  const expired = screen.getByText(second.meta.title).closest("li");
+  if (!expired) throw new Error("Missing expired row");
+  fireEvent.click(within(expired).getByRole("button"));
+  await waitFor(() => expect(items().map((item) => item.id)).toEqual([first.id]));
+  expect(writes).toHaveBeenCalledTimes(1);
+});
 
 test("archive undo restores an item and permits retry after a failed write", async () => {
   const { adapter, items } = storage([first]);

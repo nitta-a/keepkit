@@ -2,6 +2,7 @@
 
 import type { HTMLAttributes, ReactNode } from "react";
 import { useId } from "react";
+import { useKeepIcon } from "../../foundation/icon";
 import { hasRenderableContent } from "../../foundation/shared";
 import { useUiLabel } from "../../foundation/ui-context";
 import { useKeepCollectionManager } from "./hooks/useKeepCollectionManager";
@@ -58,6 +59,7 @@ export function KeepCollectionManager<TMeta = Record<string, unknown>>({
   const itemLabel = useUiLabel("collectionItem");
   const itemsLabel = useUiLabel("collectionItems");
   const defaultTitle = useUiLabel("manageCollections");
+  const collectionIcon = useKeepIcon("collection");
 
   return (
     <section
@@ -126,6 +128,7 @@ export function KeepCollectionManager<TMeta = Record<string, unknown>>({
                 ) : (
                   <>
                     <div data-keepkit="collection-manager-summary">
+                      {collectionIcon}
                       <span data-keepkit="collection-manager-name">{name}</span>
                       {showCounts ? (
                         <span data-keepkit="collection-manager-count">

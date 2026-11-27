@@ -9,6 +9,7 @@ import { KeepButton, KeepProvider, useKeepItem, useKeepList } from "@keepkit/cor
 import { parseKeepMeta } from "@keepkit/core/schema";
 import { LocalStorageAdapter } from "@keepkit/core/storage";
 import { KeepCollection, KeepKitProvider } from "@keepkit/ui";
+import { type KeepButtonProps, KeepButton as UiButton } from "@keepkit/ui/button";
 import { keepKitTheme } from "@keepkit/ui/tailwind";
 
 type ArticleMeta = { title: string; url: string };
@@ -80,8 +81,10 @@ export function CoreApp() {
 }
 
 export function UiApp() {
+  const button: KeepButtonProps<ArticleMeta> = { item: article };
   return (
     <KeepKitProvider<ArticleMeta> initialItems={[article]}>
+      <UiButton<ArticleMeta> {...button} />
       <KeepCollection<ArticleMeta> />
     </KeepKitProvider>
   );

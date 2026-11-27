@@ -1,14 +1,15 @@
 import { createBrowserStorageAdapter } from "@keepkit/core/storage";
 import {
   type KeepCollectionRevealResult,
-  KeepKitProvider,
   type KeepToastFeedbackOptions,
   type KeepUiFeedbackEvent,
   useKeepToastFeedback,
 } from "@keepkit/ui";
+import { KeepKitProvider } from "@keepkit/ui/kit-provider";
 import { StrictMode, useCallback, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { demoIcons } from "./Icon";
 import "@keepkit/ui/theme.css";
 import "./styles.css";
 
@@ -29,6 +30,7 @@ const storage = createBrowserStorageAdapter<DemoMeta>({
 });
 const rootElement = document.getElementById("root");
 function Demo() {
+  const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; options?: KeepToastFeedbackOptions }>();
   const [revealRequest, setRevealRequest] = useState<{ requestId: number; itemId: string }>();
   const revealId = useRef(0);
@@ -78,22 +80,45 @@ function Demo() {
   );
 
   return (
-    <KeepKitProvider<DemoMeta> storage={storage} theme="forest" mode="light" radius="large" onFeedback={onFeedback}>
-      <App {...(revealRequest ? { revealRequest } : {})} onRevealResult={onRevealResult} />
-      {toast ? (
-        <aside className="demo-toast" role="status" aria-live="polite">
-          <span>{toast.message}</span>
-          {toast.options?.action ? (
-            <button type="button" onClick={toast.options.action.onClick}>
-              {toast.options.action.label}
+    <div className={dark ? "demo-host dark" : "demo-host"}>
+      <KeepKitProvider<DemoMeta>
+        storage={storage}
+        hostColorFormat="hsl-channels"
+        icons={demoIcons}
+        radius="large"
+        onFeedback={onFeedback}
+      >
+        <App
+          {...(revealRequest ? { revealRequest } : {})}
+          onRevealResult={onRevealResult}
+          themeControl={
+            <label className="theme-switcher">
+              Preview site theme
+              <select
+                value={dark ? "dark" : "light"}
+                onChange={(event) => setDark(event.currentTarget.value === "dark")}
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+          }
+        />
+        {toast ? (
+          <aside className="demo-toast" role="status" aria-live="polite">
+            <span>{toast.message}</span>
+            {toast.options?.action ? (
+              <button type="button" onClick={toast.options.action.onClick}>
+                {toast.options.action.label}
+              </button>
+            ) : null}
+            <button type="button" aria-label="Dismiss notification" onClick={() => setToast(undefined)}>
+              ×
             </button>
-          ) : null}
-          <button type="button" aria-label="Dismiss notification" onClick={() => setToast(undefined)}>
-            ×
-          </button>
-        </aside>
-      ) : null}
-    </KeepKitProvider>
+          </aside>
+        ) : null}
+      </KeepKitProvider>
+    </div>
   );
 }
 

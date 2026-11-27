@@ -19,15 +19,21 @@ export type KeepCollectionCreateProps = Omit<InputHTMLAttributes<HTMLInputElemen
 };
 
 /** A compact form for creating new named collections. */
-export function KeepCollectionCreate({
+export function KeepCollectionCreate(props: KeepCollectionCreateProps) {
+  return <KeepCollectionCreateForm {...props} />;
+}
+
+/** Shared form; the save panel tracks a submission before accepting a dismissal. */
+export function KeepCollectionCreateForm({
   onCreated,
   onError,
+  onSubmitTask,
   label,
   submitLabel,
   placeholder,
   id: externalId,
   ...inputProps
-}: KeepCollectionCreateProps) {
+}: KeepCollectionCreateProps & { onSubmitTask?: (creation: Promise<boolean>) => void }) {
   const { createCollection } = useKeepContext();
   const collections = useKeepCollections();
   const [name, setName] = useState("");
@@ -42,38 +48,35 @@ export function KeepCollectionCreate({
   const showSubmitLabel = useUiLabelVisibility("createCollectionSubmit");
   const placeholderText = useUiLabel("collectionName");
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) return;
-
-    const normalizedId = trimmed
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    const collectionId = normalizedId || `collection-${crypto.randomUUID()}`;
-
-    const exists = collections.some((c) => c.id === collectionId || c.name.toLowerCase() === trimmed.toLowerCase());
-    if (exists) {
-      const message = `Collection "${trimmed}" already exists.`;
-      setError(message);
-      onError?.(new Error(message));
-      return;
-    }
-
+  const create = async (trimmed: string) => {
     setError(null);
     setIsSubmitting(true);
     try {
+      const lowerName = trimmed.toLowerCase();
+      const normalizedId = lowerName.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const collectionId = normalizedId || `collection-${crypto.randomUUID()}`;
+      if (collections.some((c) => c.id === collectionId || c.name.toLowerCase() === lowerName)) {
+        throw new Error(`Collection "${trimmed}" already exists.`);
+      }
       await createCollection(collectionId, trimmed);
       setName("");
       onCreated?.(collectionId);
+      return true;
     } catch (cause) {
       const message = getErrorMessage(cause, "Failed to create collection.");
       setError(message);
       onError?.(cause);
+      return false;
     } finally {
       setIsSubmitting(false);
     }
+  };
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed || isSubmitting) return;
+    const creation = create(trimmed);
+    onSubmitTask?.(creation);
   };
 
   return (
@@ -108,7 +111,11 @@ export function KeepCollectionCreate({
           {showSubmitLabel ? (submitLabel ?? resolvedSubmitLabel) : null}
         </button>
       </div>
-      {error ? <p role="alert">{error}</p> : null}
+      {error ? (
+        <p role="alert" tabIndex={-1}>
+          {error}
+        </p>
+      ) : null}
     </form>
   );
 }

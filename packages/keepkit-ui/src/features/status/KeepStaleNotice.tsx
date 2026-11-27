@@ -2,6 +2,7 @@
 
 import type { KeepItem, KeepItemStatus } from "@keepkit/core/core";
 import { type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode, useState } from "react";
+import { useKeepIcon } from "../../foundation/icon";
 import { getErrorMessage } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 import { KeepItemStatusBadge } from "../item/KeepItemStatusBadge";
@@ -30,6 +31,7 @@ export function KeepStaleNotice<TMeta = Record<string, unknown>>({
   const view = useKeepStaleNotice<TMeta>({ item, onRetry, onRemoved });
   const showRetryLabel = useUiLabelVisibility("retry");
   const showRemoveLabel = useUiLabelVisibility("removeFromList");
+  const removeIcon = useKeepIcon("remove");
 
   return (
     <aside {...props} className={className} data-keepkit="stale-notice" data-state={view.error ? "error" : "stale"}>
@@ -48,10 +50,12 @@ export function KeepStaleNotice<TMeta = Record<string, unknown>>({
         <button
           type="button"
           data-keep-action="remove-item"
+          data-has-custom-icon={removeIcon ? "true" : undefined}
           onClick={() => void view.remove()}
           disabled={view.isMutating}
           aria-label={showRemoveLabel ? undefined : view.labels.remove}
         >
+          {removeIcon}
           {showRemoveLabel ? (removeLabel ?? view.labels.remove) : null}
         </button>
       </div>
@@ -77,6 +81,7 @@ export function KeepPruneStaleButton<TMeta = Record<string, unknown>>({
   ...props
 }: KeepPruneStaleButtonProps) {
   const view = useKeepPruneStale<TMeta>({ statuses, onPruned });
+  const removeIcon = useKeepIcon("remove", children == null);
   const showLabel = useUiLabelVisibility("pruneStale");
   const errorLabel = useUiLabel("error");
   const [error, setError] = useState<unknown>();
@@ -98,11 +103,13 @@ export function KeepPruneStaleButton<TMeta = Record<string, unknown>>({
         className={props.className}
         data-keepkit="prune-stale"
         data-keep-action="prune-stale"
+        data-has-custom-icon={removeIcon ? "true" : undefined}
         data-state={view.staleIds.length > 0 ? "available" : "empty"}
         disabled={view.staleIds.length === 0 || view.isMutating || disabled}
         aria-label={showLabel ? undefined : view.label}
         onClick={() => void prune()}
       >
+        {removeIcon}
         {showLabel ? (children ?? label ?? `${view.label} (${view.staleIds.length})`) : null}
       </button>
       {error ? <p role="alert">{getErrorMessage(error, errorLabel)}</p> : null}

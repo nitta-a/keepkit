@@ -5,7 +5,7 @@ import type { UseKeepNavigatorResult } from "@keepkit/core/react";
 import { useKeepList } from "@keepkit/core/react";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { KeepThemeProvider, useKeepTheme } from "../../foundation/theme";
+import { KeepPortalTheme } from "../../foundation/theme";
 import { useKeepUiLabels } from "../../foundation/ui-context";
 import { KeepTourBar } from "./KeepTourBar";
 import { useKeepTour } from "./tour-context";
@@ -43,7 +43,6 @@ export function KeepFloatingTour<TMeta = Record<string, unknown>>({
 }: KeepFloatingTourProps<TMeta>) {
   const tour = useKeepTour<TMeta>({ currentId });
   const { items } = useKeepList<TMeta>();
-  const theme = useKeepTheme();
   const [mounted, setMounted] = useState(false);
   const { labels } = useKeepUiLabels();
   const collapseLabel = labels.previousPage === "前のページ" ? "折りたたむ" : "Collapse tour";
@@ -139,7 +138,7 @@ export function KeepFloatingTour<TMeta = Record<string, unknown>>({
     </>
   );
   return createPortal(
-    <KeepThemeProvider {...theme}>
+    <KeepPortalTheme>
       <aside
         className={["keep-floating-tour", `keep-floating-tour--${position}`, className].filter(Boolean).join(" ")}
         style={placementStyle}
@@ -150,7 +149,7 @@ export function KeepFloatingTour<TMeta = Record<string, unknown>>({
       >
         {content}
       </aside>
-    </KeepThemeProvider>,
+    </KeepPortalTheme>,
     document.body,
   );
 }

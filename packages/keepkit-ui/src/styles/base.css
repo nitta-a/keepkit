@@ -1,8 +1,22 @@
-:root {
-  --keep-background: var(--background, #ffffff);
-  --keep-foreground: var(--foreground, #0f172a);
-  --keep-card: var(--card, var(--keep-background));
-  --keep-card-foreground: var(--card-foreground, var(--keep-foreground));
+:root,
+:where(.keep-theme, [data-keep-theme]) {
+  --keep-host-background: var(--color-background);
+  --keep-host-foreground: var(--color-foreground);
+  --keep-host-card: var(--color-card);
+  --keep-host-card-foreground: var(--color-card-foreground);
+  --keep-host-muted: var(--color-muted);
+  --keep-host-muted-foreground: var(--color-muted-foreground);
+  --keep-host-border: var(--color-border);
+  --keep-host-input: var(--color-input);
+  --keep-host-primary: var(--color-primary);
+  --keep-host-primary-foreground: var(--color-primary-foreground);
+  --keep-host-destructive: var(--color-destructive);
+  --keep-host-destructive-foreground: var(--color-destructive-foreground);
+  --keep-host-ring: var(--color-ring);
+  --keep-background: var(--keep-host-background, #ffffff);
+  --keep-foreground: var(--keep-host-foreground, #0f172a);
+  --keep-card: var(--keep-host-card, var(--keep-background));
+  --keep-card-foreground: var(--keep-host-card-foreground, var(--keep-foreground));
   --keep-card-border: var(--keep-border);
   --keep-card-shadow: var(--keep-shadow);
   --keep-card-shadow-elevated:
@@ -11,20 +25,42 @@
   --keep-surface-border: var(--keep-border);
   --keep-surface-background: var(--keep-card);
   --keep-surface-shadow: var(--keep-shadow);
-  --keep-muted: var(--muted, #f1f5f9);
-  --keep-muted-foreground: var(--muted-foreground, #64748b);
-  --keep-border: var(--border, #d7dee8);
-  --keep-input: var(--input, var(--keep-border));
-  --keep-primary: var(--keep-accent, var(--primary, #2563eb));
-  --keep-primary-foreground: var(--primary-foreground, #ffffff);
-  --keep-destructive: var(--destructive, #b91c1c);
-  --keep-destructive-foreground: var(--destructive-foreground, #ffffff);
-  --keep-ring: var(--ring, var(--keep-primary));
+  --keep-muted: var(--keep-host-muted, #f1f5f9);
+  --keep-muted-foreground: var(--keep-host-muted-foreground, #64748b);
+  --keep-border: var(--keep-host-border, #d7dee8);
+  --keep-input: var(--keep-host-input, var(--keep-border));
+  --keep-primary: var(--keep-host-primary, #2563eb);
+  --keep-primary-foreground: var(--keep-host-primary-foreground, #ffffff);
+  --keep-destructive: var(--keep-host-destructive, #b91c1c);
+  --keep-destructive-foreground: var(--keep-host-destructive-foreground, #ffffff);
+  --keep-ring: var(--keep-host-ring, var(--keep-primary));
   --keep-success: #15803d;
   --keep-warning: #b45309;
   --keep-highlight-bg: #fef08a;
   --keep-highlight-fg: #422006;
-  --keep-accent: var(--primary, #2563eb);
+  --keep-accent: var(--keep-primary);
+  --keep-shadow:
+    0 1px 2px color-mix(in srgb, var(--keep-foreground) 7%, transparent),
+    0 8px 24px color-mix(in srgb, var(--keep-foreground) 5%, transparent);
+}
+
+:where(.keep-theme, [data-keep-theme])[data-host-color-format="hsl-channels"] {
+  --keep-host-background: hsl(var(--background));
+  --keep-host-foreground: hsl(var(--foreground));
+  --keep-host-card: hsl(var(--card));
+  --keep-host-card-foreground: hsl(var(--card-foreground));
+  --keep-host-muted: hsl(var(--muted));
+  --keep-host-muted-foreground: hsl(var(--muted-foreground));
+  --keep-host-border: hsl(var(--border));
+  --keep-host-input: hsl(var(--input));
+  --keep-host-primary: hsl(var(--primary));
+  --keep-host-primary-foreground: hsl(var(--primary-foreground));
+  --keep-host-destructive: hsl(var(--destructive));
+  --keep-host-destructive-foreground: hsl(var(--destructive-foreground));
+  --keep-host-ring: hsl(var(--ring));
+}
+
+:root {
   --keep-radius: var(--radius, 0.5rem);
   --keep-card-padding: 1rem;
   --keep-card-gap: 0.75rem;
@@ -33,9 +69,6 @@
   --keep-button-size: 2.75rem;
   --keep-icon-size: 1rem;
   --keep-control-gap: 0.5rem;
-  --keep-shadow:
-    0 1px 2px color-mix(in srgb, var(--keep-foreground) 7%, transparent),
-    0 8px 24px color-mix(in srgb, var(--keep-foreground) 5%, transparent);
   --keep-tag-size: 0.8125rem;
   --keep-list-columns: 1;
   --keep-grid-columns: 3;
@@ -174,8 +207,7 @@
   --keep-muted-foreground: #0c4a6e;
   --keep-border: #bae6fd;
   --keep-input: #7dd3fc;
-  --keep-accent: #0369a1;
-  --keep-primary: var(--keep-accent);
+  --keep-primary: #0369a1;
   --keep-primary-foreground: #ffffff;
   --keep-destructive: #be123c;
   --keep-success: #047857;
@@ -193,8 +225,7 @@
   --keep-muted-foreground: #466557;
   --keep-border: #bfd7c7;
   --keep-input: #91b9a0;
-  --keep-accent: #2f6f4e;
-  --keep-primary: var(--keep-accent);
+  --keep-primary: #2f6f4e;
   --keep-primary-foreground: #ffffff;
   --keep-destructive: #b42318;
   --keep-success: #18794e;
@@ -212,8 +243,7 @@
   --keep-muted-foreground: #9a3412;
   --keep-border: #fed7aa;
   --keep-input: #fdba74;
-  --keep-accent: #c2410c;
-  --keep-primary: var(--keep-accent);
+  --keep-primary: #c2410c;
   --keep-primary-foreground: #ffffff;
   --keep-destructive: #be123c;
   --keep-success: #15803d;
@@ -231,8 +261,7 @@
   --keep-muted-foreground: #6d28d9;
   --keep-border: #ddd6fe;
   --keep-input: #c4b5fd;
-  --keep-accent: #7c3aed;
-  --keep-primary: var(--keep-accent);
+  --keep-primary: #7c3aed;
   --keep-primary-foreground: #ffffff;
   --keep-destructive: #be123c;
   --keep-success: #15803d;
@@ -243,48 +272,45 @@
 
 :where(.keep-theme, [data-keep-theme])[data-mode="dark"],
 :where(.keep-theme, [data-keep-theme]).keep-theme--dark,
-:where(.keep-theme, [data-keep-theme]).dark,
-.dark :where(.keep-theme, [data-keep-theme]) {
-  --keep-background: var(--background, color-mix(in srgb, var(--keep-accent) 4%, #0f172a));
-  --keep-foreground: var(--foreground, #e2e8f0);
-  --keep-card: var(--card, color-mix(in srgb, var(--keep-accent) 8%, #172033));
-  --keep-card-foreground: var(--card-foreground, var(--keep-foreground));
-  --keep-muted: var(--muted, color-mix(in srgb, var(--keep-accent) 12%, #172033));
-  --keep-muted-foreground: var(--muted-foreground, #94a3b8);
-  --keep-border: var(--border, color-mix(in srgb, var(--keep-accent) 18%, #475569));
-  --keep-input: var(--input, var(--keep-border));
-  --keep-primary: var(--keep-accent, var(--primary, #93c5fd));
-  --keep-primary-foreground: var(--primary-foreground, #ffffff);
-  --keep-destructive: var(--destructive, #fca5a5);
-  --keep-destructive-foreground: var(--destructive-foreground, #450a0a);
+:where(.keep-theme, [data-keep-theme]):where(.dark, .dark *):is([data-mode="inherit"], :not([data-mode])) {
+  --keep-background: var(--keep-host-background, color-mix(in srgb, var(--keep-accent) 4%, #0f172a));
+  --keep-foreground: var(--keep-host-foreground, #e2e8f0);
+  --keep-card: var(--keep-host-card, color-mix(in srgb, var(--keep-accent) 8%, #172033));
+  --keep-card-foreground: var(--keep-host-card-foreground, var(--keep-foreground));
+  --keep-muted: var(--keep-host-muted, color-mix(in srgb, var(--keep-accent) 12%, #172033));
+  --keep-muted-foreground: var(--keep-host-muted-foreground, #94a3b8);
+  --keep-border: var(--keep-host-border, color-mix(in srgb, var(--keep-accent) 18%, #475569));
+  --keep-input: var(--keep-host-input, var(--keep-border));
+  --keep-primary-foreground: var(--keep-host-primary-foreground, #ffffff);
+  --keep-ring: var(--keep-host-ring, var(--keep-primary));
+  --keep-destructive: var(--keep-host-destructive, #fca5a5);
+  --keep-destructive-foreground: var(--keep-host-destructive-foreground, #450a0a);
   --keep-success: #86efac;
   --keep-warning: #fdba74;
   --keep-highlight-bg: #facc15;
   --keep-highlight-fg: #422006;
-  --keep-ring: var(--ring, var(--keep-primary));
   --keep-icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E");
   --keep-icon-sort: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m8 6 4-4 4 4M12 2v14M16 18l-4 4-4-4'/%3E%3C/svg%3E");
 }
 
 @media (prefers-color-scheme: dark) {
   :where(.keep-theme, [data-keep-theme])[data-mode="system"] {
-    --keep-background: var(--background, color-mix(in srgb, var(--keep-accent) 4%, #0f172a));
-    --keep-foreground: var(--foreground, #e2e8f0);
-    --keep-card: var(--card, color-mix(in srgb, var(--keep-accent) 8%, #172033));
-    --keep-card-foreground: var(--card-foreground, var(--keep-foreground));
-    --keep-muted: var(--muted, color-mix(in srgb, var(--keep-accent) 12%, #172033));
-    --keep-muted-foreground: var(--muted-foreground, #94a3b8);
-    --keep-border: var(--border, color-mix(in srgb, var(--keep-accent) 18%, #475569));
-    --keep-input: var(--input, var(--keep-border));
-    --keep-primary: var(--keep-accent, var(--primary, #93c5fd));
-    --keep-primary-foreground: var(--primary-foreground, #ffffff);
-    --keep-destructive: var(--destructive, #fca5a5);
-    --keep-destructive-foreground: var(--destructive-foreground, #450a0a);
+    --keep-background: var(--keep-host-background, color-mix(in srgb, var(--keep-accent) 4%, #0f172a));
+    --keep-foreground: var(--keep-host-foreground, #e2e8f0);
+    --keep-card: var(--keep-host-card, color-mix(in srgb, var(--keep-accent) 8%, #172033));
+    --keep-card-foreground: var(--keep-host-card-foreground, var(--keep-foreground));
+    --keep-muted: var(--keep-host-muted, color-mix(in srgb, var(--keep-accent) 12%, #172033));
+    --keep-muted-foreground: var(--keep-host-muted-foreground, #94a3b8);
+    --keep-border: var(--keep-host-border, color-mix(in srgb, var(--keep-accent) 18%, #475569));
+    --keep-input: var(--keep-host-input, var(--keep-border));
+    --keep-primary-foreground: var(--keep-host-primary-foreground, #ffffff);
+    --keep-ring: var(--keep-host-ring, var(--keep-primary));
+    --keep-destructive: var(--keep-host-destructive, #fca5a5);
+    --keep-destructive-foreground: var(--keep-host-destructive-foreground, #450a0a);
     --keep-success: #86efac;
     --keep-warning: #fdba74;
     --keep-highlight-bg: #facc15;
     --keep-highlight-fg: #422006;
-    --keep-ring: var(--ring, var(--keep-primary));
     --keep-icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E");
     --keep-icon-sort: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m8 6 4-4 4 4M12 2v14M16 18l-4 4-4-4'/%3E%3C/svg%3E");
   }
@@ -542,7 +568,7 @@
 
 :where(.keep-theme, [data-keep-theme])
   :is([data-keep-field="note"], [data-keep-field="tags"], [data-keep-field="collection"])
-  > [data-keep-field-icon]::before {
+  > [data-keep-field-icon]:not([data-has-custom-icon="true"])::before {
   content: "";
   display: inline-block;
   flex: 0 0 auto;
@@ -572,6 +598,12 @@
 
 :where(.keep-theme, [data-keep-theme]) [data-has-custom-icon="true"]::before {
   content: none;
+}
+
+:where(.keep-theme, [data-keep-theme]) [data-keep-icon] {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
 }
 
 @keyframes keepkit-save-pop {

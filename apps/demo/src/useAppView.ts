@@ -17,7 +17,11 @@ export function useAppView() {
       if (event.defaultPrevented || event.repeat || event.altKey || event.shiftKey) return;
       if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return;
       const target = event.target;
-      if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (
+        target instanceof HTMLElement &&
+        target.closest("dialog[open], input, textarea, select, [contenteditable='true']")
+      )
+        return;
       event.preventDefault();
       setIsCaptureOpen(true);
     };
@@ -25,7 +29,11 @@ export function useAppView() {
       if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key !== "/") return;
       const target = event.target;
-      if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (
+        target instanceof HTMLElement &&
+        target.closest("dialog[open], input, textarea, select, [contenteditable='true']")
+      )
+        return;
       const searchInput = document.querySelector<HTMLInputElement>('input[type="search"]');
       if (!searchInput) return;
       event.preventDefault();

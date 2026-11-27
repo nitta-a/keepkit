@@ -4,6 +4,53 @@ test.beforeEach(async ({ page }) => {
   await page.route("https://**/*", (route) => route.abort());
 });
 
+for (const width of [390, 1280]) {
+  test(`host colors and post-save collection editing work at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/");
+    const sample = page
+      .getByRole("region", { name: "A few things worth keeping" })
+      .getByRole("article")
+      .filter({ has: page.getByRole("heading", { name: "The everyday field notebook" }) });
+    const save = sample.getByRole("button", { name: "Save item" });
+    await expect(save).toHaveCSS("background-color", "rgb(36, 89, 75)");
+    await expect(save).toHaveAttribute("data-has-custom-icon", "true");
+    const browse = page.getByRole("button", { name: "Browse library" });
+    if (width === 390) await browse.click();
+    await page.getByRole("button", { name: "Storage and settings" }).click();
+    await page.getByRole("combobox", { name: "Preview site theme" }).selectOption("dark");
+    if (width === 390) await browse.click();
+    await page.getByRole("button", { name: "All saves" }).click();
+    await expect(save).toHaveCSS("background-color", "rgb(146, 211, 189)");
+    await save.click();
+
+    const dialog = page.getByRole("dialog", { name: "Organize saved resource" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS("background-color", "rgb(30, 41, 37)");
+    const bounds = await dialog.boundingBox();
+    if (!bounds) throw new Error("Missing host dialog bounds");
+    if (width === 390) {
+      expect(bounds.width).toBe(width);
+      expect(bounds.y + bounds.height).toBeCloseTo(800, 0);
+    } else {
+      expect(bounds.width).toBeLessThan(width);
+      expect(bounds.x + bounds.width / 2).toBeCloseTo(width / 2, 0);
+    }
+    await dialog.getByRole("textbox").fill("Field notes");
+    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await expect(dialog.getByRole("combobox", { name: "Collection", exact: true })).toHaveValue("field-notes");
+    if (width === 390) await dialog.getByRole("button", { name: "Done" }).click();
+    else await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(sample.getByRole("button", { name: "Remove saved item" })).toBeFocused();
+    await page.reload();
+    if (width === 390) await browse.click();
+    await page.getByRole("navigation", { name: "Collections" }).getByRole("button", { name: "Field notes" }).click();
+    await expect(page.getByRole("link", { name: "The everyday field notebook" })).toBeVisible();
+  });
+}
+
 for (const width of [320, 360, 390, 768, 1024]) {
   test(`demo fits a ${width}px viewport`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });

@@ -109,6 +109,9 @@ test("saves a resource and displays it in the collection", async () => {
   expect(await screen.findByRole("heading", { name: "Nothing here yet" })).toBeInTheDocument();
   fireEvent.click(screen.getAllByText("Save for later")[0]);
 
+  const dialog = await screen.findByRole("dialog", { name: "Organize saved resource" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+  await waitFor(() => expect(dialog).not.toBeInTheDocument());
   await waitFor(() => {
     expect(screen.getByRole("button", { name: "Remove saved item" })).toHaveAttribute("aria-pressed", "true");
   });
