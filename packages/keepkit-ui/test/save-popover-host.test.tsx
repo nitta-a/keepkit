@@ -256,3 +256,137 @@ test("a pending dismissal from a replaced editor cannot close the next editor", 
   expect(onOpenChange.mock.calls).toEqual([[true]]);
   expect(screen.getByRole("dialog")).not.toBeNull();
 });
+
+test("custom editor retains its draft on creation and save failures and retries through the host panel", async () => {
+  const storage = new LocalStorageAdapter<Meta>({ key: "custom-editor" });
+  const results = vi.fn();
+  function Editor({
+    state,
+    collections,
+    createCollection,
+    collectionError,
+    isCreatingCollection,
+    clearCollectionError,
+  }: import("../src/features/actions/KeepSavePopover").KeepSavePopoverEditorContext<Meta>) {
+    const [name, setName] = useState("");
+    return (
+      <div>
+        <label>
+          Custom note
+          <input value={state.note} onChange={(event) => state.setNote(event.target.value)} />
+        </label>
+        <label>
+          Custom collection
+          <select
+            value={state.collectionId ?? ""}
+            onChange={(event) => state.setCollectionId(event.target.value || undefined)}
+          >
+            <option value="">None</option>
+            {collections.map((collection) => (
+              <option key={collection.id} value={collection.id}>
+                {collection.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Custom name
+          <input value={name} onChange={(event) => setName(event.target.value)} />
+        </label>
+        <button type="button" disabled={isCreatingCollection} onClick={() => void createCollection(name)}>
+          Create custom
+        </button>
+        <button type="button" onClick={clearCollectionError}>
+          Clear creation error
+        </button>
+        {collectionError && <p role="alert">{collectionError}</p>}
+        {state.error != null && <p role="alert">Save failed</p>}
+      </div>
+    );
+  }
+  render(
+    <KeepProvider storage={storage}>
+      <KeepSavePopover
+        item={item}
+        allowCreateCollection
+        editorProps={{ debounceMs: 0 }}
+        renderEditor={(context) => <Editor {...context} />}
+        renderPanel={(context) => (
+          <dialog open aria-label={context.dialogLabel}>
+            {context.content}
+            <button type="button" onClick={() => void context.requestClose().then(results)}>
+              Close host
+            </button>
+          </dialog>
+        )}
+      />
+    </KeepProvider>,
+  );
+  const { dialog } = await saveAndOpen();
+  fireEvent.change(within(dialog).getByLabelText("Custom note"), { target: { value: "Draft note" } });
+  fireEvent.change(within(dialog).getByLabelText("Custom name"), { target: { value: "Reading" } });
+  const gate = Promise.withResolvers<void>();
+  const write = vi.spyOn(storage, "setCollection").mockImplementationOnce(() => gate.promise);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Create custom" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close host" }));
+  await waitFor(() => expect(write).toHaveBeenCalledOnce());
+  gate.reject(new Error("Create failed"));
+  expect(await screen.findByText("Create failed")).toBeTruthy();
+  await waitFor(() => expect(results).toHaveBeenCalledWith(false));
+  expect((within(dialog).getByLabelText("Custom note") as HTMLInputElement).value).toBe("Draft note");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Create custom" }));
+  await waitFor(async () => expect((await storage.getAll())[0]?.collectionId).toBe("reading"));
+  expect((within(dialog).getByLabelText("Custom collection") as HTMLSelectElement).value).toBe("reading");
+  fireEvent.change(within(dialog).getByLabelText("Custom collection"), { target: { value: "" } });
+  fireEvent.change(within(dialog).getByLabelText("Custom collection"), { target: { value: "reading" } });
+  await waitFor(() =>
+    expect(within(dialog).getByRole("button", { name: "Create custom" }).hasAttribute("disabled")).toBe(false),
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Create custom" }));
+  expect(await screen.findByText('Collection "Reading" already exists.')).toBeTruthy();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Clear creation error" }));
+  fireEvent.change(within(dialog).getByLabelText("Custom note"), { target: { value: "Retry note" } });
+  vi.spyOn(storage, "set").mockRejectedValueOnce(new Error("Save failed"));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close host" }));
+  await waitFor(() => expect(results).toHaveBeenCalledTimes(2));
+  expect(results).toHaveBeenLastCalledWith(false);
+  expect((within(dialog).getByLabelText("Custom note") as HTMLInputElement).value).toBe("Retry note");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close host" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect((await storage.getAll())[0]).toMatchObject({ note: "Retry note", collectionId: "reading" });
+});
+
+test("custom creation reports success even if assigning the item fails, and Escape retries the draft", async () => {
+  const storage = new LocalStorageAdapter<Meta>({ key: "custom-assignment-retry" });
+  const created = vi.fn();
+  render(
+    <KeepProvider storage={storage}>
+      <KeepSavePopover
+        item={item}
+        allowCreateCollection
+        editorProps={{ debounceMs: 0 }}
+        renderEditor={({ state, createCollection }) => (
+          <div>
+            <input aria-label="Custom collection name" defaultValue="Reading" />
+            <button type="button" onClick={() => void createCollection("Reading").then(created)}>
+              Create custom
+            </button>
+            <output aria-label="Selected draft">{state.collectionId}</output>
+            {state.saveStatus === "error" && <p role="alert">Assignment failed</p>}
+          </div>
+        )}
+      />
+    </KeepProvider>,
+  );
+  const { dialog } = await saveAndOpen();
+  const input = within(dialog).getByLabelText("Custom collection name");
+  await waitFor(() => expect(document.activeElement).toBe(input));
+  vi.spyOn(storage, "set").mockRejectedValueOnce(new Error("Write failed"));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Create custom" }));
+  await waitFor(() => expect(created).toHaveBeenCalledWith(true));
+  expect(await screen.findByText("Assignment failed")).toBeTruthy();
+  expect(within(dialog).getByLabelText("Selected draft").textContent).toBe("reading");
+  fireEvent.keyDown(input, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect((await storage.getAll())[0]?.collectionId).toBe("reading");
+});

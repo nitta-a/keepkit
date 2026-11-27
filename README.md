@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.18
+Release: v0.28.19
 
 ## 日本語
 
@@ -147,6 +147,8 @@ pnpm test:browser
 
 `KeepSavePopover`の編集パネルは画面端に収まるよう配置されます。アイコンだけの保存ボタンにはローカライズした操作名とタイトルを読み上げ名として設定します。サイト共通の一覧入口の例は[UIガイド](./packages/keepkit-ui/README.md)を参照してください。
 
+個別言語の辞書と軽量Providerを使う方法、および保存後の編集欄をホストの部品で描く `renderEditor` は[UIガイド](./packages/keepkit-ui/README.md)を参照してください。
+
 編集パネルは最も近い開いている`dialog`内、または`document.body`に表示されます。独自モーダルでは`portalContainer`にモーダルのコンテンツ要素を指定できます。
 
 同じ保存領域内では、`targetType`に関係なく`id`を一意にしてください。例えば `article:123` と `product:123` を使います。
@@ -156,6 +158,8 @@ pnpm test:browser
 Save buttons are disabled while saved state is loading or a mutation is in progress.
 
 `KeepSavePopover` positions its editor within the viewport. Icon-only save buttons use localized action labels and item titles for accessible names. See the [UI guide](./packages/keepkit-ui/README.md) for site-wide saved-item navigation.
+
+The [UI guide](./packages/keepkit-ui/README.md) also shows lightweight providers with individual locale dictionaries and `renderEditor` for host-owned post-save controls.
 
 The editor renders inside the nearest open native `dialog`, or in `document.body`. Pass the modal content element as `portalContainer` for a custom modal.
 

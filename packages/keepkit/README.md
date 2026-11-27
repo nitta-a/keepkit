@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.18
+Release: v0.28.19
 
 ## 日本語
 
@@ -10,6 +10,8 @@ Release: v0.28.18
 標準の一覧UIが必要な場合は[@keepkit/ui](../keepkit-ui/README.md)を使ってください。記事向けの`presentation="reading"`と行内選択はUIパッケージの追加機能で、Coreの型・保存形式は変更しません。未訪問の判定には既存の`lastOpenedAt`と`recordOpen()`を使います。
 
 ホストのテーマ・アイコン・Drawer連携や部品別importもUI側で設定します。Coreの保存や開封記録には影響しません。
+
+UIの個別言語辞書と軽量Provider、保存後エディターの差し替えは[UIガイド](../keepkit-ui/README.md)を参照してください。
 
 ### インストールと入口
 
@@ -136,6 +138,8 @@ Framework-neutral persistence primitives and React providers and hooks.
 Use [@keepkit/ui](../keepkit-ui/README.md) when you want a ready-made collection UI. Its opt-in `presentation="reading"` and inline selection add UI behavior without changing Core types or storage formats. Unvisited uses the existing `lastOpenedAt` and `recordOpen()` contracts.
 
 Host themes, icons, drawer integration and individual component imports are configured in the UI package; Core persistence and open tracking are unchanged.
+
+See the [UI guide](../keepkit-ui/README.md) for individual locale dictionaries, lightweight providers and custom post-save editors.
 
 ### Installation and entry points
 

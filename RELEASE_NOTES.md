@@ -1,5 +1,10 @@
 # Release notes
 
+## [0.28.19] - 2026-11-28
+
+- 言語別辞書と軽量Providerを追加し、必要な言語だけを部品と一緒に読み込めるようにしました。保存後パネルの `renderEditor` で、ホストの部品を使って編集・コレクション作成を描画できます。
+- Added individual locale dictionaries and lightweight providers for loading the selected language with UI components. The post-save panel's `renderEditor` supports host controls for editing and collection creation.
+
 ## [0.28.18] - 2026-11-28
 
 - UIの既定テーマはホストの `.dark` に従います。完成色とshadcn v3のHSL数値列を区別し、主色と影を同じ配色に揃えました。Providerの共通アイコンと、保存後にホストのDrawerを使う `renderPanel` も利用できます。[移行ガイド](./MIGRATION.md)と[部品別のgzipサイズ](./packages/keepkit-ui/README.md#component-bundle-sizes)を参照してください。

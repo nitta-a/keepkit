@@ -203,7 +203,8 @@ import {
   type KeepWorkspaceState,
   type KeepWorkspaceSurface,
 } from "./features/workspace/KeepWorkspace";
-import { KeepKitProvider, type KeepKitProviderProps } from "./foundation/KeepKitProvider";
+import type { KeepKitProviderProps } from "./foundation/KeepKitProvider";
+import { KeepKitProvider, KeepUiProvider } from "./foundation/legacy-providers";
 import {
   type KeepThemeDensity,
   type KeepThemeMode,
@@ -215,7 +216,6 @@ import {
   keepThemeNames,
 } from "./foundation/theme";
 import {
-  getKeepLocaleLabels,
   type KeepUiFeedbackEvent,
   type KeepUiLabelContext,
   type KeepUiLabelKey,
@@ -224,11 +224,11 @@ import {
   type KeepUiLabels,
   type KeepUiLocale,
   type KeepUiLocaleLabels,
-  KeepUiProvider,
   type KeepUiProviderProps,
   useKeepUiLabels,
   useUiLabelVisibility,
 } from "./foundation/ui-context";
+import { getKeepLocaleLabels } from "./locales";
 
 export type {
   AuthenticatedSyncAuthContext,
@@ -276,7 +276,7 @@ export {
 } from "@keepkit/core/storage";
 export type { KeepSelectionScope } from "./features/actions/KeepBulkActions";
 export { isAllSelected, toggleSelectAll } from "./features/actions/KeepBulkActions";
-export type { KeepSavePopoverPanelContext } from "./features/actions/KeepSavePopover";
+export type { KeepSavePopoverEditorContext, KeepSavePopoverPanelContext } from "./features/actions/KeepSavePopover";
 export type { KeepTourShortcutsOptions } from "./features/navigation/hooks/useKeepTourShortcuts";
 export { useKeepTourShortcuts } from "./features/navigation/hooks/useKeepTourShortcuts";
 export type { KeepEmptyStateVariant } from "./features/status/KeepEmptyState";

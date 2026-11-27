@@ -115,6 +115,20 @@ test("supports an explicit portal container", async ({ page }) => {
   await expect(page.getByTestId("custom-portal").getByRole("dialog", { name: "Edit saved item" })).toBeVisible();
 });
 
+test("focuses the custom editor and saves its draft on Escape", async ({ page }) => {
+  await page.goto("/entry.html?customEditor");
+  const trigger = page.getByRole("button", { name: "Save item" });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Edit saved item" });
+  const input = dialog.getByRole("textbox", { name: "Custom note" });
+  await expect(input).toBeFocused();
+  await input.fill("A custom note");
+  await input.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("saved-note")).toHaveText("A custom note");
+  await expect(page.getByRole("button", { name: "Remove saved item" })).toBeFocused();
+});
+
 test("keeps the floating tour controls usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 667 });
   await page.goto("/entry.html");

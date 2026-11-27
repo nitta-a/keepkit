@@ -1,4 +1,5 @@
 import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
+import { useKeepItem } from "@keepkit/core/react";
 import { createRoot } from "react-dom/client";
 import { KeepFloatingTour, KeepKitProvider, KeepSavePopover, KeepThemeProvider, useKeepTour } from "../../../src/index";
 
@@ -34,6 +35,10 @@ function Tour() {
     </button>
   );
 }
+function SavedNote() {
+  const { item } = useKeepItem<Meta>({ id: "entry", meta: { title: "Article" } });
+  return <output data-testid="saved-note">{item?.note}</output>;
+}
 createRoot(root).render(
   <KeepKitProvider
     storage={storage}
@@ -57,6 +62,7 @@ createRoot(root).render(
       </KeepThemeProvider>
     ) : null}
     <Tour />
+    <SavedNote />
     <KeepFloatingTour<Meta> />
     <button type="button" data-testid="host-button" style={{ height: 24, padding: 0, border: 0 }}>
       Host
@@ -66,7 +72,20 @@ createRoot(root).render(
       data-testid="clipped-card"
       style={{ position: "fixed", right: 0, bottom: 0, width: 100, height: 80, overflow: "hidden" }}
     >
-      <KeepSavePopover item={{ id: "entry", meta: { title: "Article" } }} portalContainer={portalContainer} />
+      <KeepSavePopover
+        item={{ id: "entry", meta: { title: "Article" } }}
+        portalContainer={portalContainer}
+        renderEditor={
+          params.has("customEditor")
+            ? ({ state }) => (
+                <label>
+                  Custom note
+                  <input value={state.note} onChange={(event) => state.setNote(event.target.value)} />
+                </label>
+              )
+            : undefined
+        }
+      />
     </div>
   </KeepKitProvider>,
 );

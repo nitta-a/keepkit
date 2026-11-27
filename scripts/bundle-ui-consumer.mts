@@ -3,11 +3,19 @@ import { build } from "esbuild";
 /** Bundle one public specifier in isolation, as resolved from the consumer (never a source alias). */
 export function bundleUiConsumer(directory: string, specifier: string, component?: string) {
   const path = JSON.stringify(specifier);
+  return bundleUiConsumerCode(
+    directory,
+    component ? `export { ${component} } from ${path};` : `@import ${path};`,
+    component ? "js" : "css",
+  );
+}
+
+export function bundleUiConsumerCode(directory: string, contents: string, loader: "js" | "css" = "js") {
   return build({
     absWorkingDir: directory,
     stdin: {
-      contents: component ? `export { ${component} } from ${path};` : `@import ${path};`,
-      loader: component ? "js" : "css",
+      contents,
+      loader,
       resolveDir: directory,
     },
     bundle: true,

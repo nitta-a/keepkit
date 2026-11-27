@@ -2,7 +2,7 @@
 
 import type { KeepItem, KeepItemStatus } from "@keepkit/core/core";
 import { createContext, type ReactNode, useCallback, useContext, useMemo } from "react";
-import { getKeepLocaleLabels, KEEP_LOCALE_LABELS, normalizeKeepLocale } from "../locales";
+import { EN_LABELS } from "../locales/en";
 import type { KeepUiLabelKey, KeepUiLabelOptionsMap, KeepUiLabels, KeepUiLocaleLabels } from "../locales/types";
 import type { KeepButtonIcon, KeepButtonIcons } from "./shared";
 
@@ -51,7 +51,7 @@ export type KeepUiFeedbackEvent<TMeta = Record<string, unknown>> =
       undoLabel: string;
     });
 
-export const DEFAULT_LABELS: KeepUiLocaleLabels = KEEP_LOCALE_LABELS.en;
+export const DEFAULT_LABELS: KeepUiLocaleLabels = EN_LABELS;
 
 const KeepUiLabelsContext = createContext<KeepUiLabelContext>({
   labels: DEFAULT_LABELS,
@@ -64,6 +64,7 @@ export type KeepUiProviderProps<TMeta = Record<string, unknown>> = {
   labels?: KeepUiLabels;
   labelOptions?: KeepUiLabelOptionsMap;
   locale?: string;
+  dictionary?: KeepUiLocaleLabels;
   labelResolver?: KeepUiLabelContext["labelResolver"];
   onFeedback?: (event: KeepUiFeedbackEvent<TMeta>) => void;
   children?: ReactNode;
@@ -75,6 +76,7 @@ export function KeepUiProvider<TMeta = Record<string, unknown>>({
   labels,
   labelOptions,
   locale,
+  dictionary,
   labelResolver,
   onFeedback,
   children,
@@ -86,8 +88,6 @@ export function KeepUiProvider<TMeta = Record<string, unknown>>({
     [onFeedback],
   );
   const value = useMemo<KeepUiLabelContext>(() => {
-    const resolvedLocale = normalizeKeepLocale(locale);
-    const dictionary = getKeepLocaleLabels(resolvedLocale);
     const resolved = { ...DEFAULT_LABELS, ...dictionary };
     const labelVisibility = {} as Record<KeepUiLabelKey, boolean>;
     for (const key of Object.keys(resolved) as KeepUiLabelKey[]) {
@@ -98,7 +98,7 @@ export function KeepUiProvider<TMeta = Record<string, unknown>>({
     }
     return {
       icons,
-      locale: locale ?? resolvedLocale,
+      locale: locale ?? "en",
       labels: resolved,
       labelVisibility,
       customLabels: labels,
@@ -106,7 +106,7 @@ export function KeepUiProvider<TMeta = Record<string, unknown>>({
       labelResolver,
       emitFeedback,
     };
-  }, [emitFeedback, icons, labelOptions, labelResolver, labels, locale]);
+  }, [dictionary, emitFeedback, icons, labelOptions, labelResolver, labels, locale]);
   return <KeepUiLabelsContext.Provider value={value}>{children}</KeepUiLabelsContext.Provider>;
 }
 
@@ -138,5 +138,3 @@ export function useKeepUiFeedback<TMeta = Record<string, unknown>>() {
   const { emitFeedback } = useKeepUiLabels();
   return useCallback((event: KeepUiFeedbackEvent<TMeta>) => emitFeedback(event), [emitFeedback]);
 }
-
-export { getKeepLocaleLabels };

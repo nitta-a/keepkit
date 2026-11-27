@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeepItem, KeepItemInput } from "@keepkit/core/core";
-import { useKeepItem } from "@keepkit/core/react";
+import { type KeepCollectionSummary, useKeepCollections, useKeepItem } from "@keepkit/core/react";
 import {
   type HTMLAttributes,
   type ReactNode,
@@ -16,6 +16,7 @@ import {
 import { createPortal } from "react-dom";
 import { KeepPortalTheme } from "../../foundation/theme";
 import { useUiLabel } from "../../foundation/ui-context";
+import { useKeepCollectionCreate } from "../collection/hooks/useKeepCollectionCreate";
 import { KeepCollectionCreateForm } from "../collection/KeepCollectionCreate";
 import {
   type KeepQuickEditorProps,
@@ -36,6 +37,16 @@ export type KeepSavePopoverPanelContext<TMeta = Record<string, unknown>> = {
   requestClose: () => Promise<boolean>;
 };
 
+export type KeepSavePopoverEditorContext<TMeta = Record<string, unknown>> = {
+  state: KeepQuickEditorState<TMeta>;
+  collections: KeepCollectionSummary[];
+  canCreateCollection: boolean;
+  createCollection: (name: string) => Promise<boolean>;
+  collectionError: string | null;
+  isCreatingCollection: boolean;
+  clearCollectionError: () => void;
+};
+
 export type KeepSavePopoverProps<TMeta = Record<string, unknown>> = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
   item: KeepItemInput<TMeta>;
   open?: boolean;
@@ -49,6 +60,8 @@ export type KeepSavePopoverProps<TMeta = Record<string, unknown>> = Omit<HTMLAtt
   allowCreateCollection?: boolean;
   /** Replace the open panel shell. The host owns its portal, focus, and dismissal events. */
   renderPanel?: (context: KeepSavePopoverPanelContext<TMeta>) => ReactNode;
+  /** Replace the editor and collection creation controls while KeepKit retains their state. */
+  renderEditor?: (context: KeepSavePopoverEditorContext<TMeta>) => ReactNode;
   children?: ReactNode;
 };
 
@@ -64,6 +77,7 @@ export function KeepSavePopover<TMeta = Record<string, unknown>>({
   editorProps,
   allowCreateCollection,
   renderPanel,
+  renderEditor,
   children,
   ...props
 }: KeepSavePopoverProps<TMeta>) {
@@ -141,6 +155,7 @@ export function KeepSavePopover<TMeta = Record<string, unknown>>({
           editorProps={editorProps}
           allowCreateCollection={allowCreateCollection}
           renderPanel={renderPanel}
+          renderEditor={renderEditor}
           triggerRef={triggerRef}
           portalContainer={portalContainer}
           onClose={() => setOpen(false)}
@@ -159,6 +174,7 @@ type KeepSavePopoverPanelProps<TMeta> = {
   editorProps?: KeepSavePopoverProps<TMeta>["editorProps"];
   allowCreateCollection?: boolean;
   renderPanel?: KeepSavePopoverProps<TMeta>["renderPanel"];
+  renderEditor?: KeepSavePopoverProps<TMeta>["renderEditor"];
   triggerRef: RefObject<HTMLElement | null>;
   portalContainer?: HTMLElement | null;
   onClose: () => void;
@@ -172,6 +188,7 @@ function KeepSavePopoverPanel<TMeta>({
   editorProps,
   allowCreateCollection,
   renderPanel,
+  renderEditor,
   triggerRef,
   portalContainer,
   onClose,
@@ -184,6 +201,14 @@ function KeepSavePopoverPanel<TMeta>({
   const pendingCreate = useRef<Promise<boolean> | null>(null);
   const closingRef = useRef<Promise<boolean> | null>(null);
   const activeRef = useRef(true);
+  const creationFailed = useRef(false);
+  const collections = useKeepCollections({ targetType: item.targetType });
+  const creation = useKeepCollectionCreate({
+    onCreated: (id) => {
+      setCreatedIds((ids) => [...ids, id]);
+      state.setCollectionId(id);
+    },
+  });
   useLayoutEffect(() => {
     activeRef.current = true;
     return () => {
@@ -206,11 +231,27 @@ function KeepSavePopoverPanel<TMeta>({
       if (pendingCreate.current === commit) pendingCreate.current = null;
     });
   };
+  const createCollection = (name: string): Promise<boolean> => {
+    if (pendingCreate.current) return Promise.resolve(false);
+    if (!allowCreateCollection || editorViewProps.features?.collection === false) return Promise.resolve(false);
+    creationFailed.current = false;
+    const task = creation.create(name).then((created) => {
+      creationFailed.current = !created;
+      return created;
+    });
+    const commit = task.then((created) => created && flushDraft());
+    pendingCreate.current = commit;
+    void commit.finally(() => {
+      if (pendingCreate.current === commit) pendingCreate.current = null;
+    });
+    return task;
+  };
   const requestClose = useCallback(() => {
     if (closingRef.current) return closingRef.current;
     const close = async () => {
       do {
         if (pendingCreate.current && !(await pendingCreate.current)) return false;
+        if (creationFailed.current) return false;
         if (!(await flushDraft())) return false;
       } while (pendingCreate.current);
       if (!activeRef.current) return false;
@@ -227,14 +268,43 @@ function KeepSavePopoverPanel<TMeta>({
   const content = (
     <>
       {children}
-      <KeepQuickEditorView
-        {...editorViewProps}
-        collectionIds={collectionIds && [...new Set([...collectionIds, ...createdIds])]}
-        state={state}
-        focusScopeRef={renderPanel ? undefined : panelRef}
-        hostHandlesEscape={!!renderPanel}
-      />
-      {allowCreateCollection && editorViewProps.features?.collection !== false ? (
+      {renderEditor ? (
+        <div data-keepkit="custom-save-editor">
+          {renderEditor({
+            state,
+            collections: collectionIds
+              ? [...new Set([...collectionIds, ...createdIds])].map((id) => {
+                  const collection = collections.find((entry) => entry.id === id);
+                  return {
+                    id,
+                    name: editorViewProps.collectionLabels?.[id] ?? collection?.name ?? id,
+                    count: collection?.count ?? 0,
+                  };
+                })
+              : collections.map((entry) => ({
+                  ...entry,
+                  name: editorViewProps.collectionLabels?.[entry.id] ?? entry.name,
+                })),
+            canCreateCollection: !!allowCreateCollection && editorViewProps.features?.collection !== false,
+            createCollection,
+            collectionError: creation.error,
+            isCreatingCollection: creation.isSubmitting,
+            clearCollectionError: () => {
+              creationFailed.current = false;
+              creation.clearError();
+            },
+          })}
+        </div>
+      ) : (
+        <KeepQuickEditorView
+          {...editorViewProps}
+          collectionIds={collectionIds && [...new Set([...collectionIds, ...createdIds])]}
+          state={state}
+          focusScopeRef={renderPanel ? undefined : panelRef}
+          hostHandlesEscape={!!renderPanel}
+        />
+      )}
+      {!renderEditor && allowCreateCollection && editorViewProps.features?.collection !== false ? (
         <KeepCollectionCreateForm
           onCreated={(id) => {
             setCreatedIds((ids) => [...ids, id]);
@@ -307,7 +377,9 @@ function DefaultSavePanel<TMeta>({
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       panelRef.current
-        ?.querySelector<HTMLElement>('[data-keepkit="quick-editor"] :is(textarea, input, select, button)')
+        ?.querySelector<HTMLElement>(
+          '[data-keepkit="quick-editor"] :is(textarea, input, select, button), [data-keepkit="custom-save-editor"] :is(textarea, input, select, button)',
+        )
         ?.focus();
     });
     return () => window.cancelAnimationFrame(frame);

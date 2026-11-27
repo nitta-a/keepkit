@@ -129,7 +129,7 @@ test("select-all helpers operate on visible items and preserve hidden selections
   assert.equal(isAllSelected([], []), false);
 });
 
-test("provides complete built-in dictionaries for all supported locales and aliases", () => {
+test("provides complete built-in dictionaries for all supported locales and aliases", async () => {
   const locales = [
     "en",
     "ja",
@@ -152,6 +152,9 @@ test("provides complete built-in dictionaries for all supported locales and alia
 
   for (const locale of locales) {
     assert.deepEqual(Object.keys(getKeepLocaleLabels(locale)).sort(), expectedKeys, locale);
+    const dictionary = await import(`../dist/locales/${locale}.js`);
+    const name = `${locale.replaceAll("-", "_").toUpperCase()}_LABELS`;
+    assert.deepEqual(dictionary[name], getKeepLocaleLabels(locale), locale);
   }
   assert.equal(getKeepLocaleLabels("zh-CN").save, getKeepLocaleLabels("zh-Hans").save);
   assert.equal(getKeepLocaleLabels("zh-TW").save, getKeepLocaleLabels("zh-Hant").save);

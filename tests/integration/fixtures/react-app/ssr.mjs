@@ -4,6 +4,8 @@ import { KeepButton, KeepProvider } from "@keepkit/core/react";
 import * as root from "@keepkit/ui";
 import { KeepButton as UiButton } from "@keepkit/ui/button";
 import { KeepKitProvider } from "@keepkit/ui/kit-provider";
+import { KeepKitProvider as LightKitProvider } from "@keepkit/ui/kit-provider-light";
+import { JA_LABELS } from "@keepkit/ui/locales/ja";
 import { createElement as h } from "react";
 import { renderToString } from "react-dom/server";
 import * as components from "./components.ts";
@@ -30,5 +32,9 @@ const ui = renderToString(
     h(root.KeepCollection),
   ),
 );
+const light = renderToString(
+  h(LightKitProvider, { initialItems, locale: "ja", dictionary: JA_LABELS }, h(UiButton, { item: saved })),
+);
+assert.ok(light.includes(JA_LABELS.saved));
 
 process.stdout.write(JSON.stringify({ core, ui }));

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { bundleUiConsumer } from "../../../scripts/bundle-ui-consumer.mts";
+import { bundleUiConsumer, bundleUiConsumerCode } from "../../../scripts/bundle-ui-consumer.mts";
 import {
   collectExportFiles,
   createConsumer,
@@ -45,6 +45,13 @@ const expectedEntryPoints: Record<string, string[]> = {
   "@keepkit/ui": uiExports,
   "@keepkit/ui/react": uiExports,
   "@keepkit/ui/tailwind": ["keepKitTheme"],
+  "@keepkit/ui/ui-provider-light": ["KeepUiProvider"],
+  "@keepkit/ui/kit-provider-light": ["KeepKitProvider"],
+  ...Object.fromEntries(
+    ["en", "ja", "ko", "zh-Hans", "zh-Hant", "th", "fr", "es", "pt-BR", "it", "de", "ru", "fil", "vi", "id", "ms"].map(
+      (locale) => [`@keepkit/ui/locales/${locale}`, [`${locale.replaceAll("-", "_").toUpperCase()}_LABELS`]],
+    ),
+  ),
 };
 
 const privateSpecifiers = ["@keepkit/core", "@keepkit/core/dist/core.js", "@keepkit/ui/dist/index.js"];
@@ -184,6 +191,27 @@ describe("published packages in consumer projects", () => {
         [],
       );
     }
+  });
+
+  test("a Japanese lightweight consumer excludes other locale dictionaries", async () => {
+    const { metafile, outputFiles } = await bundleUiConsumerCode(
+      reactApp,
+      `export { KeepButton } from "@keepkit/ui/button";
+       export { KeepUiProvider } from "@keepkit/ui/ui-provider-light";
+       export { JA_LABELS } from "@keepkit/ui/locales/ja";`,
+    );
+    const sources: string[] = [];
+    for (const input of Object.keys(metafile.inputs).filter((path) => path.endsWith(".js"))) {
+      const map: { sources: string[] } = JSON.parse(await readFile(join(reactApp, `${input}.map`), "utf8"));
+      sources.push(...map.sources);
+    }
+    const locales = [
+      ...new Set(
+        sources.filter((path) => /\/locales\/(?!types\.)[^/]+\.ts$/.test(path)).map((path) => path.split("/").at(-1)),
+      ),
+    ].sort();
+    assert.deepEqual(locales, ["en.ts", "ja.ts"]);
+    assert.ok(outputFiles[0].contents.length > 0);
   });
 
   test("build internals and the core package root stay private", async () => {

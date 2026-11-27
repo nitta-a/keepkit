@@ -1,9 +1,8 @@
 "use client";
 
-import { useKeepCollections, useKeepContext } from "@keepkit/core/react";
 import { type FormEvent, type InputHTMLAttributes, type ReactNode, useId, useState } from "react";
-import { getErrorMessage } from "../../foundation/shared";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
+import { useKeepCollectionCreate } from "./hooks/useKeepCollectionCreate";
 
 export type KeepCollectionCreateProps = Omit<InputHTMLAttributes<HTMLInputElement>, "onSubmit" | "onChange"> & {
   /** Called with the new collection ID after successful creation. */
@@ -34,11 +33,14 @@ export function KeepCollectionCreateForm({
   id: externalId,
   ...inputProps
 }: KeepCollectionCreateProps & { onSubmitTask?: (creation: Promise<boolean>) => void }) {
-  const { createCollection } = useKeepContext();
-  const collections = useKeepCollections();
   const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { create, error, isSubmitting, clearError } = useKeepCollectionCreate({
+    onCreated: (id) => {
+      setName("");
+      onCreated?.(id);
+    },
+    onError,
+  });
   const autoId = useId();
   const inputId = externalId ?? autoId;
 
@@ -48,29 +50,6 @@ export function KeepCollectionCreateForm({
   const showSubmitLabel = useUiLabelVisibility("createCollectionSubmit");
   const placeholderText = useUiLabel("collectionName");
 
-  const create = async (trimmed: string) => {
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      const lowerName = trimmed.toLowerCase();
-      const normalizedId = lowerName.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const collectionId = normalizedId || `collection-${crypto.randomUUID()}`;
-      if (collections.some((c) => c.id === collectionId || c.name.toLowerCase() === lowerName)) {
-        throw new Error(`Collection "${trimmed}" already exists.`);
-      }
-      await createCollection(collectionId, trimmed);
-      setName("");
-      onCreated?.(collectionId);
-      return true;
-    } catch (cause) {
-      const message = getErrorMessage(cause, "Failed to create collection.");
-      setError(message);
-      onError?.(cause);
-      return false;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const trimmed = name.trim();
@@ -94,7 +73,7 @@ export function KeepCollectionCreateForm({
           value={name}
           onChange={(event) => {
             setName(event.currentTarget.value);
-            if (error) setError(null);
+            if (error) clearError();
           }}
           placeholder={placeholder ?? placeholderText}
           disabled={isSubmitting}

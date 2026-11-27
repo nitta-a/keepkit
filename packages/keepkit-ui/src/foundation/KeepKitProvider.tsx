@@ -21,6 +21,7 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
   labels,
   labelOptions,
   locale,
+  dictionary,
   labelResolver,
   onFeedback,
   theme,
@@ -45,6 +46,7 @@ export function KeepKitProvider<TMeta = Record<string, unknown>>({
       labels={labels}
       labelOptions={labelOptions}
       locale={locale}
+      dictionary={dictionary}
       labelResolver={labelResolver}
       onFeedback={onFeedback}
     >

@@ -1,6 +1,6 @@
 {
   "name": "@keepkit/ui",
-  "version": "0.28.18",
+  "version": "0.28.19",
   "description": "Headless, accessible React UI components for KeepKit.",
   "type": "module",
   "license": "MIT",
@@ -272,6 +272,78 @@
     },
     "./styles/workspace.css": {
       "default": "./dist/styles/workspace.css"
+    },
+    "./ui-provider-light": {
+      "types": "./dist/entries/ui-provider-light.d.ts",
+      "import": "./dist/entries/ui-provider-light.js"
+    },
+    "./kit-provider-light": {
+      "types": "./dist/entries/kit-provider-light.d.ts",
+      "import": "./dist/entries/kit-provider-light.js"
+    },
+    "./locales/pt-BR": {
+      "types": "./dist/locales/pt-BR.d.ts",
+      "import": "./dist/locales/pt-BR.js"
+    },
+    "./locales/de": {
+      "types": "./dist/locales/de.d.ts",
+      "import": "./dist/locales/de.js"
+    },
+    "./locales/it": {
+      "types": "./dist/locales/it.d.ts",
+      "import": "./dist/locales/it.js"
+    },
+    "./locales/es": {
+      "types": "./dist/locales/es.d.ts",
+      "import": "./dist/locales/es.js"
+    },
+    "./locales/zh-Hans": {
+      "types": "./dist/locales/zh-Hans.d.ts",
+      "import": "./dist/locales/zh-Hans.js"
+    },
+    "./locales/en": {
+      "types": "./dist/locales/en.d.ts",
+      "import": "./dist/locales/en.js"
+    },
+    "./locales/fr": {
+      "types": "./dist/locales/fr.d.ts",
+      "import": "./dist/locales/fr.js"
+    },
+    "./locales/ms": {
+      "types": "./dist/locales/ms.d.ts",
+      "import": "./dist/locales/ms.js"
+    },
+    "./locales/th": {
+      "types": "./dist/locales/th.d.ts",
+      "import": "./dist/locales/th.js"
+    },
+    "./locales/ru": {
+      "types": "./dist/locales/ru.d.ts",
+      "import": "./dist/locales/ru.js"
+    },
+    "./locales/zh-Hant": {
+      "types": "./dist/locales/zh-Hant.d.ts",
+      "import": "./dist/locales/zh-Hant.js"
+    },
+    "./locales/vi": {
+      "types": "./dist/locales/vi.d.ts",
+      "import": "./dist/locales/vi.js"
+    },
+    "./locales/ko": {
+      "types": "./dist/locales/ko.d.ts",
+      "import": "./dist/locales/ko.js"
+    },
+    "./locales/fil": {
+      "types": "./dist/locales/fil.d.ts",
+      "import": "./dist/locales/fil.js"
+    },
+    "./locales/id": {
+      "types": "./dist/locales/id.d.ts",
+      "import": "./dist/locales/id.js"
+    },
+    "./locales/ja": {
+      "types": "./dist/locales/ja.d.ts",
+      "import": "./dist/locales/ja.js"
     }
   },
   "sideEffects": [

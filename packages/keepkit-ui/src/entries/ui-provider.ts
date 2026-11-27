@@ -1,15 +1,15 @@
 "use client";
 
-export {
-  type KeepUiFeedbackEvent,
-  type KeepUiIcons,
-  type KeepUiLabelContext,
-  type KeepUiLabelKey,
-  type KeepUiLabelOptions,
-  type KeepUiLabelOptionsMap,
-  type KeepUiLabels,
-  type KeepUiLocale,
-  type KeepUiLocaleLabels,
-  KeepUiProvider,
-  type KeepUiProviderProps,
+export { KeepUiProvider } from "../foundation/legacy-providers";
+export type {
+  KeepUiFeedbackEvent,
+  KeepUiIcons,
+  KeepUiLabelContext,
+  KeepUiLabelKey,
+  KeepUiLabelOptions,
+  KeepUiLabelOptionsMap,
+  KeepUiLabels,
+  KeepUiLocale,
+  KeepUiLocaleLabels,
+  KeepUiProviderProps,
 } from "../foundation/ui-context";

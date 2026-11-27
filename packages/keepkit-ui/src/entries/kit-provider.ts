@@ -1,4 +1,5 @@
 "use client";
 
-export { KeepKitProvider, type KeepKitProviderProps } from "../foundation/KeepKitProvider";
+export type { KeepKitProviderProps } from "../foundation/KeepKitProvider";
+export { KeepKitProvider } from "../foundation/legacy-providers";
 export type { KeepUiIcons } from "../foundation/ui-context";

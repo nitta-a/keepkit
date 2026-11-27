@@ -10,7 +10,10 @@ import { parseKeepMeta } from "@keepkit/core/schema";
 import { LocalStorageAdapter } from "@keepkit/core/storage";
 import { KeepCollection, KeepKitProvider } from "@keepkit/ui";
 import { type KeepButtonProps, KeepButton as UiButton } from "@keepkit/ui/button";
+import { KeepKitProvider as LightKitProvider } from "@keepkit/ui/kit-provider-light";
+import { JA_LABELS } from "@keepkit/ui/locales/ja";
 import { keepKitTheme } from "@keepkit/ui/tailwind";
+import { KeepUiProvider as LightUiProvider } from "@keepkit/ui/ui-provider-light";
 
 type ArticleMeta = { title: string; url: string };
 
@@ -32,6 +35,13 @@ const article: KeepItem<ArticleMeta> = {
   meta: { title: "Typed", url: "https://example.com" },
 };
 const storage: StorageAdapter<ArticleMeta> = new LocalStorageAdapter<ArticleMeta>({ key: "consumer" });
+export const lightProviders = (
+  <LightUiProvider locale="ja" dictionary={JA_LABELS}>
+    <LightKitProvider storage={storage} locale="ja" dictionary={JA_LABELS}>
+      <UiButton item={article} />
+    </LightKitProvider>
+  </LightUiProvider>
+);
 
 export const backup: Promise<string> = exportItems(storage);
 export const meta: Promise<ArticleMeta> = parseKeepMeta(articleSchema, article.meta);

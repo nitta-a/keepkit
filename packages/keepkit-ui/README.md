@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.18
+Release: v0.28.19
 
 ## 日本語
 
@@ -53,6 +53,20 @@ export function App() {
 
 `createKeepKit<TMeta>()`は同じメタデータ型のコンポーネントとhooksを返します。
 `locale`で組み込みラベルを切り替え、`labels`で文言を上書きできます。16言語に対応しています。
+
+部品別importで1言語だけ使う場合は、軽量Providerと必要な辞書を指定します。既存の `@keepkit/ui` および `@keepkit/ui/kit-provider` のProviderは、従来どおり `locale` だけで16言語を選べます。
+
+```tsx
+import { KeepKitProvider } from "@keepkit/ui/kit-provider-light";
+import { JA_LABELS } from "@keepkit/ui/locales/ja";
+import { KeepButton } from "@keepkit/ui/button";
+
+<KeepKitProvider storage={storage} locale="ja" dictionary={JA_LABELS}>
+  <KeepButton item={article} />
+</KeepKitProvider>;
+```
+
+すでにCoreの `KeepProvider` を使う場合は `@keepkit/ui/ui-provider-light` の `KeepUiProvider` に同じ `locale` と `dictionary` を渡します。辞書を省略すると英語です。表示言語を変更するときは対応する辞書も渡してください。辞書は全16言語を `locales/en`、`locales/zh-Hans`、`locales/pt-BR` などから個別にimportできます。`labels`、`labelOptions`、`labelResolver` は従来どおり使えます。必要な辞書を静的または動的に読み込み、SSRではサーバーとクライアントに同じ辞書を渡してください。
 
 ### 一覧を拡張する
 
@@ -190,6 +204,8 @@ function RecoveryScreen() {
 
 標準パネルは `32rem` 以下で画面下端に表示されます。自分のDrawerやDialogを使う場合は [ホストパネルの例](#host-panel-example) のように `renderPanel` で `content` を一度だけ配置します。コレクション選択に加えて作成も必要なら `allowCreateCollection` を指定します。Escape・背景クリック・閉じる操作はすべて `requestClose()` に渡し、ホスト側で先にアンマウントしないでください。保存失敗時は開いたまま下書きを残します。ホストはフォーカスの制御と `triggerRef` への復帰を担当します。
 
+`renderEditor` ではパネルの中身も差し替えられます。[カスタムエディターの例](#custom-editor-example)では選択と作成をホストの部品で描画し、保存と失敗時の下書きはKeepKitが管理します。入力のラベル、エラーの読み上げ、キーボード操作はホスト側で実装してください。
+
 ### サイトのナビゲーションから一覧を開く
 
 共通レイアウトにProviderを一つ置き、ヘッダーやモバイルナビゲーションから保存一覧のURLへリンクします。保存通知からも同じURLに移動できます。ルーティングには利用側のRouterを使用してください。
@@ -286,6 +302,8 @@ export function App() {
 
 `createKeepKit<TMeta>()` returns components and hooks sharing your metadata type.
 Use `locale` for built-in labels and `labels` for overrides. Sixteen languages are supported.
+
+For a single language with component imports, use `@keepkit/ui/kit-provider-light` with `locale="ja"` and `dictionary={JA_LABELS}` imported from `@keepkit/ui/locales/ja`, as in the Japanese example above. With an existing core provider, use `@keepkit/ui/ui-provider-light` instead. The light providers default to English; pass a matching dictionary when changing locales. Individual paths cover all 16 languages, including `locales/zh-Hans` and `locales/pt-BR`. They support `labels`, `labelOptions` and `labelResolver`. For SSR, supply the same dictionary on server and client. The existing root and `kit-provider` providers continue to resolve all built-in languages from `locale` alone.
 
 ### Extend the collection
 
@@ -507,6 +525,32 @@ The standard panel docks to the bottom at `32rem` and narrower. To use your own 
 
 Only a successful save from this trigger opens the shell automatically. `allowCreateCollection` adds a creation form beside the editor and selects the new collection. The host owns positioning, initial focus, trapping and restoration. Route Escape, outside dismissal and Done through `requestClose()` rather than unmounting immediately: it waits for pending edits and returns `false` on failure, leaving the draft and error visible.
 
+#### Custom editor example
+
+`renderEditor` replaces the editor and creation form inside either panel shell. Render controls with your own components; this abbreviated example uses native elements. KeepKit retains `state`, saves changes and selects a newly created collection. `createCollection` resolves `true` when creation succeeds; the subsequent assignment is saved separately and a failure remains in `state.error` with its draft available for retry. Keep the name in host state until creation succeeds. Display `collectionError` and `state.error`, and offer `clearCollectionError` to discard a failed creation before closing.
+
+```tsx
+function CollectionEditor({ state, collections, canCreateCollection, createCollection, collectionError, isCreatingCollection, clearCollectionError }: KeepSavePopoverEditorContext) {
+  const [name, setName] = useState("");
+  return <>
+    <label>Collection <select value={state.collectionId ?? ""} onChange={(e) => state.setCollectionId(e.target.value || undefined)}>
+      <option value="">None</option>
+      {collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+    </select></label>
+    {canCreateCollection && <>
+      <label>New collection <input value={name} onChange={(e) => { setName(e.target.value); clearCollectionError(); }} /></label>
+      <button type="button" disabled={isCreatingCollection || !name.trim()} onClick={() => void createCollection(name).then((ok) => { if (ok) setName(""); })}>Create</button>
+    </>}
+    {collectionError && <p role="alert">{collectionError}</p>}
+    {state.error != null && <p role="alert">Could not save. Retry closing the panel.</p>}
+  </>;
+}
+
+<KeepSavePopover item={article} allowCreateCollection renderEditor={(context) => <CollectionEditor {...context} />} />;
+```
+
+Import `KeepSavePopover` and `KeepSavePopoverEditorContext` from `@keepkit/ui/save-popover`, and `useState` from React. The custom editor owns labels, accessible errors and keyboard behavior. When using `renderPanel`, the host still owns focus and dismissal; call `requestClose()` rather than unmounting the editor. `editorProps.collectionIds`, `collectionLabels` and `features.collection` also control the collection choices and whether creation is available to the custom editor.
+
 ### Theme and accessibility
 
 Import `@keepkit/ui/theme.css` for the standard theme. For Tailwind CSS v4 or shadcn, add these global CSS imports:
@@ -533,9 +577,12 @@ See the [Core README](../keepkit/README.md) for persistence contracts and the [r
 
 ## Component bundle sizes
 
-各行は、該当部品1つだけをimportしたときのUIのJS転送量です。ビルド済みパッケージの公開入口をesbuildでバンドル・ツリーシェイク・minifyし（ブラウザ用ES2020 ESM）、Nodeのgzipレベル9で測定しています。必要な共有コード・言語辞書を含み、React・React DOM・`@keepkit/core`・型宣言・ソースマップは除外します。Coreの部品を再公開する入口は再エクスポート分のみです。各行の合計はアプリのサイズではありません。CSSは任意で、ローカルの `@import` を含めた値を別表にしています。Tailwindはホスト側で処理する前の値です。
+各行は、該当部品1つだけをimportしたときのUIのJS転送量です。ビルド済みパッケージの公開入口をesbuildでバンドル・ツリーシェイク・minifyし（ブラウザ用ES2020 ESM）、Nodeのgzipレベル9で測定しています。共有コードと英語のフォールバックを含み、従来のProviderは全言語を含みます。実際のアプリにはProviderと選択した言語の辞書も必要で、import間でコードを共有するため、各行を足し合わせた値にはなりません。React・React DOM・`@keepkit/core`・型宣言・ソースマップは除外します。CSSは任意で、ローカルの `@import` を含めた値を別表にしています。Tailwindはホスト側で処理する前の値です。
 
-Each row represents one isolated consumer import from the **built package**, tree-shaken and minified with esbuild (browser ES2020 ESM), then compressed with Node gzip level 9. Shared UI code and built-in locale dictionaries are included. React (including JSX runtime), React DOM, `@keepkit/core`, source maps and declarations are excluded. Core component entries measure only the re-export. Do not add the rows: multiple components share code. Optional CSS is measured separately, including local `@import` rules and before host Tailwind processing.
+Each row represents one isolated consumer import from the **built package**, tree-shaken and minified with esbuild (browser ES2020 ESM), then compressed with Node gzip level 9. Shared UI code and English fallback are included; legacy providers include all dictionaries. A real application also needs its chosen provider and dictionary, and shares code across imports, so do not add the rows. React (including JSX runtime), React DOM, `@keepkit/core`, source maps and declarations are excluded. Core component entries measure only the re-export. Optional CSS is measured separately, including local `@import` rules and before host Tailwind processing.
+
+同じ測定方法では、直前リリースのボタン＋従来UI Providerは32,339 bytes gzipでした。下の日本語構成は選択した辞書とProviderを含む実測値です。
+With the same method, the previous release's button plus legacy UI provider measured 32,339 bytes gzip. The Japanese example below includes the selected dictionary and provider.
 
 Regenerate from the repository root / リポジトリのルートで再生成:
 
@@ -548,62 +595,66 @@ pnpm ui:sizes --write
 
 | Component / コンポーネント | Import / インポート | gzip (bytes) |
 | --- | --- | ---: |
-| `KeepActiveFiltersSummary` | `@keepkit/ui/active-filters-summary` | 33944 |
-| `KeepAnnouncements` | `@keepkit/ui/announcements` | 30923 |
-| `KeepAnnouncer` | `@keepkit/ui/announcer` | 30930 |
-| `KeepArchiveButton` | `@keepkit/ui/archive-button` | 30979 |
-| `KeepArchiveScopeSelect` | `@keepkit/ui/archive-scope-select` | 30870 |
-| `KeepArchiveUndo` | `@keepkit/ui/archive-undo` | 31248 |
-| `KeepBackup` | `@keepkit/ui/backup` | 32582 |
-| `KeepBulkActions` | `@keepkit/ui/bulk-actions` | 34181 |
-| `KeepButton` | `@keepkit/ui/button` | 31921 |
-| `KeepCollection` | `@keepkit/ui/collection` | 56819 |
-| `KeepCollectionCreate` | `@keepkit/ui/collection-create` | 31532 |
-| `KeepCollectionFilter` | `@keepkit/ui/collection-filter` | 31285 |
-| `KeepCollectionManager` | `@keepkit/ui/collection-manager` | 33212 |
-| `KeepCollectionSelect` | `@keepkit/ui/collection-select` | 30956 |
-| `KeepEmptyState` | `@keepkit/ui/empty-state` | 31584 |
+| `KeepActiveFiltersSummary` | `@keepkit/ui/active-filters-summary` | 5358 |
+| `KeepAnnouncements` | `@keepkit/ui/announcements` | 2608 |
+| `KeepAnnouncer` | `@keepkit/ui/announcer` | 2615 |
+| `KeepArchiveButton` | `@keepkit/ui/archive-button` | 2664 |
+| `KeepArchiveScopeSelect` | `@keepkit/ui/archive-scope-select` | 2568 |
+| `KeepArchiveUndo` | `@keepkit/ui/archive-undo` | 2892 |
+| `KeepBackup` | `@keepkit/ui/backup` | 4156 |
+| `KeepBulkActions` | `@keepkit/ui/bulk-actions` | 5592 |
+| `KeepButton` | `@keepkit/ui/button` | 3553 |
+| `KeepCollection` | `@keepkit/ui/collection` | 28036 |
+| `KeepCollectionCreate` | `@keepkit/ui/collection-create` | 3281 |
+| `KeepCollectionFilter` | `@keepkit/ui/collection-filter` | 2937 |
+| `KeepCollectionManager` | `@keepkit/ui/collection-manager` | 4835 |
+| `KeepCollectionSelect` | `@keepkit/ui/collection-select` | 2647 |
+| `KeepEmptyState` | `@keepkit/ui/empty-state` | 3154 |
 | `KeepErrorBoundary` | `@keepkit/ui/error-boundary` | 88 |
-| `KeepFallbackRecovery` | `@keepkit/ui/fallback-recovery` | 32697 |
-| `KeepFloatingTour` | `@keepkit/ui/floating-tour` | 35031 |
+| `KeepFallbackRecovery` | `@keepkit/ui/fallback-recovery` | 4320 |
+| `KeepFloatingTour` | `@keepkit/ui/floating-tour` | 6217 |
 | `KeepHighlight` | `@keepkit/ui/highlight` | 493 |
-| `KeepInbox` | `@keepkit/ui/inbox` | 56911 |
-| `KeepItemCard` | `@keepkit/ui/item-card` | 40441 |
+| `KeepInbox` | `@keepkit/ui/inbox` | 28129 |
+| `KeepItemCard` | `@keepkit/ui/item-card` | 12009 |
 | `KeepItemCardSkeleton` | `@keepkit/ui/item-card-skeleton` | 239 |
 | `KeepItemCheckbox` | `@keepkit/ui/item-checkbox` | 366 |
-| `KeepItemStatusBadge` | `@keepkit/ui/item-status-badge` | 31466 |
-| `KeepKitProvider` | `@keepkit/ui/kit-provider` | 34021 |
-| `KeepLastActivity` | `@keepkit/ui/last-activity` | 31073 |
+| `KeepItemStatusBadge` | `@keepkit/ui/item-status-badge` | 3138 |
+| `KeepKitProvider` | `@keepkit/ui/kit-provider` | 33690 |
+| `KeepKitProvider` | `@keepkit/ui/kit-provider-light` | 5042 |
+| `KeepLastActivity` | `@keepkit/ui/last-activity` | 2756 |
 | `KeepLayout` | `@keepkit/ui/layout` | 833 |
-| `KeepList` | `@keepkit/ui/list` | 43934 |
-| `KeepNavigator` | `@keepkit/ui/navigator` | 33084 |
-| `KeepNoteEditor` | `@keepkit/ui/note-editor` | 32683 |
-| `KeepPagination` | `@keepkit/ui/pagination` | 31244 |
-| `KeepPinButton` | `@keepkit/ui/pin-button` | 30983 |
+| `KeepList` | `@keepkit/ui/list` | 15108 |
+| `KeepNavigator` | `@keepkit/ui/navigator` | 4443 |
+| `KeepNoteEditor` | `@keepkit/ui/note-editor` | 4085 |
+| `KeepPagination` | `@keepkit/ui/pagination` | 2927 |
+| `KeepPinButton` | `@keepkit/ui/pin-button` | 2663 |
 | `KeepProvider` | `@keepkit/ui/provider` | 83 |
-| `KeepPruneStaleButton` | `@keepkit/ui/prune-stale-button` | 31723 |
-| `KeepQuickEditor` | `@keepkit/ui/quick-editor` | 33447 |
-| `KeepRediscovery` | `@keepkit/ui/rediscovery` | 44100 |
-| `KeepRediscoveryPanel` | `@keepkit/ui/rediscovery-panel` | 44230 |
-| `KeepReorderableList` | `@keepkit/ui/reorderable-list` | 31756 |
-| `KeepSavePopover` | `@keepkit/ui/save-popover` | 38184 |
-| `KeepSaveViewButton` | `@keepkit/ui/save-view-button` | 31691 |
-| `KeepSavedViews` | `@keepkit/ui/saved-views` | 31875 |
-| `KeepSearchInput` | `@keepkit/ui/search-input` | 30978 |
+| `KeepPruneStaleButton` | `@keepkit/ui/prune-stale-button` | 3328 |
+| `KeepQuickEditor` | `@keepkit/ui/quick-editor` | 4992 |
+| `KeepRediscovery` | `@keepkit/ui/rediscovery` | 15268 |
+| `KeepRediscoveryPanel` | `@keepkit/ui/rediscovery-panel` | 15410 |
+| `KeepReorderableList` | `@keepkit/ui/reorderable-list` | 3369 |
+| `KeepSavePopover` | `@keepkit/ui/save-popover` | 9693 |
+| `KeepSaveViewButton` | `@keepkit/ui/save-view-button` | 3301 |
+| `KeepSavedViews` | `@keepkit/ui/saved-views` | 3485 |
+| `KeepSearchInput` | `@keepkit/ui/search-input` | 2662 |
 | `KeepShortcutHint` | `@keepkit/ui/shortcut-hint` | 339 |
-| `KeepSortSelect` | `@keepkit/ui/sort-select` | 31065 |
-| `KeepStaleNotice` | `@keepkit/ui/stale-notice` | 32393 |
-| `KeepStatus` | `@keepkit/ui/status` | 31801 |
-| `KeepSyncRecoveryDialog` | `@keepkit/ui/sync-recovery-dialog` | 33770 |
-| `KeepSyncStatusBanner` | `@keepkit/ui/sync-status-banner` | 31288 |
-| `KeepTagEditor` | `@keepkit/ui/tag-editor` | 31776 |
-| `KeepTagFilter` | `@keepkit/ui/tag-filter` | 32306 |
+| `KeepSortSelect` | `@keepkit/ui/sort-select` | 2750 |
+| `KeepStaleNotice` | `@keepkit/ui/stale-notice` | 4002 |
+| `KeepStatus` | `@keepkit/ui/status` | 3334 |
+| `KeepSyncRecoveryDialog` | `@keepkit/ui/sync-recovery-dialog` | 5294 |
+| `KeepSyncStatusBanner` | `@keepkit/ui/sync-status-banner` | 2938 |
+| `KeepTagEditor` | `@keepkit/ui/tag-editor` | 3379 |
+| `KeepTagFilter` | `@keepkit/ui/tag-filter` | 3776 |
 | `KeepThemeProvider` | `@keepkit/ui/theme-provider` | 1126 |
-| `KeepTourBar` | `@keepkit/ui/tour-bar` | 33074 |
+| `KeepTourBar` | `@keepkit/ui/tour-bar` | 4435 |
 | `KeepTourProvider` | `@keepkit/ui/tour-provider` | 1123 |
-| `KeepUiProvider` | `@keepkit/ui/ui-provider` | 30926 |
-| `KeepUndo` | `@keepkit/ui/undo` | 31663 |
-| `KeepWorkspace` | `@keepkit/ui/workspace` | 61505 |
+| `KeepUiProvider` | `@keepkit/ui/ui-provider` | 31032 |
+| `KeepUiProvider` | `@keepkit/ui/ui-provider-light` | 2436 |
+| `KeepUndo` | `@keepkit/ui/undo` | 3284 |
+| `KeepWorkspace` | `@keepkit/ui/workspace` | 32751 |
+
+Button + light UI provider + Japanese / ボタン＋軽量UI Provider＋日本語: **6301 bytes gzip**.
 
 ### CSS
 
