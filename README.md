@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.22
+Release: v0.28.23
 
 ## 日本語
 
@@ -308,4 +308,8 @@ See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the changelog.
 
 `KeepProvider` supports batch source checks with `autoRevalidation.revalidateMany`; see the [core README](packages/keepkit/README.md). Collection deletion in `KeepCollectionManager` requires `allowDelete`.
 
+Revalidation skips storage writes for unchanged items and preserves their timestamps.
+
 `KeepProvider` の一括再検証は `autoRevalidation.revalidateMany` で設定できます。詳細は [core README](packages/keepkit/README.md) を参照してください。`KeepCollectionManager` の削除操作は `allowDelete` の明示が必要です。
+
+再検証で変化のないアイテムは書き込まず、更新日時を維持します。

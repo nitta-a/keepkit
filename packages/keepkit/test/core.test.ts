@@ -200,6 +200,117 @@ test("refreshes metadata and detects or removes unavailable items", async () => 
   assert.deepEqual([...values.keys()], ["a", "c"]);
 });
 
+test("revalidation persists only meaningful status, reason, metadata, or resolver changes", async () => {
+  const source = [
+    { id: "unchanged", savedAt: 1, updatedAt: 4, metaUpdatedAt: 3, meta: { title: "A", extra: { a: 1, b: [2] } } },
+    {
+      id: "private",
+      savedAt: 2,
+      updatedAt: 5,
+      status: "private" as const,
+      statusReason: "restricted",
+      meta: { title: "B" },
+    },
+    { id: "changed", savedAt: 3, updatedAt: 6, meta: { title: "C" } },
+    { id: "resolved", savedAt: 4, updatedAt: 7, meta: { title: "D" } },
+  ];
+  const writes: (typeof source)[number][] = [];
+  const storage = {
+    getAll: async () => source,
+    set: async (item: (typeof source)[number]) => {
+      writes.push(item);
+    },
+    remove: async () => {},
+    clear: async () => {},
+  };
+  const summary = await reconcileKeepItems(
+    storage,
+    async (item) => {
+      if (item.id === "unchanged") return { status: "available", meta: { extra: { b: [2], a: 1 }, title: "A" } };
+      if (item.id === "private") return { status: "private", reason: "restricted" };
+      if (item.id === "changed") return { status: "available", meta: { title: "C revised" } };
+      return "available";
+    },
+    {
+      now: () => 100,
+      resolveItem: (item, result) => ({
+        ...item,
+        ...(result.status === "available" ? {} : { status: result.status, statusReason: result.reason }),
+        ...(item.id === "resolved" ? { note: "added" } : {}),
+      }),
+    },
+  );
+  assert.equal(summary.checked, 4);
+  assert.equal(summary.updated, 2);
+  assert.deepEqual(
+    writes.map((item) => item.id),
+    ["changed", "resolved"],
+  );
+  assert.equal(summary.items[0], source[0]);
+  assert.equal(summary.items[1], source[1]);
+  assert.equal(summary.items[2].updatedAt, 100);
+  assert.equal(summary.items[2].metaUpdatedAt, 100);
+  assert.equal(summary.items[3].note, "added");
+  assert.deepEqual(
+    summary.results.map((result) => result.updated),
+    [false, false, true, true],
+  );
+});
+
+test("revalidation detects status and reason transitions without refreshing unchanged metadata", async () => {
+  const items = [
+    { ...itemA, status: "available" as const },
+    { ...itemB, status: "private" as const, statusReason: "old" },
+  ];
+  const summary = await revalidateKeepItems(
+    items,
+    async (item) =>
+      item.id === "a" ? { status: "available", meta: { ...item.meta } } : { status: "private", reason: "new" },
+    { now: () => 100 },
+  );
+  assert.equal(summary.items[0], items[0]);
+  assert.equal(summary.items[0].updatedAt, itemA.updatedAt);
+  assert.equal(summary.updated, 1);
+  assert.equal(summary.updatedItems[0].statusReason, "new");
+  const cleared = await revalidateKeepItems([summary.items[1]], async () => "available");
+  assert.equal(cleared.updated, 1);
+  assert.equal(cleared.items[0].status, undefined);
+  assert.equal(cleared.items[0].statusReason, undefined);
+});
+
+test("metadata comparison preserves changes in nested values and unfamiliar objects", async () => {
+  const original = { id: "a", savedAt: 1, updatedAt: 2, meta: { values: [1, { value: null }], date: new Date(0) } };
+  const same = await revalidateKeepItems(
+    [original],
+    async () => ({
+      status: "available",
+      meta: { date: new Date(0), values: [1, { value: null }] },
+    }),
+    { now: () => 10 },
+  );
+  assert.equal(same.updated, 0);
+  const changed = await revalidateKeepItems(
+    [original],
+    async () => ({
+      status: "available",
+      meta: { date: new Date(0), values: [1, { value: false }] },
+    }),
+    { now: () => 10 },
+  );
+  assert.equal(changed.updated, 1);
+  assert.equal(changed.items[0].updatedAt, 10);
+  const withMap = { ...original, meta: { map: new Map([["a", 1]]) } };
+  const unknown = await revalidateKeepItems(
+    [withMap],
+    async () => ({
+      status: "available",
+      meta: { map: new Map([["b", 2]]) },
+    }),
+    { now: () => 10 },
+  );
+  assert.equal(unknown.updated, 1);
+});
+
 test("identifies metadata that has exceeded its freshness window", () => {
   assert.equal(
     isKeepItemMetadataStale({ ...itemA, metaUpdatedAt: 90 }, 10, () => 100),

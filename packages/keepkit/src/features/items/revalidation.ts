@@ -103,25 +103,28 @@ export async function revalidateKeepItems<TMeta = Record<string, unknown>>(
       continue;
     }
     if (result.status === "available") {
-      const timestamp = now();
       const availableItem = clearItemStatus(resolved);
-      const updated =
-        result.meta === undefined
-          ? availableItem
-          : { ...availableItem, meta: result.meta, metaUpdatedAt: timestamp, updatedAt: timestamp };
-      const didUpdate = updated !== item;
-      items.push(updated);
-      if (didUpdate) updatedItems.push(updated);
-      results.push({ item: updated, status: "available", updated: didUpdate });
+      let updated = result.meta === undefined ? availableItem : { ...availableItem, meta: result.meta };
+      if (result.meta !== undefined && !sameValue(item.meta, result.meta)) {
+        const timestamp = now();
+        updated = { ...updated, metaUpdatedAt: timestamp, updatedAt: timestamp };
+      }
+      const didUpdate = !sameItem(item, updated);
+      const finalItem = didUpdate ? updated : item;
+      items.push(finalItem);
+      if (didUpdate) updatedItems.push(finalItem);
+      results.push({ item: finalItem, status: "available", updated: didUpdate });
       continue;
     }
 
     const withStatus = { ...resolved, status: result.status, ...(reason ? { statusReason: reason } : {}) };
     const shouldRemove = removeStatuses.has(result.status);
+    const didUpdate = !shouldRemove && !sameItem(item, withStatus);
+    const finalItem = didUpdate || shouldRemove ? withStatus : item;
     if (shouldRemove) removedIds.push(item.id);
-    else items.push(withStatus);
-    if (!shouldRemove && withStatus !== item) updatedItems.push(withStatus);
-    results.push({ item: withStatus, status: result.status, reason, updated: !shouldRemove && withStatus !== item });
+    else items.push(finalItem);
+    if (didUpdate) updatedItems.push(finalItem);
+    results.push({ item: finalItem, status: result.status, reason, updated: didUpdate });
   }
 
   return {
@@ -153,4 +156,56 @@ function clearItemStatus<TMeta>(item: KeepItem<TMeta>): KeepItem<TMeta> {
   delete next.status;
   delete next.statusReason;
   return next;
+}
+
+function sameItem<TMeta>(left: KeepItem<TMeta>, right: KeepItem<TMeta>): boolean {
+  const normalize = (item: KeepItem<TMeta>) => {
+    const next = { ...item };
+    if (next.status === "available") delete next.status;
+    if (next.status === undefined) delete next.status;
+    if (next.statusReason === undefined) delete next.statusReason;
+    return next;
+  };
+  return sameValue(normalize(left), normalize(right));
+}
+
+function sameValue(left: unknown, right: unknown, visiting = new WeakSet<object>()): boolean {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== "object" || typeof right !== "object") return false;
+  if (Object.getPrototypeOf(left) !== Object.getPrototypeOf(right)) return false;
+  if (left instanceof Date && right instanceof Date) {
+    return (
+      Object.getPrototypeOf(left) === Date.prototype &&
+      Reflect.ownKeys(left).length === 0 &&
+      Reflect.ownKeys(right).length === 0 &&
+      Object.is(left.getTime(), right.getTime())
+    );
+  }
+  if (!Array.isArray(left) && Object.getPrototypeOf(left) !== Object.prototype && Object.getPrototypeOf(left) !== null)
+    return false;
+  if (visiting.has(left) || visiting.has(right)) return false;
+  const leftDescriptors = Object.getOwnPropertyDescriptors(left);
+  const rightDescriptors = Object.getOwnPropertyDescriptors(right);
+  const leftKeys = Reflect.ownKeys(leftDescriptors);
+  const rightKeys = Reflect.ownKeys(rightDescriptors);
+  if (leftKeys.length !== rightKeys.length || leftKeys.some((key) => !rightKeys.includes(key))) return false;
+  visiting.add(left);
+  visiting.add(right);
+  const equal = leftKeys.every((key) => {
+    const a = Object.getOwnPropertyDescriptor(left, key);
+    const b = Object.getOwnPropertyDescriptor(right, key);
+    return Boolean(
+      a &&
+        b &&
+        "value" in a &&
+        "value" in b &&
+        a.enumerable === b.enumerable &&
+        a.configurable === b.configurable &&
+        a.writable === b.writable &&
+        sameValue(a.value, b.value, visiting),
+    );
+  });
+  visiting.delete(left);
+  visiting.delete(right);
+  return equal;
 }

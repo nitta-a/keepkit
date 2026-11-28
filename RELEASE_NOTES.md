@@ -1,5 +1,17 @@
 # Release notes
 
+## [0.28.23] - 2026-11-28
+
+### 日本語
+
+- 保存アイテムの再検証で状態やメタデータに変化がない場合、不要な書き込みを省き、更新日時を維持します。
+- 単件・一括確認の両方に対応し、状態、メタデータ、`resolveItem` による実際の変更は引き続き保存します。
+
+### English
+
+- Skip unnecessary writes and preserve timestamps when item revalidation finds no status or metadata changes.
+- Apply this to single and batch checks while continuing to persist actual status, metadata, and `resolveItem` changes.
+
 ## [0.28.22] - 2026-11-28
 
 ### 日本語

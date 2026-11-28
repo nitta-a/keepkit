@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.22
+Release: v0.28.23
 
 ## 日本語
 
@@ -262,4 +262,8 @@ See the [repository README](../../README.md) for demos and development, and the 
 
 `autoRevalidation={{ revalidateMany: async (items) => statuses }}` batches mount, reconnect and manual `revalidateItems()` calls. Return a status or revalidation result for every item ID; an incomplete response fails without applying changes. An explicitly passed single-item revalidator takes precedence.
 
+Revalidation skips persistence for unchanged items, preserving `updatedAt` and `metaUpdatedAt`. Metadata comparison is structural for plain objects, arrays, and dates; other object types are considered unchanged only when they are the same reference. Changes returned by `resolveItem` are still persisted.
+
 `autoRevalidation.revalidateMany` はマウント時・再接続時・引数なしの `revalidateItems()` を一括処理します。全アイテムIDに対するステータスまたは検証結果を返してください。不完全な応答は変更せず失敗します。単件コールバックを明示した場合はそちらを使用します。
+
+再検証で変化のないアイテムは保存せず、`updatedAt` と `metaUpdatedAt` を維持します。メタデータは通常のオブジェクト・配列・Dateを内容で比較し、その他のオブジェクトは同じ参照の場合のみ一致とします。`resolveItem` による変更は保存されます。

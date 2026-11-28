@@ -285,6 +285,43 @@ test("revalidation does not restore persisted changes after a notification fails
   expect(onChange).toHaveBeenCalledOnce();
 });
 
+test("single and batch revalidation skip unchanged writes and preserve ordering timestamps", async () => {
+  const { storage, items } = createStorage([first, second]);
+  const batch = vi.fn(async () => ({
+    a: { status: "available" as const, meta: { title: "A" } },
+    b: { status: "available" as const, meta: { title: "B" } },
+  }));
+  const { result } = await renderProvider({ storage, autoRevalidation: { revalidateMany: batch, onMount: false } });
+  await act(async () => {
+    const single = await result.current.revalidateItems(async (item) => ({
+      status: "available",
+      meta: { ...item.meta },
+    }));
+    expect(single.updated).toBe(0);
+    const grouped = await result.current.revalidateItems();
+    expect(grouped.updated).toBe(0);
+  });
+  expect(batch).toHaveBeenCalledOnce();
+  expect(storage.set).not.toHaveBeenCalled();
+  expect(storage.remove).not.toHaveBeenCalled();
+  expect([...items.values()]).toEqual([first, second]);
+  await act(async () => {
+    const changed = await result.current.revalidateItems(
+      async (item) => (item.id === "b" ? { status: "available", meta: { title: "Updated B" } } : "available"),
+      { now: () => 100 },
+    );
+    expect(changed.updated).toBe(1);
+  });
+  expect(storage.set).toHaveBeenCalledOnce();
+  expect(storage.set).toHaveBeenCalledWith({
+    ...second,
+    meta: { title: "Updated B" },
+    metaUpdatedAt: 100,
+    updatedAt: 100,
+  });
+  expect(items.get("a")).toEqual(first);
+});
+
 test.each(["none", "read-only", "no-remove"])(
   "rejects collection CRUD for %s storage before changing metadata or item membership",
   async (capability) => {
