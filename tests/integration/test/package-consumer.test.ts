@@ -15,7 +15,14 @@ import {
   toSpecifier,
 } from "./support/packed-packages.ts";
 
-const uiExports = ["KeepButton", "KeepCollection", "KeepItemCard", "KeepKitProvider", "createKeepKit"];
+const uiExports = [
+  "KEEP_UNCATEGORIZED",
+  "KeepButton",
+  "KeepCollection",
+  "KeepItemCard",
+  "KeepKitProvider",
+  "createKeepKit",
+];
 
 /** Non-component entry points. Each Keep* component in the UI root must also have its own path. */
 const expectedEntryPoints: Record<string, string[]> = {
@@ -141,6 +148,7 @@ describe("published packages in consumer projects", () => {
 
   test("every JavaScript entry point loads with its documented exports", async () => {
     const componentEntries = Object.fromEntries(components.map((name) => [componentSpecifier(name), [name]]));
+    componentEntries["@keepkit/ui/collection-filter"] = ["KEEP_UNCATEGORIZED", "KeepCollectionFilter"];
     const expected = { ...expectedEntryPoints, ...componentEntries };
     const jsSpecifiers = [...packed.values()].flatMap(({ name, manifest }) =>
       Object.entries(manifest.exports ?? {})

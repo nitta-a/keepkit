@@ -13,7 +13,7 @@ for (const width of [390, 1280]) {
       .getByRole("region", { name: "A few things worth keeping" })
       .getByRole("article")
       .filter({ has: page.getByRole("heading", { name: "The everyday field notebook" }) });
-    const save = sample.getByRole("button", { name: "Save item" });
+    const save = sample.getByRole("button", { name: "Save: The everyday field notebook" });
     await expect(save).toHaveCSS("background-color", "rgb(36, 89, 75)");
     await expect(save).toHaveAttribute("data-has-custom-icon", "true");
     const browse = page.getByRole("button", { name: "Browse library" });
@@ -43,7 +43,7 @@ for (const width of [390, 1280]) {
     if (width === 390) await dialog.getByRole("button", { name: "Done" }).click();
     else await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
-    await expect(sample.getByRole("button", { name: "Remove saved item" })).toBeFocused();
+    await expect(sample.getByRole("button", { name: "Save: The everyday field notebook" })).toBeFocused();
     await page.reload();
     if (width === 390) await browse.click();
     await page.getByRole("navigation", { name: "Collections" }).getByRole("button", { name: "Field notes" }).click();

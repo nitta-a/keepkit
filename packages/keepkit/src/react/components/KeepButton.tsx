@@ -10,6 +10,7 @@ import {
   type ReactNode,
   type Ref,
   type RefCallback,
+  useState,
 } from "react";
 import type { KeepItemInput } from "../../features/items/types";
 import { useKeepItem } from "../hooks/useKeepItem";
@@ -71,7 +72,9 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   ref: providedRef,
   ...buttonProps
 }: KeepButtonProps<TMeta>) {
-  const state = useKeepItem(item);
+  const itemState = useKeepItem(item);
+  const [failure, setFailure] = useState<{ id: string; error: unknown } | null>(null);
+  const state = { ...itemState, error: failure?.id === item.id ? failure.error : null };
   const { isSaved, toggle } = state;
   const isDisabled = Boolean(disabled || state.isLoading || state.isMutating);
 
@@ -85,9 +88,11 @@ export function KeepButton<TMeta = Record<string, unknown>>({
       );
     }
     if (event.defaultPrevented) return;
+    setFailure(null);
     try {
       await toggle();
     } catch (error) {
+      setFailure({ id: item.id, error });
       onToggleError?.(error);
     }
   }
@@ -128,14 +133,14 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   const commonProps = {
     ...buttonProps,
     "aria-pressed": isSaved,
-    "data-state": state.error ? "error" : isSaved ? "saved" : "unsaved",
+    "data-state": failure?.id === item.id ? "error" : isSaved ? "saved" : "unsaved",
     "data-loading": state.isLoading || state.isMutating ? "true" : undefined,
     "data-disabled": isDisabled ? "true" : undefined,
     "aria-label":
       ("aria-label" in buttonProps ? buttonProps["aria-label"] : undefined) ??
       getAriaLabel?.(state) ??
       (isSaved ? savedAriaLabel : unsavedAriaLabel) ??
-      getAccessibleLabel(isSaved, item, asChild),
+      getAccessibleLabel(item, asChild),
     ...(asChild
       ? {
           "aria-disabled": isDisabled,
@@ -172,11 +177,11 @@ function composeRefs<T>(...refs: Array<Ref<T> | { readonly current: unknown } | 
   };
 }
 
-function getAccessibleLabel<TMeta>(isSaved: boolean, item: KeepButtonItem<TMeta>, asChild: boolean): string {
-  if (!asChild) return isSaved ? "Remove saved item" : "Save item";
+function getAccessibleLabel<TMeta>(item: KeepButtonItem<TMeta>, asChild: boolean): string {
+  if (!asChild) return "Save item";
   const title = getMetaTitle(item.meta);
   const subject = title ? `${item.targetType ?? "item"}: ${title}` : (item.targetType ?? "item");
-  return `${isSaved ? "Remove" : "Save"} ${subject}`;
+  return `Save ${subject}`;
 }
 
 function getMetaTitle<TMeta>(meta: TMeta): string | undefined {

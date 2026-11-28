@@ -187,7 +187,7 @@ test("KeepKitProvider mounts the global polite announcer", async () => {
     </KeepKitProvider>,
   );
 
-  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Save: UI item" }));
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Item saved."));
 });
 

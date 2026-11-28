@@ -13,6 +13,7 @@ import {
 } from "react";
 import { normalizeUiTags, type RenderProp, renderRoot } from "../../foundation/shared";
 import { useKeepUiLabels, useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
+import { KEEP_UNCATEGORIZED } from "./KeepCollectionFilter";
 
 export type KeepActiveFiltersSummaryProps<TMeta = Record<string, unknown>> = Omit<
   HTMLAttributes<HTMLElement>,
@@ -149,7 +150,7 @@ export function KeepActiveFiltersSummary<TMeta = Record<string, unknown>>({
   const collectionItemLabel = useUiLabel("collectionItem");
   const collectionItemsLabel = useUiLabel("collectionItems");
   const collectionLabel =
-    providedCollectionLabel ?? (collection === "__uncategorized__" ? uncategorizedLabel : collection);
+    providedCollectionLabel ?? (collection === KEEP_UNCATEGORIZED ? uncategorizedLabel : collection);
   const archiveLabels = {
     active: useUiLabel("archiveScopeActive"),
     archived: useUiLabel("archiveScopeArchived"),

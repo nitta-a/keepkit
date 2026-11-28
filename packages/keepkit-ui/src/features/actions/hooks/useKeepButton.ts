@@ -8,10 +8,10 @@ type KeepButtonOptions<TMeta> = {
   icons: KeepButtonIcons | undefined;
 };
 
-export function useKeepButton<TMeta>({ item, labels, icons }: KeepButtonOptions<TMeta>) {
+export function useKeepButton<TMeta>({ item, labels, icons }: KeepButtonOptions<TMeta>, failed: boolean) {
   const defaults = useKeepUiIcons();
   const buttonState = useKeepItem<TMeta>(item);
-  const slot = buttonState.error
+  const slot = failed
     ? "error"
     : buttonState.isMutating || buttonState.isLoading
       ? "loading"

@@ -48,7 +48,7 @@ test("popover and list share decorative icons while local saved wins over the pr
       </KeepUiProvider>
     </KeepProvider>,
   );
-  const trigger = await screen.findByRole("button", { name: "Save item" });
+  const trigger = await screen.findByRole("button", { name: "Save: Article" });
   expect(trigger.querySelector("svg.bookmark")?.getAttribute("aria-hidden")).toBe("true");
   fireEvent.click(trigger);
   const dialog = await screen.findByRole("dialog");
@@ -81,7 +81,7 @@ test("partial slots leave the default CSS glyph active; hidden button text retai
   expect(button.hasAttribute("data-has-custom-icon")).toBe(false);
   expect(button.textContent).toBe("");
   fireEvent.click(button);
-  await screen.findByRole("button", { name: "Remove: Article" });
+  await waitFor(() => expect(button.getAttribute("aria-pressed")).toBe("true"));
   expect(button.getAttribute("data-has-custom-icon")).toBe("true");
   expect(button.textContent).toBe("Global check");
   fireEvent.click(button);

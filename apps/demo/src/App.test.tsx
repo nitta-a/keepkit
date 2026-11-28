@@ -113,7 +113,10 @@ test("saves a resource and displays it in the collection", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
   await waitFor(() => expect(dialog).not.toBeInTheDocument());
   await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Remove saved item" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: `Save: ${firstArticle.meta.title}` })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
   expect(within(await findCollectionList()).getByText(firstArticle.meta.title)).toBeInTheDocument();
   expect(getItems()).toHaveLength(1);

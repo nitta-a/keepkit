@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.20
+Release: v0.28.21
 
 ## 日本語
 
@@ -96,6 +96,7 @@ export function App() {
 | [@keepkit/core](./packages/keepkit/README.md) | フレームワーク中立の処理、React hooks、ストレージ・同期・バックアップ |
 
 `createBrowserStorageAdapter`はIndexedDBを優先し、使えない場合はlocalStorageに切り替えます。
+`key` は localStorage 用です。IndexedDB の既定データベース名は `keepkit` なので、同一オリジン内で保存先を分けるには `databaseName` も別々に指定してください。
 fallbackで受け付けた変更は永続journalに記録し、IndexedDB復旧後に削除も含めて自動反映します。障害中は最後に永続化できた完全スナップショットと保留操作を表示します。予備データが古い場合は`storage.recovery.getState()`で確認できます。障害時の書き込み・復旧にはWeb Locks API、または独自journalの排他実装が必要です。
 既存の分岐データは`KeepFallbackRecovery`で比較し、競合を選択して復元できます。導入時は旧実装のタブをすべて更新してください。復旧手順と残る制約は[Coreガイド](./packages/keepkit/README.md)を参照してください。
 端末間の同期には`SyncStorageAdapter`とアプリ側の`RemoteSyncDriver`が必要です。
@@ -254,6 +255,7 @@ Archive Undo is cleared when storage or scope changes. Failed removal Undo and s
 | [@keepkit/core](./packages/keepkit/README.md) | Framework-neutral logic, React hooks, storage, sync, and backups |
 
 `createBrowserStorageAdapter` prefers IndexedDB and falls back to localStorage.
+`key` names the localStorage entry only. The default IndexedDB database is `keepkit`; set a distinct `databaseName` as well to isolate storage within the same origin.
 Changes accepted in fallback storage enter a durable journal and replay automatically, including deletions, after IndexedDB recovers. During an outage, reads use the last durable complete snapshot plus pending operations. Inspect `storage.recovery.getState()` for stale reserve data. Fallback writes and recovery require Web Locks or a custom journal with safe exclusive access.
 Use `KeepFallbackRecovery` to compare existing branches and select conflicting records for restoration. Refresh all tabs running the older implementation when adopting this journal. See the [Core guide](./packages/keepkit/README.md) for recovery steps and limits.
 Cross-device sync requires `SyncStorageAdapter` and an application-provided `RemoteSyncDriver`.

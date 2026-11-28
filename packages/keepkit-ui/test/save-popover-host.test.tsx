@@ -30,7 +30,7 @@ function hostPanel({ panelId, dialogLabel, content, requestClose, state }: KeepS
 }
 
 async function saveAndOpen() {
-  const trigger = screen.getByRole("button", { name: "Save item" });
+  const trigger = screen.getByRole("button", { name: "Save: Article" });
   await waitFor(() => expect(trigger.hasAttribute("disabled")).toBe(false));
   fireEvent.click(trigger);
   return { trigger, dialog: await screen.findByRole("dialog") };

@@ -10,7 +10,7 @@ import { KeepBulkActions } from "../actions/KeepBulkActions";
 import type { KeepItemCardProps } from "../item/KeepItemCard";
 import { KeepActiveFiltersSummary } from "../query/KeepActiveFiltersSummary";
 import { type KeepArchiveScope, KeepArchiveScopeSelect } from "../query/KeepArchiveScopeSelect";
-import { KeepCollectionFilter } from "../query/KeepCollectionFilter";
+import { KEEP_UNCATEGORIZED, KeepCollectionFilter } from "../query/KeepCollectionFilter";
 import { KeepTagFilter } from "../query/KeepTagFilter";
 import { KeepPagination, KeepSearchInput, KeepSortSelect } from "../query/query-controls";
 import { KeepSavedViews, KeepSaveViewButton } from "../saved-views/KeepSavedViews";
@@ -247,7 +247,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
   const toolbarEndLabel = useUiLabel("toolbarEnd");
   const uncategorizedLabel = useUiLabel("uncategorized");
   const activeCollectionLabel =
-    view.activeCollection === "__uncategorized__"
+    view.activeCollection === KEEP_UNCATEGORIZED
       ? uncategorizedLabel
       : view.activeCollection === undefined
         ? undefined
@@ -367,7 +367,7 @@ function KeepCollectionContent<TMeta = Record<string, unknown>>({
           collection={view.activeCollection}
           collectionLabel={activeCollectionLabel}
           organization={
-            view.activeCollection === "__uncategorized__"
+            view.activeCollection === KEEP_UNCATEGORIZED
               ? { ...view.resolvedQuery.organization, collection: undefined }
               : view.resolvedQuery.organization
           }

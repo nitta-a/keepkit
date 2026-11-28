@@ -146,6 +146,7 @@ import {
   type KeepArchiveScopeSelectProps,
 } from "./features/query/KeepArchiveScopeSelect";
 import {
+  KEEP_UNCATEGORIZED,
   type KeepCollectionControlProps,
   KeepCollectionFilter,
   type KeepCollectionOption,
@@ -424,6 +425,7 @@ export type {
 export {
   createNextPagesRouterAdapter,
   getKeepLocaleLabels,
+  KEEP_UNCATEGORIZED,
   KeepActiveFiltersSummary,
   KeepAnnouncements,
   KeepAnnouncer,

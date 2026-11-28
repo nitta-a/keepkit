@@ -26,3 +26,9 @@ test("the lightweight provider uses the supplied dictionary and supports label o
   );
   expect(screen.getByText("Save / Remove")).toBeTruthy();
 });
+
+test("Japanese removal and unknown-status messages describe their meaning", () => {
+  expect(JA_LABELS.removedMessage).toBe("保存から外しました。");
+  expect(JA_LABELS.undoAvailable).toBe("保存から外しました。元に戻しますか？");
+  expect(JA_LABELS.statusUnknown).toBe("確認できません");
+});

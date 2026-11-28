@@ -6,7 +6,7 @@ for (const css of ["theme", "tailwind"]) {
     await page.goto(`/entry.html?${css}`);
     await page.addStyleTag({ content: "#root { --primary: 348 84% 44%; --foreground: 0 0% 12%; }" });
     const theme = page.locator("#root [data-keep-theme]").first();
-    const trigger = page.getByRole("button", { name: "Save item" });
+    const trigger = page.getByRole("button", { name: "Save: Article" });
     await expect(theme).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(trigger).toHaveCSS("background-color", "rgb(37, 99, 235)");
     await page.addStyleTag({ content: "#root { --color-primary: rgb(10 20 30); }" });
@@ -41,7 +41,7 @@ test("explicit modes, palette shadows and high contrast take precedence", async 
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("#root [data-keep-theme]").first()).toHaveCSS("color", "rgb(226, 232, 240)");
   await page.goto("/entry.html?ocean");
-  const trigger = page.getByRole("button", { name: "Save item" });
+  const trigger = page.getByRole("button", { name: "Save: Article" });
   await page.addStyleTag({
     content:
       ".keep-theme { --keep-primary: #ff0000 } [data-testid=clipped-card] { box-shadow: var(--keep-card-shadow) }",
@@ -66,7 +66,7 @@ for (const size of [
     for (const id of ["host-button", "host-input"]) {
       expect((await page.getByTestId(id).boundingBox())?.height).toBe(24);
     }
-    const trigger = page.getByRole("button", { name: "Save item" });
+    const trigger = page.getByRole("button", { name: "Save: Article" });
     await expect(trigger).toBeEnabled();
     await trigger.click();
     const dialog = page.getByRole("dialog", { name: "Edit saved item" });
@@ -101,7 +101,7 @@ test("keeps the editor interactive inside a native modal", async ({ page }) => {
     modal.append(card);
     modal.showModal();
   });
-  await page.getByRole("button", { name: "Save item" }).click();
+  await page.getByRole("button", { name: "Save: Article" }).click();
   const editor = page.getByRole("dialog", { name: "Edit saved item" });
   const note = editor.getByRole("textbox", { name: "Note" });
   await expect(note).toBeFocused();
@@ -111,13 +111,13 @@ test("keeps the editor interactive inside a native modal", async ({ page }) => {
 
 test("supports an explicit portal container", async ({ page }) => {
   await page.goto("/entry.html?customPortal");
-  await page.getByRole("button", { name: "Save item" }).click();
+  await page.getByRole("button", { name: "Save: Article" }).click();
   await expect(page.getByTestId("custom-portal").getByRole("dialog", { name: "Edit saved item" })).toBeVisible();
 });
 
 test("focuses the custom editor and saves its draft on Escape", async ({ page }) => {
   await page.goto("/entry.html?customEditor");
-  const trigger = page.getByRole("button", { name: "Save item" });
+  const trigger = page.getByRole("button", { name: "Save: Article" });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Edit saved item" });
   const input = dialog.getByRole("textbox", { name: "Custom note" });
@@ -126,13 +126,13 @@ test("focuses the custom editor and saves its draft on Escape", async ({ page })
   await input.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId("saved-note")).toHaveText("A custom note");
-  await expect(page.getByRole("button", { name: "Remove saved item" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Save: Article" })).toBeFocused();
 });
 
 test("keeps the floating tour controls usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 667 });
   await page.goto("/entry.html");
-  await page.getByRole("button", { name: "Save item" }).click();
+  await page.getByRole("button", { name: "Save: Article" }).click();
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Start tour" }).click();
   const tour = page.locator('[data-keepkit="floating-tour"]');

@@ -13,6 +13,7 @@ import { createRef, useState } from "react";
 import { expect, test, vi } from "vitest";
 import {
   createKeepKit,
+  KEEP_UNCATEGORIZED,
   KeepActiveFiltersSummary,
   KeepAnnouncements,
   KeepArchiveButton,
@@ -156,7 +157,7 @@ test("opens save popover after a new save and debounces quick note editing", asy
       <KeepSavePopover item={{ id: item.id, meta: item.meta }} editorProps={{ debounceMs: 10 }} />
     </KeepProvider>,
   );
-  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Save: Interaction item" }));
   expect(await screen.findByRole("dialog")).not.toBeNull();
   const note = screen.getByRole("textbox", { name: "Note" });
   fireEvent.change(note, { target: { value: "quick note" } });
@@ -171,7 +172,7 @@ test("labels the save popover, focuses its editor, flushes on Escape, and restor
     </KeepProvider>,
   );
 
-  const trigger = await screen.findByRole("button", { name: "Save item" });
+  const trigger = await screen.findByRole("button", { name: "Save: Interaction item" });
   expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(trigger);
@@ -222,7 +223,7 @@ test("flushes a controlled save popover when focus moves outside", async () => {
       <ControlledPopover />
     </KeepProvider>,
   );
-  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Save: Interaction item" }));
   const note = await screen.findByRole("textbox", { name: "Note" });
   fireEvent.change(note, { target: { value: "outside save" } });
   fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
@@ -249,7 +250,7 @@ test("keeps the save popover open and announces an editor failure", async () => 
       <KeepSavePopover item={{ id: item.id, meta: item.meta }} editorProps={{ debounceMs: 0 }} />
     </KeepProvider>,
   );
-  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Save: Interaction item" }));
   const note = await screen.findByRole("textbox", { name: "Note" });
   fireEvent.change(note, { target: { value: "will fail" } });
   fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
@@ -982,7 +983,7 @@ test("emits localized feedback payloads when an item is saved and removed", asyn
     </KeepUiProvider>,
   );
 
-  fireEvent.click(await screen.findByRole("button", { name: "Save item" }));
+  fireEvent.click(await screen.findByRole("button", { name: "保存: Interaction item" }));
   await waitFor(() =>
     expect(onFeedback).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -999,7 +1000,7 @@ test("emits localized feedback payloads when an item is saved and removed", asyn
       expect.objectContaining({
         type: "item-removed",
         item: expect.objectContaining({ id: secondItem.id }),
-        message: "アイテムを削除しました。",
+        message: "保存から外しました。",
         undo: expect.any(Function),
       }),
     ),
@@ -2315,7 +2316,7 @@ test("opens only the popover whose save button was activated", async () => {
       <KeepSavePopover item={{ id: item.id, meta: item.meta }} />
     </KeepProvider>,
   );
-  const buttons = screen.getAllByRole("button", { name: "Save item" });
+  const buttons = screen.getAllByRole("button", { name: "Save: Interaction item" });
   await waitFor(() => expect(buttons[0].hasAttribute("disabled")).toBe(false));
   fireEvent.click(buttons[0]);
   await waitFor(() => expect(screen.getAllByRole("dialog")).toHaveLength(1));
@@ -2330,8 +2331,46 @@ test("labels icon-only save buttons with the localized action and item title", a
       <KeepButton item={{ id: "two", meta: { title: "記事 B" } }} iconOnly icons={{ save: "☆" }} />
     </KeepKitProvider>,
   );
-  expect(screen.getByRole("button", { name: /保存.*記事 A/ })).not.toBeNull();
+  const first = screen.getByRole("button", { name: /保存.*記事 A/ });
   expect(screen.getByRole("button", { name: /保存.*記事 B/ })).not.toBeNull();
+  await waitFor(() => expect(first.hasAttribute("disabled")).toBe(false));
+  fireEvent.click(first);
+  await waitFor(() => expect(first.getAttribute("aria-pressed")).toBe("true"));
+  expect(first.getAttribute("aria-label")).toBe("保存: 記事 A");
+});
+
+test("save button error labels are local to the failing button", async () => {
+  const storage = createStorage();
+  const set = storage.set;
+  storage.set = async (next) => {
+    if (next.id === item.id) throw new Error("save failed");
+    return set(next);
+  };
+  render(
+    <KeepProvider storage={storage}>
+      <KeepButton item={item} labels={{ error: "Failed" }} />
+      <KeepButton item={secondItem} labels={{ error: "Failed" }} />
+    </KeepProvider>,
+  );
+  const first = screen.getByRole("button", { name: "Save: Interaction item" });
+  const second = screen.getByRole("button", { name: "Save: Second interaction item" });
+  await waitFor(() => expect(first.hasAttribute("disabled")).toBe(false));
+  fireEvent.click(first);
+  await waitFor(() => expect(first.getAttribute("data-state")).toBe("error"));
+  expect(first.textContent).toBe("Failed");
+  expect(second.getAttribute("data-state")).toBe("unsaved");
+  expect(second.textContent).not.toBe("Failed");
+});
+
+test("exports the uncategorized filter value", async () => {
+  const entry = await import("../src/entries/collection-filter");
+  expect(entry.KEEP_UNCATEGORIZED).toBe(KEEP_UNCATEGORIZED);
+  render(
+    <KeepProvider storage={createStorage()}>
+      <KeepCollectionFilter onValueChange={vi.fn()} />
+    </KeepProvider>,
+  );
+  expect(screen.getByRole("option", { name: "Uncategorized" }).getAttribute("value")).toBe(KEEP_UNCATEGORIZED);
 });
 
 test("renders the save editor outside a clipped host", async () => {
@@ -2342,7 +2381,7 @@ test("renders the save editor outside a clipped host", async () => {
       </div>
     </KeepKitProvider>,
   );
-  const button = screen.getByRole("button", { name: "Save item" });
+  const button = screen.getByRole("button", { name: "Save: Interaction item" });
   await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
   fireEvent.click(button);
   const dialog = await screen.findByRole("dialog");

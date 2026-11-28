@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { type KeepUrlAdapter, useKeepUrlSync } from "../../../adapters/url-sync";
 import { sortToValue } from "../../../foundation/shared";
 import type { KeepArchiveScope } from "../../query/KeepArchiveScopeSelect";
+import { KEEP_UNCATEGORIZED as UNCATEGORIZED } from "../../query/KeepCollectionFilter";
 import type { KeepSortValue } from "../../query/query-controls";
 import type { KeepCollectionFeature } from "../KeepCollection";
 
@@ -18,7 +19,6 @@ type KeepCollectionOptions<TMeta> = {
 };
 
 const DEFAULT_SORT = { by: "updatedAt", direction: "desc" } as const;
-const UNCATEGORIZED = "__uncategorized__";
 
 export function useKeepCollection<TMeta>({
   query,

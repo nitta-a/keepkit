@@ -1,5 +1,23 @@
 # Release notes
 
+## [0.28.21] - 2026-11-28
+
+### 日本語
+
+- 保存ボタンの失敗表示をそのボタン自身の操作に限定し、再操作時にクリアします。
+- 保存ボタンの既定の読み上げ名を一定にし、保存状態を `aria-pressed` で伝えます。
+- 日本語の保存解除通知と確認できない状態の表現を修正しました。
+- 未分類フィルターの値を `KEEP_UNCATEGORIZED` として公開しました。
+- IndexedDB のデータベース名と、Tailwind v4 での部品別 CSS の読み込み方を明記しました。
+
+### English
+
+- Limit a save button's error state to its own failed action and clear it on retry.
+- Keep the default accessible save button name stable and communicate saved state with `aria-pressed`.
+- Clarify Japanese removal and unknown-status messages.
+- Export the uncategorized filter value as `KEEP_UNCATEGORIZED`.
+- Document IndexedDB database naming and layered component CSS imports for Tailwind v4.
+
 ## [0.28.20] - 2026-11-28
 
 ### 日本語

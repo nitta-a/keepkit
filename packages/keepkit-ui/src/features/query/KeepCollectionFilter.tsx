@@ -7,6 +7,7 @@ import { useKeepIcon } from "../../foundation/icon";
 import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
 
 export type KeepCollectionOption = { id?: string; label: string };
+export const KEEP_UNCATEGORIZED = "__uncategorized__";
 
 export type KeepCollectionControlProps = Omit<
   SelectHTMLAttributes<HTMLSelectElement>,
@@ -117,7 +118,7 @@ export function KeepCollectionFilter<TMeta = Record<string, unknown>>({
         data-keep-action="filter-collection"
       >
         <option value="">{all}</option>
-        <option value="__uncategorized__">{uncategorized}</option>
+        <option value={KEEP_UNCATEGORIZED}>{uncategorized}</option>
         {options.map((option) => (
           <option key={option.id} value={option.id}>
             {option.label}

@@ -5,10 +5,10 @@ import {
   type KeepButtonProps as CoreKeepButtonProps,
   type KeepButtonState,
 } from "@keepkit/core/react";
-import { type MouseEvent, type Ref, useEffect, useRef } from "react";
+import { type MouseEvent, type Ref, useEffect, useRef, useState } from "react";
 import { renderKeepIcon } from "../../foundation/icon";
 import type { KeepButtonIcons, KeepButtonLabels } from "../../foundation/shared";
-import { useUiLabel, useUiLabelVisibility } from "../../foundation/ui-context";
+import { useUiLabelVisibility } from "../../foundation/ui-context";
 import { useKeepButton } from "./hooks/useKeepButton";
 
 export type { KeepButtonIcon, KeepButtonIconProps, KeepButtonIcons, KeepButtonLabels } from "../../foundation/shared";
@@ -33,8 +33,8 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   onToggleError,
   ...props
 }: KeepButtonProps<TMeta>) {
-  const view = useKeepButton<TMeta>({ item: props.item, labels, icons });
-  const removeLabel = useUiLabel("remove");
+  const [failedItem, setFailedItem] = useState<string | null>(null);
+  const view = useKeepButton<TMeta>({ item: props.item, labels, icons }, failedItem === props.item.id);
   const showSaveLabel = useUiLabelVisibility("save");
   const showSavedLabel = useUiLabelVisibility("saved");
   const showLoadingLabel = useUiLabelVisibility("loading");
@@ -81,10 +81,12 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     onClick: (event: MouseEvent<HTMLElement>) => {
       onClick?.(event as MouseEvent<HTMLButtonElement> & MouseEvent<HTMLElement>);
       if (!event.defaultPrevented) {
+        setFailedItem(null);
         pendingToggle.current = { wasSaved: view.buttonState.isSaved, item: view.buttonState.item };
       }
     },
     onToggleError: (error: unknown) => {
+      setFailedItem(props.item.id);
       pendingToggle.current = null;
       onToggleError?.(error);
     },
@@ -98,15 +100,11 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     savedAriaLabel:
       labels?.savedAriaLabel ??
       props.savedAriaLabel ??
-      (props.children === undefined && !props.asChild && (iconOnly || !showLabel || !showSavedLabel)
-        ? accessibleLabel(removeLabel)
-        : undefined),
+      (props.children === undefined && !props.asChild ? accessibleLabel(view.labels.save) : undefined),
     unsavedAriaLabel:
       labels?.unsavedAriaLabel ??
       props.unsavedAriaLabel ??
-      (props.children === undefined && !props.asChild && (iconOnly || !showLabel || !showSaveLabel)
-        ? accessibleLabel(view.labels.save)
-        : undefined),
+      (props.children === undefined && !props.asChild ? accessibleLabel(view.labels.save) : undefined),
   };
   if (props.children !== undefined || props.asChild || !view.customStateLabel) {
     return <CoreKeepButton<TMeta> {...sharedProps} />;

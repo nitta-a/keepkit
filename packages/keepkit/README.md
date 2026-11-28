@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.20
+Release: v0.28.21
 
 ## 日本語
 
@@ -85,7 +85,10 @@ hooksはProvider内のコンポーネントで呼び出します。
 
 ### 保存・同期・バックアップ
 
+`KeepButton` の既定の読み上げ名は保存状態にかかわらず一定で、状態は `aria-pressed` で伝えます。`savedAriaLabel` / `unsavedAriaLabel` や `getAriaLabel` による明示的な上書きも引き続き使えます。ボタンのエラー表示と render props の `error` は、そのボタンの操作失敗を示し、再操作時にクリアされます。
+
 - `createBrowserStorageAdapter`はIndexedDB優先で、localStorageへフォールバックします。`scope`でユーザー／テナントを分離できます。
+- `key` は localStorage 用で、IndexedDB の既定名は `keepkit` です。同一オリジンで別の保存先を使う場合は、`databaseName` も別々に指定してください。既存データの保存先を変更すると、そのデータは新しい名前からは参照されません。
 - `SyncStorageAdapter`と`RemoteSyncDriver`で永続オフラインキュー・再試行・競合処理を組み込みます。定義・所属の同期には、それぞれ`pushCollection` / `pullCollections`、`pushMembership` / `pullMemberships`が必要です。
 - `remote.pull()`の結果は既定（`itemPullMode: "merge"`）で部分的な一覧として統合し、ローカルのアイテムを削除しません。APIがscope内の全アイテムを返す場合は`itemPullMode: "snapshot"`を指定すると、サーバー受理済み（`revision`あり）で一覧から消えたアイテムを削除します。未送信の変更があるアイテムは残るため、オフライン中に編集したアイテムは再送されます。pullしたアイテムの`revision`がローカルと異なる場合は、`updatedAt`にかかわらずサーバー版を採用します。
 - 400〜499のうち認証・一時エラーではないpush失敗は`getSyncState().rejectedOperations`に残り、独立した後続操作は同期を続けます。ホストは`resolveRejectedSyncOperation(operationId, "retry" | "discard")`で再試行または破棄できます。共有localStorageキューは複数タブの追加・削除をWeb Locks APIで直列化します。ブラウザーがWeb Locksに対応しない場合、安全な更新を拒否します。
@@ -213,7 +216,10 @@ Changing storage or storage scope clears the previous `lastChange` and Undo stat
 
 ### Storage, sync, and backups
 
+The default accessible name of `KeepButton` stays constant while `aria-pressed` communicates its state. Explicit `savedAriaLabel`, `unsavedAriaLabel`, and `getAriaLabel` overrides remain available. A button's error state and render-prop `error` reflect its own failed action and clear on retry.
+
 - `createBrowserStorageAdapter` prefers IndexedDB and falls back to localStorage. Use `scope` to isolate users and tenants.
+- `key` names only the localStorage entry; IndexedDB defaults to `keepkit`. Set a distinct `databaseName` to isolate storage within the same origin. Changing an existing database name does not move its data.
 - Combine `SyncStorageAdapter` and `RemoteSyncDriver` for durable offline queues, retries, and conflicts. Definition and membership sync require `pushCollection` / `pullCollections` and `pushMembership` / `pullMemberships`, respectively.
 - By default (`itemPullMode: "merge"`), `remote.pull()` results are merged as a partial list and never delete local items. If your API returns every item in the scope, set `itemPullMode: "snapshot"` to remove server-acknowledged items (with a `revision`) that are no longer listed. Items with pending local changes are kept, so an item edited offline is pushed again. A pulled item whose `revision` differs from the local copy is adopted regardless of `updatedAt`.
 - Non-authentication, non-transient 4xx push failures are retained in `getSyncState().rejectedOperations`, while later independent operations continue syncing. Hosts can retry or discard one with `resolveRejectedSyncOperation(operationId, "retry" | "discard")`. Shared localStorage queues serialize cross-tab additions and removals with the Web Locks API and reject unsafe writes in browsers without it.

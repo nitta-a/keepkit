@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.20
+Release: v0.28.21
 
 ## 日本語
 
@@ -237,6 +237,17 @@ function Site() {
 ```
 
 テーマのみ使う場合は `@import "@keepkit/ui/theme.css" layer(components);` と記述します。
+部品別 CSS を使う場合も、グローバル CSS からレイヤーを指定して読み込みます。たとえば保存ボタンのみの場合は次のようにします。
+
+```css
+@import "tailwindcss";
+@import "@keepkit/ui/styles/base.css" layer(components);
+@import "@keepkit/ui/styles/button.css" layer(components);
+```
+
+`KeepCollectionFilter` の未分類値は `KEEP_UNCATEGORIZED` として `@keepkit/ui` と `@keepkit/ui/collection-filter` から import できます。一覧の `KeepListQuery` では `organization: { collection: "unassigned" }` に対応します。
+
+`KeepButton` の既定の読み上げ名は保存状態にかかわらず一定で、`aria-pressed` が状態を示します。明示的なラベル指定は引き続き優先されます。失敗表示はそのボタンの操作に限られ、再操作時にクリアされます。
 
 標準CSSでもTailwind連携でも、既定では `--color-primary` など**完成した色**だけを取り込みます。
 shadcn v3のように `--primary: 348 84% 44%` と定義する場合は `<KeepKitProvider hostColorFormat="hsl-channels">` を指定します。この形式のときだけ `hsl(var(--primary))` として読み、未定義の色はKeepKitの配色に戻ります。アプリの `--primary` を書き換える必要はありません。
@@ -563,6 +574,17 @@ Import `@keepkit/ui/theme.css` for the standard theme. For Tailwind CSS v4 or sh
 ```
 
 To use only the theme, write `@import "@keepkit/ui/theme.css" layer(components);`.
+For component styles, import each stylesheet into the layer from global CSS. For example, for the save button:
+
+```css
+@import "tailwindcss";
+@import "@keepkit/ui/styles/base.css" layer(components);
+@import "@keepkit/ui/styles/button.css" layer(components);
+```
+
+Import `KEEP_UNCATEGORIZED` from `@keepkit/ui` or `@keepkit/ui/collection-filter` to recognize the uncategorized `KeepCollectionFilter` value. In a `KeepListQuery`, it corresponds to `organization: { collection: "unassigned" }`.
+
+The default accessible name of `KeepButton` stays constant while `aria-pressed` communicates its state; explicit label overrides still take precedence. Its error display is limited to that button's own failed action and clears on retry.
 
 With either stylesheet, the default bridge reads **complete colors** such as `--color-primary`. For shadcn v3 channel lists such as `--primary: 348 84% 44%`, use `<KeepKitProvider hostColorFormat="hsl-channels">`. Only this format wraps the values in `hsl(...)`; missing tokens use KeepKit's palette. The host's `--primary` need not change.
 
