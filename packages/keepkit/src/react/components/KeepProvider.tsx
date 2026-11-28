@@ -20,6 +20,7 @@ import {
 import type {
   KeepAction,
   KeepChangeContext,
+  KeepCollectionMembership,
   KeepErrorContext,
   KeepErrorHandler,
   KeepEventHandlers,
@@ -41,6 +42,7 @@ import {
 } from "../../features/persistence/backup";
 import { persistKeepItems, removeKeepItems } from "../../features/persistence/helpers";
 import { parseKeepMeta, stripUndefinedMeta } from "../../features/persistence/schema";
+import { isSameKeepScope } from "../../features/persistence/scope";
 import { type KeepCollectionMeta, KeepStore, type KeepStoreActions } from "../../features/store/store";
 import { createBrowserStorageAdapter } from "../../storage";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "./KeepErrorBoundary";
@@ -266,7 +268,13 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   const pendingRefreshesRef = useRef(0);
   const pendingMutationsRef = useRef(0);
   const undoRef = useRef<
-    { items: KeepItem<TMeta>[]; expiresAt: number; timer?: ReturnType<typeof setTimeout> } | undefined
+    | {
+        items: KeepItem<TMeta>[];
+        memberships: KeepCollectionMembership[];
+        expiresAt: number;
+        timer?: ReturnType<typeof setTimeout>;
+      }
+    | undefined
   >(undefined);
   const undoGenerationRef = useRef(0);
   const autoRevalidationRef = useRef<KeepAutoRevalidationOptions<TMeta> | undefined>(autoRevalidation);
@@ -943,7 +951,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   );
 
   const rememberUndo = useCallback(
-    (removedItems: KeepItem<TMeta>[]) => {
+    (removedItems: KeepItem<TMeta>[], memberships: KeepCollectionMembership[]) => {
       undoGenerationRef.current += 1;
       undoRef.current?.timer && clearTimeout(undoRef.current.timer);
       const startedAt = Date.now();
@@ -955,7 +963,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         },
         Math.max(0, undoTimeoutMs),
       );
-      undoRef.current = { items: removedItems, expiresAt, timer };
+      undoRef.current = { items: removedItems, memberships, expiresAt, timer };
       store.setState({ undo: { canUndo: true, ids: removedItems.map((item) => item.id), startedAt, expiresAt } });
     },
     [store, undoTimeoutMs],
@@ -964,20 +972,34 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   const removeItemWithUndo = useCallback(
     async (id: string) => {
       const item = itemsRef.current.find((current) => current.id === id);
+      const memberships =
+        item && storage.getCollectionMemberships && storage.setCollectionMembership
+          ? (await storage.getCollectionMemberships()).filter(
+              (membership) => membership.itemId === id && isSameKeepScope(membership.scope, item.scope),
+            )
+          : [];
       await removeItem(id);
-      if (item) rememberUndo([item]);
+      if (item) rememberUndo([item], memberships);
     },
-    [rememberUndo, removeItem],
+    [rememberUndo, removeItem, storage],
   );
 
   const removeItemsWithUndo = useCallback(
     async (ids: string[]) => {
       const idSet = new Set(ids);
       const removedItems = itemsRef.current.filter((item) => idSet.has(item.id));
+      const memberships =
+        removedItems.length > 0 && storage.getCollectionMemberships && storage.setCollectionMembership
+          ? (await storage.getCollectionMemberships()).filter((membership) =>
+              removedItems.some(
+                (item) => item.id === membership.itemId && isSameKeepScope(item.scope, membership.scope),
+              ),
+            )
+          : [];
       await removeItems(ids);
-      if (removedItems.length > 0) rememberUndo(removedItems);
+      if (removedItems.length > 0) rememberUndo(removedItems, memberships);
     },
-    [rememberUndo, removeItems],
+    [rememberUndo, removeItems, storage],
   );
 
   const undoLastRemoval = useCallback(async () => {
@@ -1002,6 +1024,7 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
           next,
           persist: async () => {
             await persistKeepItems(storage, pending.items);
+            for (const membership of pending.memberships) await storage.setCollectionMembership?.(membership);
           },
           onSuccess: [() => handlersRef.current.onUndo?.(pending.items)],
           pluginContext: { action: "undo", items: pending.items },

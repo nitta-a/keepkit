@@ -162,7 +162,7 @@ test("status icons prefer exact overrides, fall back to normalized slots, and re
     ["Deleted", "Trash"],
     ["Private item", "Lock"],
     ["Private", "Lock"],
-    ["Unavailable", "?"],
+    ["Unable to verify", "?"],
   ]) {
     const badge = screen.getByRole("img", { name });
     expect(badge.querySelector("[aria-hidden=true]")?.textContent).toBe(glyph);

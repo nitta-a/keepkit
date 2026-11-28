@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.21
+Release: v0.28.22
 
 ## 日本語
 
@@ -203,6 +203,8 @@ function RecoveryScreen() {
 `KeepUiProvider`、`KeepKitProvider`、`createKeepKit` の `icons` で、保存（`save`）、保存済み（`saved`）、解除（`remove`）、処理中（`loading`）、失敗（`error`）、コレクション（`collection`）、状態別バッジ（`status`）をまとめて指定できます。ボタンに指定したアイコンが優先され、指定のない状態は従来の表示に戻ります。保存済みトグルには解除操作のアイコンを優先します。アイコンは装飾用で、ラベルと読み上げ名は別に維持されます。
 
 標準パネルは `32rem` 以下で画面下端に表示されます。自分のDrawerやDialogを使う場合は [ホストパネルの例](#host-panel-example) のように `renderPanel` で `content` を一度だけ配置します。コレクション選択に加えて作成も必要なら `allowCreateCollection` を指定します。Escape・背景クリック・閉じる操作はすべて `requestClose()` に渡し、ホスト側で先にアンマウントしないでください。保存失敗時は開いたまま下書きを残します。ホストはフォーカスの制御と `triggerRef` への復帰を担当します。
+
+自動保存を使い、ホスト側に「完了」を置く場合は `editorProps={{ showSaveButton: false }}` で通常の保存ボタンを非表示にできます。保存に失敗したときは再試行用の保存ボタンが表示されます。「完了」からは `requestClose()` を呼んで未保存の変更を確定してください。
 
 `renderEditor` ではパネルの中身も差し替えられます。[カスタムエディターの例](#custom-editor-example)では選択と作成をホストの部品で描画し、保存と失敗時の下書きはKeepKitが管理します。入力のラベル、エラーの読み上げ、キーボード操作はホスト側で実装してください。
 
@@ -515,6 +517,8 @@ Set `icons` on `KeepUiProvider`, `KeepKitProvider` or `createKeepKit` to share d
 #### Host panel example
 
 The standard panel docks to the bottom at `32rem` and narrower. To use your own sheet or dialog instead, render the editor `content` once in a **controlled** host shell. `Drawer` / `DrawerContent` below are host components; adapt their focus and dismissal APIs to your library:
+
+When using autosave with a host-owned Done button, set `editorProps={{ showSaveButton: false }}` to hide the normal save button. A save button remains available after a failure for retry. Call `requestClose()` from Done to flush pending changes.
 
 ```tsx
 <KeepSavePopover

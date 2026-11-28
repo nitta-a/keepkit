@@ -1031,10 +1031,131 @@ test("adapts removal feedback to a toast action", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
   await waitFor(() =>
     expect(showToast).toHaveBeenCalledWith(
-      "Item removed.",
+      "Removed from saved items.",
       expect.objectContaining({ action: expect.objectContaining({ label: "Undo", onClick: expect.any(Function) }) }),
     ),
   );
+});
+
+test("save button toast restores the original item and collection memberships", async () => {
+  const original = { ...item, collectionId: "reading", savedAt: 123, updatedAt: 456, order: 3, tags: ["tag"] };
+  const storage = createStorage([original]);
+  const memberships = [{ collectionId: "reading", itemId: item.id, order: 2 }];
+  storage.getCollectionMemberships = async () => [...memberships];
+  storage.setCollectionMembership = async (membership) => {
+    memberships.push(membership);
+  };
+  const remove = storage.remove;
+  storage.remove = async (id) => {
+    await remove(id);
+    memberships.length = 0;
+  };
+  const onFeedback = vi.fn();
+  render(
+    <KeepUiProvider<Meta> onFeedback={onFeedback}>
+      <KeepProvider<Meta> storage={storage}>
+        <KeepButton item={{ id: original.id, meta: { title: "New input" } }} />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+  const button = screen.getByRole("button", { name: "Save: New input" });
+  await waitFor(() => expect(button.getAttribute("aria-pressed")).toBe("true"));
+  fireEvent.click(button);
+  await waitFor(() => expect(onFeedback).toHaveBeenCalledWith(expect.objectContaining({ type: "item-removed" })));
+  const event = onFeedback.mock.calls.find(([value]) => value.type === "item-removed")?.[0];
+  if (!event || !("undo" in event)) throw new Error("Missing undo");
+  await event.undo();
+  expect(await storage.getAll()).toEqual([original]);
+  expect(memberships).toEqual([{ collectionId: "reading", itemId: item.id, order: 2 }]);
+  expect(onFeedback).toHaveBeenCalledWith(expect.objectContaining({ type: "item-restored", item: original }));
+  await expect(event.undo()).rejects.toThrow();
+});
+
+test("save button undo retries a failed restore and rejects stale notifications", async () => {
+  const storage = createStorage([item, secondItem]);
+  const persist = storage.set;
+  storage.set = vi.fn().mockRejectedValueOnce(new Error("Restore failed")).mockImplementation(persist);
+  const onFeedback = vi.fn();
+  render(
+    <KeepUiProvider<Meta> onFeedback={onFeedback}>
+      <KeepProvider<Meta> storage={storage}>
+        <KeepButton item={item} />
+        <KeepButton item={secondItem} />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+  const first = screen.getByRole("button", { name: "Save: Interaction item" });
+  const second = screen.getByRole("button", { name: "Save: Second interaction item" });
+  await waitFor(() => expect(first.getAttribute("aria-pressed")).toBe("true"));
+  fireEvent.click(first);
+  await waitFor(() => expect(onFeedback).toHaveBeenCalledWith(expect.objectContaining({ type: "item-removed" })));
+  const event = onFeedback.mock.calls.find(([value]) => value.type === "item-removed")?.[0];
+  if (!event || !("undo" in event)) throw new Error("Missing undo");
+  await expect(event.undo()).rejects.toThrow("Restore failed");
+  await event.undo();
+  expect(await storage.getAll()).toContainEqual(item);
+  await waitFor(() => expect(second.hasAttribute("disabled")).toBe(false));
+  fireEvent.click(second);
+  await waitFor(() => expect(onFeedback.mock.calls.filter(([value]) => value.type === "item-removed")).toHaveLength(2));
+  await expect(event.undo()).rejects.toThrow();
+});
+
+test("save button does not remove an item when its memberships cannot be captured", async () => {
+  const storage = createStorage([item]);
+  storage.getCollectionMemberships = async () => {
+    throw new Error("Membership read failed");
+  };
+  storage.setCollectionMembership = async () => {};
+  const onToggleError = vi.fn();
+  render(
+    <KeepProvider storage={storage}>
+      <KeepButton item={item} onToggleError={onToggleError} />
+    </KeepProvider>,
+  );
+  const button = screen.getByRole("button", { name: "Save: Interaction item" });
+  await waitFor(() => expect(button.getAttribute("aria-pressed")).toBe("true"));
+  fireEvent.click(button);
+  await waitFor(() =>
+    expect(onToggleError).toHaveBeenCalledWith(expect.objectContaining({ message: "Membership read failed" })),
+  );
+  expect(await storage.getAll()).toEqual([item]);
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+});
+
+test("save button undo can retry a membership restore failure", async () => {
+  const storage = createStorage([item]);
+  const membership = { collectionId: "reading", itemId: item.id, order: 2 };
+  let memberships = [membership];
+  storage.getCollectionMemberships = async () => [...memberships];
+  storage.setCollectionMembership = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Membership restore failed"))
+    .mockImplementation(async (value) => {
+      memberships.push(value);
+    });
+  const remove = storage.remove;
+  storage.remove = async (id) => {
+    await remove(id);
+    memberships = [];
+  };
+  const onFeedback = vi.fn();
+  render(
+    <KeepUiProvider onFeedback={onFeedback}>
+      <KeepProvider storage={storage}>
+        <KeepButton item={item} />
+      </KeepProvider>
+    </KeepUiProvider>,
+  );
+  const button = screen.getByRole("button", { name: "Save: Interaction item" });
+  await waitFor(() => expect(button.getAttribute("aria-pressed")).toBe("true"));
+  fireEvent.click(button);
+  await waitFor(() => expect(onFeedback).toHaveBeenCalledWith(expect.objectContaining({ type: "item-removed" })));
+  const event = onFeedback.mock.calls.find(([value]) => value.type === "item-removed")?.[0];
+  if (!event || !("undo" in event)) throw new Error("Missing undo");
+  await expect(event.undo()).rejects.toThrow("Membership restore failed");
+  await event.undo();
+  expect(memberships).toEqual([membership]);
+  expect(await storage.getAll()).toEqual([item]);
 });
 
 test("reports a failed toast undo and exposes a retry action", async () => {
@@ -1065,7 +1186,7 @@ test("retries a failed card removal undo through the toast and storage", async (
   }
   render(<Example />);
   fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
-  await waitFor(() => expect(showToast).toHaveBeenCalledWith("Item removed.", expect.anything()));
+  await waitFor(() => expect(showToast).toHaveBeenCalledWith("Removed from saved items.", expect.anything()));
   showToast.mock.calls[0][1].action.onClick();
   await waitFor(() => expect(showToast).toHaveBeenCalledWith("Restore failed", expect.anything()));
   expect(await storage.getAll()).toEqual([]);

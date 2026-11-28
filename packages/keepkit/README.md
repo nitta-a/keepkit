@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.21
+Release: v0.28.22
 
 ## 日本語
 
@@ -86,6 +86,7 @@ hooksはProvider内のコンポーネントで呼び出します。
 ### 保存・同期・バックアップ
 
 `KeepButton` の既定の読み上げ名は保存状態にかかわらず一定で、状態は `aria-pressed` で伝えます。`savedAriaLabel` / `unsavedAriaLabel` や `getAriaLabel` による明示的な上書きも引き続き使えます。ボタンのエラー表示と render props の `error` は、そのボタンの操作失敗を示し、再操作時にクリアされます。
+`undoable` を指定すると、ボタンによる保存解除を Provider の Undo に記録します。
 
 - `createBrowserStorageAdapter`はIndexedDB優先で、localStorageへフォールバックします。`scope`でユーザー／テナントを分離できます。
 - `key` は localStorage 用で、IndexedDB の既定名は `keepkit` です。同一オリジンで別の保存先を使う場合は、`databaseName` も別々に指定してください。既存データの保存先を変更すると、そのデータは新しい名前からは参照されません。
@@ -217,6 +218,7 @@ Changing storage or storage scope clears the previous `lastChange` and Undo stat
 ### Storage, sync, and backups
 
 The default accessible name of `KeepButton` stays constant while `aria-pressed` communicates its state. Explicit `savedAriaLabel`, `unsavedAriaLabel`, and `getAriaLabel` overrides remain available. A button's error state and render-prop `error` reflect its own failed action and clear on retry.
+Set `undoable` to record button removals in the provider's undo state.
 
 - `createBrowserStorageAdapter` prefers IndexedDB and falls back to localStorage. Use `scope` to isolate users and tenants.
 - `key` names only the localStorage entry; IndexedDB defaults to `keepkit`. Set a distinct `databaseName` to isolate storage within the same origin. Changing an existing database name does not move its data.

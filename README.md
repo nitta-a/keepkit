@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.21
+Release: v0.28.22
 
 ## 日本語
 
@@ -87,6 +87,7 @@ export function App() {
 `KeepArchiveUndo`を同じProvider内に配置すると、直前にアーカイブした項目を復元できます。`collapsibleFilters`はフィルターを開閉し、閉じても適用中の条件を保持します。
 検索結果が0件のときにフィルターをクリアしても、アーカイブの表示範囲は維持されます。削除のUndoが保存に失敗した場合は、元の期限内なら再試行できます。
 アーカイブのUndoは保存先やスコープを切り替えると解除されます。削除Undoと利用不能項目の一括削除は、失敗時にエラーを表示します。
+UIの保存ボタンで解除したアイテムは、トーストのUndoで保存日時やコレクション所属を含めて復元できます。Coreの `KeepButton` では `undoable` を指定するとProviderのUndoに記録します。
 
 ### パッケージと使い分け
 
@@ -246,6 +247,7 @@ The collection includes search, sorting, pagination, and loading, empty, and err
 Place `KeepArchiveUndo` inside the same provider to restore the most recently archived item. `collapsibleFilters` lets users hide filter controls without clearing their active values.
 Clearing filters from an empty search preserves the archive scope. If persisting a removal Undo fails, it can be retried until the original deadline.
 Archive Undo is cleared when storage or scope changes. Failed removal Undo and stale-item cleanup display errors.
+Undo in a UI save button's toast restores the removed item, including its saved time and collection memberships. Set `undoable` on the core `KeepButton` to record removals in the provider's undo state.
 
 ### Packages
 

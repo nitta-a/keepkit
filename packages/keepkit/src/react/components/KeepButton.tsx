@@ -27,6 +27,8 @@ type KeepButtonSharedProps<TMeta> = {
   getAriaLabel?: (state: KeepButtonState<TMeta>) => string;
   disabled?: boolean;
   onToggleError?: (error: unknown) => void;
+  /** Record removals for the provider's undo action. */
+  undoable?: boolean;
   ref?: Ref<HTMLElement> | { readonly current: unknown };
 };
 
@@ -67,6 +69,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
   getAriaLabel,
   asChild = false,
   onToggleError,
+  undoable = false,
   onClick,
   disabled,
   ref: providedRef,
@@ -90,7 +93,7 @@ export function KeepButton<TMeta = Record<string, unknown>>({
     if (event.defaultPrevented) return;
     setFailure(null);
     try {
-      await toggle();
+      await (undoable && isSaved ? itemState.removeWithUndo() : toggle());
     } catch (error) {
       setFailure({ id: item.id, error });
       onToggleError?.(error);

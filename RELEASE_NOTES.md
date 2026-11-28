@@ -1,5 +1,19 @@
 # Release notes
 
+## [0.28.22] - 2026-11-28
+
+### 日本語
+
+- 保存ボタンのUndoで、解除前の保存日時、メモ、コレクション所属を復元します。Undoは既定で5秒間有効です。
+- 日本語以外の辞書で、確認できない状態と保存解除の通知を明確にしました。
+- `editorProps.showSaveButton` と保存失敗時の再試行を文書化しました。
+
+### English
+
+- Save button Undo restores the original saved time, note, and collection memberships. Undo is available for five seconds by default.
+- Clarify unverified status and removal from saved items in non-Japanese locale dictionaries.
+- Document `editorProps.showSaveButton` and retry after a save failure.
+
 ## [0.28.21] - 2026-11-28
 
 ### 日本語
