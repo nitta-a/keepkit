@@ -311,6 +311,32 @@ test("metadata comparison preserves changes in nested values and unfamiliar obje
   assert.equal(unknown.updated, 1);
 });
 
+test("revalidation ignores undefined object properties when detecting changes", async () => {
+  const original = { id: "a", savedAt: 1, updatedAt: 2, meta: { nested: { title: "A", missing: undefined } } };
+  const same = await revalidateKeepItems(
+    [original],
+    async () => ({ status: "available", meta: { nested: { title: "A" }, extra: undefined } }),
+    { now: () => 10, resolveItem: (item) => ({ ...item, note: undefined }) },
+  );
+  assert.equal(same.updated, 0);
+  assert.equal(same.items[0], original);
+
+  const changed = await revalidateKeepItems(
+    [original],
+    async () => ({ status: "available", meta: { nested: { title: "B" } } }),
+    { now: () => 10 },
+  );
+  assert.equal(changed.updated, 1);
+  assert.equal(changed.items[0].metaUpdatedAt, 10);
+
+  const arrayItem = { ...original, meta: { values: [undefined] } };
+  const arrayChange = await revalidateKeepItems([arrayItem], async () => ({
+    status: "available",
+    meta: { values: [] },
+  }));
+  assert.equal(arrayChange.updated, 1);
+});
+
 test("identifies metadata that has exceeded its freshness window", () => {
   assert.equal(
     isKeepItemMetadataStale({ ...itemA, metaUpdatedAt: 90 }, 10, () => 100),

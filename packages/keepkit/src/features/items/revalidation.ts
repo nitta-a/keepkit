@@ -184,10 +184,13 @@ function sameValue(left: unknown, right: unknown, visiting = new WeakSet<object>
   if (!Array.isArray(left) && Object.getPrototypeOf(left) !== Object.prototype && Object.getPrototypeOf(left) !== null)
     return false;
   if (visiting.has(left) || visiting.has(right)) return false;
-  const leftDescriptors = Object.getOwnPropertyDescriptors(left);
-  const rightDescriptors = Object.getOwnPropertyDescriptors(right);
-  const leftKeys = Reflect.ownKeys(leftDescriptors);
-  const rightKeys = Reflect.ownKeys(rightDescriptors);
+  const keys = (value: object) =>
+    Reflect.ownKeys(value).filter((key) => {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      return Array.isArray(value) || !descriptor || !("value" in descriptor) || descriptor.value !== undefined;
+    });
+  const leftKeys = keys(left);
+  const rightKeys = keys(right);
   if (leftKeys.length !== rightKeys.length || leftKeys.some((key) => !rightKeys.includes(key))) return false;
   visiting.add(left);
   visiting.add(right);

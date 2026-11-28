@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.23
+Release: v0.28.24
 
 ## 日本語
 
@@ -266,4 +266,8 @@ Revalidation skips persistence for unchanged items, preserving `updatedAt` and `
 
 `autoRevalidation.revalidateMany` はマウント時・再接続時・引数なしの `revalidateItems()` を一括処理します。全アイテムIDに対するステータスまたは検証結果を返してください。不完全な応答は変更せず失敗します。単件コールバックを明示した場合はそちらを使用します。
 
+During revalidation, change detection treats object properties with `undefined` values as absent. Array length and element positions remain significant.
+
 再検証で変化のないアイテムは保存せず、`updatedAt` と `metaUpdatedAt` を維持します。メタデータは通常のオブジェクト・配列・Dateを内容で比較し、その他のオブジェクトは同じ参照の場合のみ一致とします。`resolveItem` による変更は保存されます。
+
+再検証時の変更比較では、オブジェクトの `undefined` プロパティを省略されたプロパティと同じものとして扱います。配列の長さと要素位置は維持します。

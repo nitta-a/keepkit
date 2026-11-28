@@ -1,5 +1,15 @@
 # Release notes
 
+## [0.28.24] - 2026-11-28
+
+### 日本語
+
+- 公開状態の再検証で、値が `undefined` のオブジェクトのプロパティを除いて変更を比較し、不要な書き込みを防ぎます。
+
+### English
+
+- Ignore object properties with `undefined` values when comparing revalidated items, avoiding unnecessary writes.
+
 ## [0.28.23] - 2026-11-28
 
 ### 日本語

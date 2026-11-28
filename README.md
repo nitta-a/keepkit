@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.23
+Release: v0.28.24
 
 ## 日本語
 
@@ -312,4 +312,8 @@ Revalidation skips storage writes for unchanged items and preserves their timest
 
 `KeepProvider` の一括再検証は `autoRevalidation.revalidateMany` で設定できます。詳細は [core README](packages/keepkit/README.md) を参照してください。`KeepCollectionManager` の削除操作は `allowDelete` の明示が必要です。
 
+Revalidation treats object properties with `undefined` values as absent when detecting changes; array length and element positions remain significant.
+
 再検証で変化のないアイテムは書き込まず、更新日時を維持します。
+
+再検証の変更比較では、オブジェクトの `undefined` プロパティを省略されたプロパティと同じものとして扱います。配列の長さと要素位置は維持します。
