@@ -40,7 +40,7 @@ import {
   importItems,
 } from "../../features/persistence/backup";
 import { persistKeepItems, removeKeepItems } from "../../features/persistence/helpers";
-import { parseKeepMeta } from "../../features/persistence/schema";
+import { parseKeepMeta, stripUndefinedMeta } from "../../features/persistence/schema";
 import { type KeepCollectionMeta, KeepStore, type KeepStoreActions } from "../../features/store/store";
 import { createBrowserStorageAdapter } from "../../storage";
 import { KeepErrorBoundary, type KeepErrorBoundaryProps } from "./KeepErrorBoundary";
@@ -496,7 +496,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       runMutation(action, id, (previous) => {
         const current = previous.find((item) => item.id === id);
         if (!current) return undefined;
-        const next = update(current);
+        const updated = update(current);
+        const next = { ...updated, meta: stripUndefinedMeta(updated.meta) };
         return {
           next: previous.map((item) => (item.id === id ? next : item)),
           persist: () => storage.set(next),
@@ -512,8 +513,8 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
       let normalizedItem: KeepItem<TMeta>;
       try {
         const meta = migrationRef.current.schema
-          ? await parseKeepMeta(migrationRef.current.schema, item.meta)
-          : item.meta;
+          ? stripUndefinedMeta(await parseKeepMeta(migrationRef.current.schema, item.meta))
+          : stripUndefinedMeta(item.meta);
         normalizedItem = {
           ...item,
           meta,
@@ -1048,7 +1049,18 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
         let persistenceStarted = false;
         let summary: KeepItemRevalidationSummary<TMeta>;
         try {
-          const activeRevalidator = revalidator ?? validateItem;
+          const batch = !revalidator ? autoRevalidationRef.current?.revalidateMany : undefined;
+          const batchResults = batch && previous.length ? await batch(previous) : undefined;
+          const activeRevalidator = batchResults
+            ? (item: KeepItem<TMeta>) => {
+                const result = Object.keys(batchResults).includes(item.id) ? batchResults[item.id] : undefined;
+                if (!result) throw new Error(`Missing revalidation result for ${item.id}.`);
+                return result;
+              }
+            : (revalidator ??
+              autoRevalidationRef.current?.revalidator ??
+              validateItem ??
+              (batch ? () => "available" as const : undefined));
           if (!activeRevalidator)
             throw new Error("KeepProvider.revalidateItems requires a revalidator or validateItem.");
           summary = await revalidateKeepItems(previous, activeRevalidator, {
@@ -1108,9 +1120,9 @@ function KeepProviderContent<TMeta = Record<string, unknown>>({
   useEffect(() => {
     const settings = autoRevalidationRef.current;
     const activeRevalidator = settings?.revalidator ?? validateItem;
-    if (!settings || !activeRevalidator) return;
+    if (!settings || (!activeRevalidator && !settings.revalidateMany)) return;
     const run = () =>
-      void revalidateItems(activeRevalidator, { removeStatuses: settings.removeStatuses }).catch(() => undefined);
+      void revalidateItems(undefined, { removeStatuses: settings.removeStatuses }).catch(() => undefined);
     if (isHydrated && settings.onMount !== false && !didMountRevalidateRef.current) {
       didMountRevalidateRef.current = true;
       run();

@@ -35,7 +35,7 @@ export type KeepCollectionManagerProps = Omit<HTMLAttributes<HTMLElement>, "chil
 export function KeepCollectionManager<TMeta = Record<string, unknown>>({
   allowCreate = true,
   allowRename = true,
-  allowDelete = true,
+  allowDelete = false,
   showCounts = true,
   title,
   description,

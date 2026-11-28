@@ -48,7 +48,7 @@ export type UseKeepListResult<TMeta = Record<string, unknown>> = {
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
   revalidate: (
-    revalidator: KeepItemRevalidator<TMeta>,
+    revalidator?: KeepItemRevalidator<TMeta>,
     options?: RevalidateKeepItemsOptions<TMeta>,
   ) => Promise<KeepItemRevalidationSummary<TMeta>>;
 };

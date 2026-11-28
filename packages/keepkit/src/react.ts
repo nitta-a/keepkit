@@ -14,6 +14,7 @@ export type {
   KeepItemRevalidationSummary,
   KeepItemRevalidator,
   KeepItemStatus,
+  KeepItemsRevalidator,
   RevalidateKeepItemsOptions,
 } from "./features/items/revalidation";
 export { isKeepItemMetadataStale } from "./features/items/revalidation";

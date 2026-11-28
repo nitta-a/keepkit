@@ -1676,7 +1676,7 @@ test("manages collections with create, rename, and delete actions", async () => 
   const storage = createStorage([{ ...item, collectionId: "reading" }]);
   render(
     <KeepProvider<Meta> storage={storage}>
-      <KeepCollectionManager />
+      <KeepCollectionManager allowDelete />
     </KeepProvider>,
   );
 
@@ -1701,7 +1701,7 @@ test("shows collection counts and removes item-derived collections", async () =>
   const storage = createStorage([{ ...item, collectionId: "reading" }]);
   render(
     <KeepProvider<Meta> storage={storage}>
-      <KeepCollectionManager />
+      <KeepCollectionManager allowDelete />
     </KeepProvider>,
   );
 
@@ -2348,4 +2348,24 @@ test("renders the save editor outside a clipped host", async () => {
   const dialog = await screen.findByRole("dialog");
   expect(screen.getByTestId("clipped-host").contains(dialog)).toBe(false);
   expect(dialog.style.position).toBe("fixed");
+});
+
+test("collection deletion is disabled by default", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([{ ...item, collectionId: "reading" }])}>
+      <KeepCollectionManager />
+    </KeepProvider>,
+  );
+  await screen.findByText("reading");
+  expect(screen.queryByRole("button", { name: "Delete reading" })).toBeNull();
+});
+
+test("uses the ordinary save label when notes are disabled", async () => {
+  render(
+    <KeepProvider<Meta> storage={createStorage([item])}>
+      <KeepQuickEditor item={item} features={{ note: false }} />
+    </KeepProvider>,
+  );
+  expect(await screen.findByRole("button", { name: "Save" })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "Save with note" })).toBeNull();
 });

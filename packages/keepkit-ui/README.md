@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.19
+Release: v0.28.20
 
 ## 日本語
 
@@ -235,6 +235,8 @@ function Site() {
 @import "tailwindcss";
 @import "@keepkit/ui/tailwind.css";
 ```
+
+テーマのみ使う場合は `@import "@keepkit/ui/theme.css" layer(components);` と記述します。
 
 標準CSSでもTailwind連携でも、既定では `--color-primary` など**完成した色**だけを取り込みます。
 shadcn v3のように `--primary: 348 84% 44%` と定義する場合は `<KeepKitProvider hostColorFormat="hsl-channels">` を指定します。この形式のときだけ `hsl(var(--primary))` として読み、未定義の色はKeepKitの配色に戻ります。アプリの `--primary` を書き換える必要はありません。
@@ -560,6 +562,8 @@ Import `@keepkit/ui/theme.css` for the standard theme. For Tailwind CSS v4 or sh
 @import "@keepkit/ui/tailwind.css";
 ```
 
+To use only the theme, write `@import "@keepkit/ui/theme.css" layer(components);`.
+
 With either stylesheet, the default bridge reads **complete colors** such as `--color-primary`. For shadcn v3 channel lists such as `--primary: 348 84% 44%`, use `<KeepKitProvider hostColorFormat="hsl-channels">`. Only this format wraps the values in `hsl(...)`; missing tokens use KeepKit's palette. The host's `--primary` need not change.
 
 The default mode is `inherit`: the theme element or an ancestor with `.dark` selects dark; otherwise KeepKit stays light regardless of OS settings. Set `mode="light"` explicitly in a light-only app, or `mode="system"` for OS-driven colors. Modes select KeepKit's fallback palette; they don't invert colors supplied by the host. Use presets such as `theme="ocean"`, `density`, `radius`, or `variables` as before. Override `--keep-primary` on the theme element to update the accent and the mixes and shadows that depend on it.
@@ -577,9 +581,9 @@ See the [Core README](../keepkit/README.md) for persistence contracts and the [r
 
 ## Component bundle sizes
 
-各行は、該当部品1つだけをimportしたときのUIのJS転送量です。ビルド済みパッケージの公開入口をesbuildでバンドル・ツリーシェイク・minifyし（ブラウザ用ES2020 ESM）、Nodeのgzipレベル9で測定しています。共有コードと英語のフォールバックを含み、従来のProviderは全言語を含みます。実際のアプリにはProviderと選択した言語の辞書も必要で、import間でコードを共有するため、各行を足し合わせた値にはなりません。React・React DOM・`@keepkit/core`・型宣言・ソースマップは除外します。CSSは任意で、ローカルの `@import` を含めた値を別表にしています。Tailwindはホスト側で処理する前の値です。
+各行は、該当部品1つだけをimportしたときのUIのJS転送量です。ビルド済みパッケージの公開入口をesbuildでバンドル・ツリーシェイク・minifyし（ブラウザ用ES2020 ESM）、Nodeのgzipレベル9で測定しています。共有コードと英語のフォールバックを含み、従来のProviderは全言語を含みます。実際のアプリにはProviderと選択した言語の辞書も必要で、import間でコードを共有するため、各行を足し合わせた値にはなりません。UI単体列は `@keepkit/core` を除外し、合計列はcoreを含みます。React・React DOM・型宣言・ソースマップは除外します。CSSは任意で、ローカルの `@import` を含めた値を別表にしています。Tailwindはホスト側で処理する前の値です。
 
-Each row represents one isolated consumer import from the **built package**, tree-shaken and minified with esbuild (browser ES2020 ESM), then compressed with Node gzip level 9. Shared UI code and English fallback are included; legacy providers include all dictionaries. A real application also needs its chosen provider and dictionary, and shares code across imports, so do not add the rows. React (including JSX runtime), React DOM, `@keepkit/core`, source maps and declarations are excluded. Core component entries measure only the re-export. Optional CSS is measured separately, including local `@import` rules and before host Tailwind processing.
+Each row represents one isolated consumer import from the **built package**, tree-shaken and minified with esbuild (browser ES2020 ESM), then compressed with Node gzip level 9. Shared UI code and English fallback are included; legacy providers include all dictionaries. A real application also needs its chosen provider and dictionary, and shares code across imports, so do not add the rows. The UI-only column excludes `@keepkit/core`; the combined columns include it. React (including JSX runtime), React DOM, source maps and declarations are excluded. Optional CSS is measured separately, including local `@import` rules and before host Tailwind processing.
 
 同じ測定方法では、直前リリースのボタン＋従来UI Providerは32,339 bytes gzipでした。下の日本語構成は選択した辞書とProviderを含む実測値です。
 With the same method, the previous release's button plus legacy UI provider measured 32,339 bytes gzip. The Japanese example below includes the selected dictionary and provider.
@@ -593,66 +597,66 @@ pnpm ui:sizes --write
 
 <!-- sizes:start -->
 
-| Component / コンポーネント | Import / インポート | gzip (bytes) |
-| --- | --- | ---: |
-| `KeepActiveFiltersSummary` | `@keepkit/ui/active-filters-summary` | 5358 |
-| `KeepAnnouncements` | `@keepkit/ui/announcements` | 2608 |
-| `KeepAnnouncer` | `@keepkit/ui/announcer` | 2615 |
-| `KeepArchiveButton` | `@keepkit/ui/archive-button` | 2664 |
-| `KeepArchiveScopeSelect` | `@keepkit/ui/archive-scope-select` | 2568 |
-| `KeepArchiveUndo` | `@keepkit/ui/archive-undo` | 2892 |
-| `KeepBackup` | `@keepkit/ui/backup` | 4156 |
-| `KeepBulkActions` | `@keepkit/ui/bulk-actions` | 5592 |
-| `KeepButton` | `@keepkit/ui/button` | 3553 |
-| `KeepCollection` | `@keepkit/ui/collection` | 28036 |
-| `KeepCollectionCreate` | `@keepkit/ui/collection-create` | 3281 |
-| `KeepCollectionFilter` | `@keepkit/ui/collection-filter` | 2937 |
-| `KeepCollectionManager` | `@keepkit/ui/collection-manager` | 4835 |
-| `KeepCollectionSelect` | `@keepkit/ui/collection-select` | 2647 |
-| `KeepEmptyState` | `@keepkit/ui/empty-state` | 3154 |
-| `KeepErrorBoundary` | `@keepkit/ui/error-boundary` | 88 |
-| `KeepFallbackRecovery` | `@keepkit/ui/fallback-recovery` | 4320 |
-| `KeepFloatingTour` | `@keepkit/ui/floating-tour` | 6217 |
-| `KeepHighlight` | `@keepkit/ui/highlight` | 493 |
-| `KeepInbox` | `@keepkit/ui/inbox` | 28129 |
-| `KeepItemCard` | `@keepkit/ui/item-card` | 12009 |
-| `KeepItemCardSkeleton` | `@keepkit/ui/item-card-skeleton` | 239 |
-| `KeepItemCheckbox` | `@keepkit/ui/item-checkbox` | 366 |
-| `KeepItemStatusBadge` | `@keepkit/ui/item-status-badge` | 3138 |
-| `KeepKitProvider` | `@keepkit/ui/kit-provider` | 33690 |
-| `KeepKitProvider` | `@keepkit/ui/kit-provider-light` | 5042 |
-| `KeepLastActivity` | `@keepkit/ui/last-activity` | 2756 |
-| `KeepLayout` | `@keepkit/ui/layout` | 833 |
-| `KeepList` | `@keepkit/ui/list` | 15108 |
-| `KeepNavigator` | `@keepkit/ui/navigator` | 4443 |
-| `KeepNoteEditor` | `@keepkit/ui/note-editor` | 4085 |
-| `KeepPagination` | `@keepkit/ui/pagination` | 2927 |
-| `KeepPinButton` | `@keepkit/ui/pin-button` | 2663 |
-| `KeepProvider` | `@keepkit/ui/provider` | 83 |
-| `KeepPruneStaleButton` | `@keepkit/ui/prune-stale-button` | 3328 |
-| `KeepQuickEditor` | `@keepkit/ui/quick-editor` | 4992 |
-| `KeepRediscovery` | `@keepkit/ui/rediscovery` | 15268 |
-| `KeepRediscoveryPanel` | `@keepkit/ui/rediscovery-panel` | 15410 |
-| `KeepReorderableList` | `@keepkit/ui/reorderable-list` | 3369 |
-| `KeepSavePopover` | `@keepkit/ui/save-popover` | 9693 |
-| `KeepSaveViewButton` | `@keepkit/ui/save-view-button` | 3301 |
-| `KeepSavedViews` | `@keepkit/ui/saved-views` | 3485 |
-| `KeepSearchInput` | `@keepkit/ui/search-input` | 2662 |
-| `KeepShortcutHint` | `@keepkit/ui/shortcut-hint` | 339 |
-| `KeepSortSelect` | `@keepkit/ui/sort-select` | 2750 |
-| `KeepStaleNotice` | `@keepkit/ui/stale-notice` | 4002 |
-| `KeepStatus` | `@keepkit/ui/status` | 3334 |
-| `KeepSyncRecoveryDialog` | `@keepkit/ui/sync-recovery-dialog` | 5294 |
-| `KeepSyncStatusBanner` | `@keepkit/ui/sync-status-banner` | 2938 |
-| `KeepTagEditor` | `@keepkit/ui/tag-editor` | 3379 |
-| `KeepTagFilter` | `@keepkit/ui/tag-filter` | 3776 |
-| `KeepThemeProvider` | `@keepkit/ui/theme-provider` | 1126 |
-| `KeepTourBar` | `@keepkit/ui/tour-bar` | 4435 |
-| `KeepTourProvider` | `@keepkit/ui/tour-provider` | 1123 |
-| `KeepUiProvider` | `@keepkit/ui/ui-provider` | 31032 |
-| `KeepUiProvider` | `@keepkit/ui/ui-provider-light` | 2436 |
-| `KeepUndo` | `@keepkit/ui/undo` | 3284 |
-| `KeepWorkspace` | `@keepkit/ui/workspace` | 32751 |
+| Component / コンポーネント | Import / インポート | UI gzip (bytes) | UI + core min (bytes) | UI + core gzip (bytes) |
+| --- | --- | ---: | ---: | ---: |
+| `KeepActiveFiltersSummary` | `@keepkit/ui/active-filters-summary` | 5358 | 14698 | 5358 |
+| `KeepAnnouncements` | `@keepkit/ui/announcements` | 2608 | 56702 | 14335 |
+| `KeepAnnouncer` | `@keepkit/ui/announcer` | 2615 | 56708 | 14346 |
+| `KeepArchiveButton` | `@keepkit/ui/archive-button` | 2664 | 58084 | 14903 |
+| `KeepArchiveScopeSelect` | `@keepkit/ui/archive-scope-select` | 2568 | 6768 | 2568 |
+| `KeepArchiveUndo` | `@keepkit/ui/archive-undo` | 2892 | 57218 | 14554 |
+| `KeepBackup` | `@keepkit/ui/backup` | 4156 | 64835 | 16820 |
+| `KeepBulkActions` | `@keepkit/ui/bulk-actions` | 5592 | 72917 | 19404 |
+| `KeepButton` | `@keepkit/ui/button` | 3553 | 62397 | 16371 |
+| `KeepCollection` | `@keepkit/ui/collection` | 28043 | 153039 | 44228 |
+| `KeepCollectionCreate` | `@keepkit/ui/collection-create` | 3281 | 59267 | 15301 |
+| `KeepCollectionFilter` | `@keepkit/ui/collection-filter` | 2937 | 58559 | 14983 |
+| `KeepCollectionManager` | `@keepkit/ui/collection-manager` | 4836 | 64307 | 16865 |
+| `KeepCollectionSelect` | `@keepkit/ui/collection-select` | 2647 | 57773 | 14687 |
+| `KeepEmptyState` | `@keepkit/ui/empty-state` | 3154 | 8064 | 3154 |
+| `KeepErrorBoundary` | `@keepkit/ui/error-boundary` | 88 | 50290 | 12022 |
+| `KeepFallbackRecovery` | `@keepkit/ui/fallback-recovery` | 4320 | 12445 | 4320 |
+| `KeepFloatingTour` | `@keepkit/ui/floating-tour` | 6217 | 72341 | 19983 |
+| `KeepHighlight` | `@keepkit/ui/highlight` | 493 | 783 | 493 |
+| `KeepInbox` | `@keepkit/ui/inbox` | 28134 | 153361 | 44329 |
+| `KeepItemCard` | `@keepkit/ui/item-card` | 12014 | 88644 | 25168 |
+| `KeepItemCardSkeleton` | `@keepkit/ui/item-card-skeleton` | 239 | 449 | 239 |
+| `KeepItemCheckbox` | `@keepkit/ui/item-checkbox` | 366 | 602 | 366 |
+| `KeepItemStatusBadge` | `@keepkit/ui/item-status-badge` | 3138 | 8322 | 3138 |
+| `KeepKitProvider` | `@keepkit/ui/kit-provider` | 33690 | 239208 | 55018 |
+| `KeepKitProvider` | `@keepkit/ui/kit-provider-light` | 5042 | 94721 | 25791 |
+| `KeepLastActivity` | `@keepkit/ui/last-activity` | 2756 | 7123 | 2756 |
+| `KeepLayout` | `@keepkit/ui/layout` | 833 | 1711 | 833 |
+| `KeepList` | `@keepkit/ui/list` | 15114 | 103417 | 30133 |
+| `KeepNavigator` | `@keepkit/ui/navigator` | 4443 | 65117 | 17638 |
+| `KeepNoteEditor` | `@keepkit/ui/note-editor` | 4085 | 61522 | 16208 |
+| `KeepPagination` | `@keepkit/ui/pagination` | 2927 | 7846 | 2927 |
+| `KeepPinButton` | `@keepkit/ui/pin-button` | 2663 | 58040 | 14905 |
+| `KeepProvider` | `@keepkit/ui/provider` | 83 | 76061 | 19384 |
+| `KeepPruneStaleButton` | `@keepkit/ui/prune-stale-button` | 3328 | 58553 | 14999 |
+| `KeepQuickEditor` | `@keepkit/ui/quick-editor` | 4997 | 65693 | 17486 |
+| `KeepRediscovery` | `@keepkit/ui/rediscovery` | 15274 | 104058 | 30366 |
+| `KeepRediscoveryPanel` | `@keepkit/ui/rediscovery-panel` | 15416 | 104473 | 30496 |
+| `KeepReorderableList` | `@keepkit/ui/reorderable-list` | 3369 | 8377 | 3369 |
+| `KeepSavePopover` | `@keepkit/ui/save-popover` | 9708 | 80397 | 22727 |
+| `KeepSaveViewButton` | `@keepkit/ui/save-view-button` | 3301 | 11416 | 4201 |
+| `KeepSavedViews` | `@keepkit/ui/saved-views` | 3485 | 12096 | 4383 |
+| `KeepSearchInput` | `@keepkit/ui/search-input` | 2662 | 6934 | 2662 |
+| `KeepShortcutHint` | `@keepkit/ui/shortcut-hint` | 339 | 500 | 339 |
+| `KeepSortSelect` | `@keepkit/ui/sort-select` | 2750 | 7389 | 2750 |
+| `KeepStaleNotice` | `@keepkit/ui/stale-notice` | 4002 | 60647 | 15720 |
+| `KeepStatus` | `@keepkit/ui/status` | 3334 | 58503 | 14970 |
+| `KeepSyncRecoveryDialog` | `@keepkit/ui/sync-recovery-dialog` | 5294 | 68658 | 17904 |
+| `KeepSyncStatusBanner` | `@keepkit/ui/sync-status-banner` | 2938 | 57715 | 14655 |
+| `KeepTagEditor` | `@keepkit/ui/tag-editor` | 3379 | 59865 | 15535 |
+| `KeepTagFilter` | `@keepkit/ui/tag-filter` | 3776 | 65032 | 17305 |
+| `KeepThemeProvider` | `@keepkit/ui/theme-provider` | 1126 | 2353 | 1126 |
+| `KeepTourBar` | `@keepkit/ui/tour-bar` | 4435 | 65105 | 17627 |
+| `KeepTourProvider` | `@keepkit/ui/tour-provider` | 1123 | 57916 | 14709 |
+| `KeepUiProvider` | `@keepkit/ui/ui-provider` | 31032 | 150799 | 31032 |
+| `KeepUiProvider` | `@keepkit/ui/ui-provider-light` | 2436 | 6358 | 2436 |
+| `KeepUndo` | `@keepkit/ui/undo` | 3284 | 58333 | 14952 |
+| `KeepWorkspace` | `@keepkit/ui/workspace` | 32759 | 171668 | 49743 |
 
 Button + light UI provider + Japanese / ボタン＋軽量UI Provider＋日本語: **6301 bytes gzip**.
 

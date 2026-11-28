@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.19
+Release: v0.28.20
 
 ## 日本語
 
@@ -300,3 +300,8 @@ pnpm test:browser
 `pnpm test:integration` installs the packed publishable packages into isolated consumer projects and verifies synchronization over an HTTP API.
 
 See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the changelog.
+
+
+`KeepProvider` supports batch source checks with `autoRevalidation.revalidateMany`; see the [core README](packages/keepkit/README.md). Collection deletion in `KeepCollectionManager` requires `allowDelete`.
+
+`KeepProvider` の一括再検証は `autoRevalidation.revalidateMany` で設定できます。詳細は [core README](packages/keepkit/README.md) を参照してください。`KeepCollectionManager` の削除操作は `allowDelete` の明示が必要です。

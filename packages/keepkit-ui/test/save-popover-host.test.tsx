@@ -2,8 +2,10 @@ import { KeepProvider } from "@keepkit/core/react";
 import { LocalStorageAdapter } from "@keepkit/core/storage";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { expect, test, vi } from "vitest";
 import { KeepSavePopover, type KeepSavePopoverPanelContext } from "../src/features/actions/KeepSavePopover";
+import { KeepThemeProvider } from "../src/foundation/theme";
 
 type Meta = { title: string };
 const item = { id: "article", meta: { title: "Article" } };
@@ -389,4 +391,22 @@ test("custom creation reports success even if assigning the item fails, and Esca
   fireEvent.keyDown(input, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect((await storage.getAll())[0]?.collectionId).toBe("reading");
+});
+
+test("inherits theme in a host portal", async () => {
+  render(
+    <KeepProvider storage={new LocalStorageAdapter<Meta>({ key: "host-theme" })}>
+      <KeepThemeProvider theme="ocean" variables={{ "--keep-primary": "rgb(1, 2, 3)" }}>
+        <KeepSavePopover
+          item={item}
+          renderPanel={({ content }) => createPortal(<div role="dialog">{content}</div>, document.body)}
+        />
+      </KeepThemeProvider>
+    </KeepProvider>,
+  );
+  const { dialog } = await saveAndOpen();
+  const theme = dialog.querySelector<HTMLElement>(".keep-theme--ocean");
+  expect(theme).not.toBeNull();
+  expect(theme?.style.getPropertyValue("--keep-primary")).toBe("rgb(1, 2, 3)");
+  expect(within(dialog).getByRole("textbox", { name: "Note" }).closest(".keep-theme")).toBe(theme);
 });

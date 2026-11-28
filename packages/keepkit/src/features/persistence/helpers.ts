@@ -5,8 +5,13 @@ import type {
   StorageAdapter,
   SyncScope,
 } from "../items/types";
+import { stripUndefinedMeta } from "./schema";
 
 export async function persistKeepItems<TMeta>(storage: StorageAdapter<TMeta>, items: KeepItem<TMeta>[]): Promise<void> {
+  items = items.map((item) => {
+    const meta = stripUndefinedMeta(item.meta);
+    return meta === item.meta ? item : { ...item, meta };
+  });
   if (storage.setMany) {
     await storage.setMany(items);
     return;

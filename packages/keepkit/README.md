@@ -2,7 +2,7 @@
 
 [日本語](#日本語) | [English](#english)
 
-Release: v0.28.19
+Release: v0.28.20
 
 ## 日本語
 
@@ -74,7 +74,7 @@ hooksはProvider内のコンポーネントで呼び出します。
 | 複数コレクションへの所属・順序 | `addKeepItemToCollection`、`getKeepCollectionItems`、`reorderKeepCollectionItems`、`removeKeepItemFromCollection` |
 | 再発見 | `useKeepItem(item).recordOpen()`、`createRediscoveryQuery`、`useKeepRediscovery` |
 | 閲覧履歴・鑑賞記録・進行位置 | `LocalStorageKeepHistoryStorage`、`LocalStorageKeepViewingRecordStorage`、`LocalStorageKeepProgressStorage` |
-| 保存対象の再検証 | Providerの`validateItem` / `resolveItem`、`revalidateItems` |
+| 保存対象の再検証 | Providerの`validateItem` / `resolveItem`、`autoRevalidation.revalidateMany`、`revalidateItems` |
 
 一覧は未アーカイブのアイテムを既定で返します。`archiveScope: "all"`で両方を、`archived: true`でアーカイブを取得できます。
 複数コレクションへの所属はアイテムと別に保存され、所属を外しても共有アイテムやメモは残ります。
@@ -202,7 +202,7 @@ Use `keep.useItem(article)` for saves, removal, and note updates, and `keep.useL
 | Multiple collections and ordering | `addKeepItemToCollection`, `getKeepCollectionItems`, `reorderKeepCollectionItems`, `removeKeepItemFromCollection` |
 | Rediscovery | `useKeepItem(item).recordOpen()`, `createRediscoveryQuery`, and `useKeepRediscovery` |
 | History, viewing records, and progress | `LocalStorageKeepHistoryStorage`, `LocalStorageKeepViewingRecordStorage`, `LocalStorageKeepProgressStorage` |
-| Source revalidation | Provider `validateItem` / `resolveItem` and `revalidateItems` |
+| Source revalidation | Provider `validateItem` / `resolveItem`, `autoRevalidation.revalidateMany`, and `revalidateItems` |
 
 Lists return unarchived items by default. Use `archiveScope: "all"` for both or `archived: true` for archived items.
 Memberships are stored separately; removing one leaves the shared item and note intact.
@@ -250,3 +250,8 @@ Browser writes to localStorage history, viewing records, and progress require th
 Namespace history and progress keys per account, and pass matching language, content version, and audio ID when reading progress.
 
 See the [repository README](../../README.md) for demos and development, and the [release notes](../../RELEASE_NOTES.md) for changes.
+
+
+`autoRevalidation={{ revalidateMany: async (items) => statuses }}` batches mount, reconnect and manual `revalidateItems()` calls. Return a status or revalidation result for every item ID; an incomplete response fails without applying changes. An explicitly passed single-item revalidator takes precedence.
+
+`autoRevalidation.revalidateMany` はマウント時・再接続時・引数なしの `revalidateItems()` を一括処理します。全アイテムIDに対するステータスまたは検証結果を返してください。不完全な応答は変更せず失敗します。単件コールバックを明示した場合はそちらを使用します。

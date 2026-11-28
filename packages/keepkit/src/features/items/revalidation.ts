@@ -14,6 +14,10 @@ export type KeepItemRevalidator<TMeta = Record<string, unknown>> = (
   | KeepItemRevalidationResult<TMeta>["status"]
   | Promise<KeepItemRevalidationResult<TMeta> | KeepItemRevalidationResult<TMeta>["status"]>;
 
+export type KeepItemsRevalidator<TMeta = Record<string, unknown>> = (
+  items: KeepItem<TMeta>[],
+) => Promise<Record<string, KeepItemRevalidationResult<TMeta> | KeepItemStatus>>;
+
 export type KeepItemResolver<TMeta = Record<string, unknown>> = (
   item: KeepItem<TMeta>,
   result: KeepItemRevalidationResult<TMeta>,
@@ -55,6 +59,7 @@ export type KeepAutoRevalidationOptions<TMeta = Record<string, unknown>> = {
   intervalMs?: number;
   removeStatuses?: Array<Exclude<KeepItemStatus, "available">>;
   revalidator?: KeepItemRevalidator<TMeta>;
+  revalidateMany?: KeepItemsRevalidator<TMeta>;
 };
 
 export type KeepItemRevalidationSummary<TMeta = Record<string, unknown>> = {

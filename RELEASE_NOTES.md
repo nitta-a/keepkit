@@ -1,5 +1,23 @@
 # Release notes
 
+## [0.28.20] - 2026-11-28
+
+### 日本語
+
+- `revalidateMany` による一括再検証を追加し、複数アイテム確認時の単件通信を減らします。
+- メタデータの `undefined` 値を保存前に除外し、テーマをポータルへ継承します。
+- `KeepCollectionManager` の削除操作を既定で無効にしました。再度有効にするには `allowDelete={true}` を指定してください。
+- メモ入力を無効にした場合は、保存ボタンに通常の保存ラベルを表示します。
+- Tailwind v4 のレイヤー読み込み方法と、coreを含む部品別サイズを文書化しました。
+
+### English
+
+- Added batch revalidation through `revalidateMany` to reduce per-item requests.
+- Strip `undefined` metadata values before persistence and inherit themes into portals.
+- `KeepCollectionManager` now hides deletion by default. Set `allowDelete={true}` to restore delete controls.
+- Show the ordinary save label when note input is disabled.
+- Document Tailwind v4 layer imports and per-component bundle sizes including core.
+
 ## [0.28.19] - 2026-11-28
 
 - 言語別辞書と軽量Providerを追加し、必要な言語だけを部品と一緒に読み込めるようにしました。保存後パネルの `renderEditor` で、ホストの部品を使って編集・コレクション作成を描画できます。

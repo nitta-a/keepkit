@@ -1024,3 +1024,10 @@ test("rejects unknown and duplicate ids while preserving legacy order", () => {
   assert.throws(() => reorderKeepItems([itemA], ["missing"]), /unknown Keep item/);
   assert.throws(() => reorderKeepItems([itemA], ["a", "a"]), /duplicate id/);
 });
+
+test("schema validation reports metadata field paths", async () => {
+  await assert.rejects(
+    parseKeepMeta({ safeParse: () => ({ success: false, error: { issues: [{ path: ["imageUrl"] }] } }) }, {}),
+    (error: Error) => error.message.includes("meta.imageUrl"),
+  );
+});

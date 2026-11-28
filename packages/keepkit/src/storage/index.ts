@@ -17,6 +17,7 @@ import {
   mergeKeepItemLists,
   persistKeepItems,
 } from "../features/persistence/helpers";
+import { stripUndefinedMeta } from "../features/persistence/schema";
 import {
   createScopedStorageAdapter,
   getKeepScopeKey,
@@ -234,6 +235,8 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
   }
 
   set(item: KeepItem<TMeta>): Promise<void> {
+    const meta = stripUndefinedMeta(item.meta);
+    if (meta !== item.meta) item = { ...item, meta };
     if (this.scope) item = { ...item, scope: this.scope };
     if (this.journalController)
       return this.journalController.write({ type: "setItems", items: [item] }, (adapter) => adapter.set(item));
@@ -241,6 +244,10 @@ export class FallbackStorageAdapter<TMeta = Record<string, unknown>> implements 
   }
 
   setMany(items: KeepItem<TMeta>[]): Promise<void> {
+    items = items.map((item) => {
+      const meta = stripUndefinedMeta(item.meta);
+      return meta === item.meta ? item : { ...item, meta };
+    });
     if (this.scope) items = items.map((item) => ({ ...item, scope: this.scope }));
     if (this.journalController) return this.journalController.write({ type: "setItems", items });
     return this.executeWrite((adapter) =>
@@ -687,6 +694,10 @@ export class LocalStorageAdapter<TMeta = Record<string, unknown>> implements Sto
   }
 
   async setMany(items: KeepItem<TMeta>[]): Promise<void> {
+    items = items.map((item) => {
+      const meta = stripUndefinedMeta(item.meta);
+      return meta === item.meta ? item : { ...item, meta };
+    });
     const current = await this.getAll();
     const byScopeAndId = new Map(current.map((item) => [getItemStorageKey(item), item]));
     for (const item of items) byScopeAndId.set(getItemStorageKey(item), item);
@@ -915,6 +926,10 @@ export class IndexedDBAdapter<TMeta = Record<string, unknown>> implements Storag
   }
 
   async setMany(items: KeepItem<TMeta>[]): Promise<void> {
+    items = items.map((item) => {
+      const meta = stripUndefinedMeta(item.meta);
+      return meta === item.meta ? item : { ...item, meta };
+    });
     const database = await this.open("set");
     if (!database) return;
     try {

@@ -1,7 +1,7 @@
 import type { KeepItem, StorageAdapter } from "@keepkit/core/core";
 import { KeepProvider, useKeepContext } from "@keepkit/core/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 type Meta = { title: string };
 
@@ -321,4 +321,90 @@ test("refreshes metadata and cleans up explicitly selected unavailable items", a
   fireEvent.click(screen.getByRole("button", { name: "revalidate" }));
   await waitFor(() => expect(screen.getByTestId("revalidation-items")).toHaveTextContent("a"));
   expect(values.has("b")).toBe(false);
+});
+
+test("automatically revalidates ten items in one batch", async () => {
+  const items = Array.from({ length: 10 }, (_, i) => ({ ...itemA, id: String(i) }));
+  const single = vi.fn(async () => "available" as const);
+  const batch = vi.fn(async (entries: KeepItem<Meta>[]) =>
+    Object.fromEntries(entries.map((entry) => [entry.id, "available" as const])),
+  );
+  const storage: StorageAdapter<Meta> = {
+    getAll: async () => items,
+    set: async () => {},
+    setMany: async () => {},
+    remove: async () => {},
+    clear: async () => {},
+  };
+  render(
+    <KeepProvider storage={storage} validateItem={single} autoRevalidation={{ revalidateMany: batch }}>
+      <Probe />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(batch).toHaveBeenCalledTimes(1));
+  expect(batch.mock.calls[0][0]).toHaveLength(10);
+  expect(single).not.toHaveBeenCalled();
+});
+
+test("strips undefined metadata before saving", async () => {
+  let stored: KeepItem<{ title: string; thumbnail?: string | undefined }> | undefined;
+  const storage: StorageAdapter<{ title: string; thumbnail?: string | undefined }> = {
+    getAll: async () => [],
+    set: async (item) => {
+      stored = item;
+    },
+    remove: async () => {},
+    clear: async () => {},
+  };
+  function Save() {
+    const { saveItem, isHydrated } = useKeepContext<{ title: string; thumbnail?: string | undefined }>();
+    return (
+      <button
+        type="button"
+        disabled={!isHydrated}
+        onClick={() => void saveItem({ ...itemA, meta: { title: "Guide", thumbnail: undefined } })}
+      >
+        save
+      </button>
+    );
+  }
+  render(
+    <KeepProvider storage={storage}>
+      <Save />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(screen.getByRole("button", { name: "save" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "save" }));
+  await waitFor(() => expect(stored?.meta).toEqual({ title: "Guide" }));
+  expect(Object.keys(stored?.meta ?? {}).includes("thumbnail")).toBe(false);
+});
+
+test("batch revalidation also runs on reconnect and manual requests", async () => {
+  const batch = vi.fn(async (entries: KeepItem<Meta>[]) =>
+    Object.fromEntries(entries.map((entry) => [entry.id, "available" as const])),
+  );
+  const storage: StorageAdapter<Meta> = {
+    getAll: async () => [itemA],
+    set: async () => {},
+    remove: async () => {},
+    clear: async () => {},
+  };
+  function Revalidate() {
+    const { isHydrated, revalidateItems } = useKeepContext<Meta>();
+    return (
+      <button type="button" disabled={!isHydrated} onClick={() => void revalidateItems()}>
+        check
+      </button>
+    );
+  }
+  render(
+    <KeepProvider storage={storage} autoRevalidation={{ revalidateMany: batch, onMount: false }}>
+      <Revalidate />
+    </KeepProvider>,
+  );
+  await waitFor(() => expect(screen.getByRole("button", { name: "check" })).toBeEnabled());
+  fireEvent(window, new Event("online"));
+  await waitFor(() => expect(batch).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("button", { name: "check" }));
+  await waitFor(() => expect(batch).toHaveBeenCalledTimes(2));
 });

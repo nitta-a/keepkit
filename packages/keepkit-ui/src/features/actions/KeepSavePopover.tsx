@@ -316,7 +316,9 @@ function KeepSavePopoverPanel<TMeta>({
     </>
   );
   const context = { panelId, dialogLabel, triggerRef, state, content, requestClose };
-  if (renderPanel) return renderPanel(context);
+  if (renderPanel) {
+    return renderPanel({ ...context, content: <KeepPortalTheme sourceRef={triggerRef}>{content}</KeepPortalTheme> });
+  }
   return <DefaultSavePanel {...context} panelRef={panelRef} portalContainer={portalContainer} />;
 }
 

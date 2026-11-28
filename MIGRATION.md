@@ -1,5 +1,7 @@
 # KeepKit migration guide
 
+**Breaking:** `KeepCollectionManager` now hides deletion by default. Set `allowDelete={true}` to restore the delete controls.
+
 ## v0.28.18: host themes / ホストテーマ
 
 - モード省略時は端末設定ではなくホストの `.dark` に従います。従来のOS連動は `mode="system"`、ライト固定は `mode="light"`。`--primary` 等を完成色で渡していた場合は `--color-primary` 等に別名を定義し、数値列なら `hostColorFormat="hsl-channels"` を指定します。CSSでブランド色を指定する場合はテーマ要素の `--keep-primary` を変更してください。`--keep-accent` はその派生色です。

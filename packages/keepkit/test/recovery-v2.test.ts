@@ -453,7 +453,6 @@ for (const [name, value] of [
   ["Set", new Set()],
   ["NaN", Number.NaN],
   ["Infinity", Number.POSITIVE_INFINITY],
-  ["undefined", undefined],
   ["function", () => 1],
   ["symbol", Symbol("value")],
   ["BigInt", BigInt(1)],

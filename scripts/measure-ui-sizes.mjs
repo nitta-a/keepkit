@@ -6,7 +6,10 @@ import { bundleUiConsumer, bundleUiConsumerCode } from "./bundle-ui-consumer.mts
 // This workspace consumer depends on @keepkit/ui through its published exports map.
 const consumer = fileURLToPath(new URL("../tests/integration/", import.meta.url));
 const manifest = JSON.parse(await readFile(new URL("../packages/keepkit-ui/package.json", import.meta.url), "utf8"));
-const jsRows = ["| Component / コンポーネント | Import / インポート | gzip (bytes) |", "| --- | --- | ---: |"];
+const jsRows = [
+  "| Component / コンポーネント | Import / インポート | UI gzip (bytes) | UI + core min (bytes) | UI + core gzip (bytes) |",
+  "| --- | --- | ---: | ---: | ---: |",
+];
 const cssRows = ["| Stylesheet / スタイルシート | gzip (bytes) |", "| --- | ---: |"];
 for (const key of Object.keys(manifest.exports).sort()) {
   if ([".", "./react", "./tailwind"].includes(key)) continue;
@@ -24,7 +27,13 @@ for (const key of Object.keys(manifest.exports).sort()) {
   if (outputFiles.length !== 1) throw new Error(`Expected one standalone output for ${specifier}`);
   const bytes = gzipSync(outputFiles[0].contents, { level: 9 }).byteLength;
   if (isCss) cssRows.push(`| \`${specifier}\` | ${bytes} |`);
-  else jsRows.push(`| \`${component}\` | \`${specifier}\` | ${bytes} |`);
+  else {
+    const combined = await bundleUiConsumer(consumer, specifier, component, true);
+    const contents = combined.outputFiles[0].contents;
+    jsRows.push(
+      `| \`${component}\` | \`${specifier}\` | ${bytes} | ${contents.byteLength} | ${gzipSync(contents, { level: 9 }).byteLength} |`,
+    );
+  }
 }
 
 const example = await bundleUiConsumerCode(
